@@ -1,21 +1,21 @@
-import ssl
+from logging import Logger
 
-from pyVim.connect import Disconnect, SmartConnect
-from pyVmomi import vim
+from pyVmomi import vim  # noqa
+
+from cloudshell.cp.vcenter.exceptions import LoginException
+from cloudshell.cp.vcenter.utils.cached_property import cached_property
+from cloudshell.cp.vcenter.utils.client_helpers import get_si
 
 
 class VCenterAPIClient:
-    def __init__(self, host, user, password, logger, port=443):
-        """
-
-        :param host:
-        :param user:
-        :param password:
-        :param logger:
-        :param port:
-        """
+    def __init__(
+        self, host: str, user: str, password: str, logger: Logger, port: int = 443
+    ):
+        self._host = host
+        self._user = user
+        self._password = password
+        self._port = port
         self._logger = logger
-        self._si = self._get_si(host=host, user=user, password=password, port=port)
 
     # todo: check id we need this
     # def back_slash_to_front_converter(string):
@@ -26,58 +26,15 @@ class VCenterAPIClient:
     #     """
     #     pass
 
-    def _get_si_ssl_context_v1(self):
-        """
-
-        :return:
-        """
-        context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
-        context.verify_mode = ssl.CERT_NONE
-
-        return context
-
-    def _get_si_ssl_context_v2(self):
-        """
-
-        :return:
-        """
-        context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
-        context.verify_mode = ssl.CERT_NONE
-
-        return context
-
-    def _get_si(self, host, user, password, port):
-        """
-
-        :param host:
-        :para
-        m user:
-        :param password:
-        :param port:
-        :return:
-        """
+    def _get_si(self):
         self._logger.info("Initializing vCenter API client SI...")
-
         try:
-            return SmartConnect(
-                host=host,
-                user=user,
-                pwd=password,
-                port=port,
-                sslContext=self._get_si_ssl_context_v1(),
-            )
-        except (ssl.SSLEOFError, vim.fault.HostConnectFault):
-            self._logger.exception("TLSv1_2 protocol failed. Trying TLSv1_2 for the vCenter API client SI...")
-            return SmartConnect(
-                host=host,
-                user=user,
-                pwd=password,
-                port=port,
-                sslContext=self._get_si_ssl_context_v2(),
-            )
+            si = get_si(self._host, self._user, self._password, self._port)
         except vim.fault.InvalidLogin:
             self._logger.exception("Unable to login to the vCenter")
-            raise Exception("Can't connect to the vCenter. Invalid user/password")
-        except IOError:
-            self._logger.exception("Unable to connect to the vCenter")
-            raise ValueError("Can't connect to the vCenter. Invalid host address")
+            raise LoginException("Can't connect to the vCenter. Invalid user/password")
+        return si
+
+    @cached_property
+    def _si(self):
+        return self._get_si()
