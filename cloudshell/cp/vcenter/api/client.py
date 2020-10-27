@@ -1,8 +1,9 @@
+from contextlib import contextmanager
 from logging import Logger
 
 from pyVmomi import vim  # noqa
 
-from cloudshell.cp.vcenter.exceptions import LoginException
+from cloudshell.cp.vcenter.exceptions import LoginException, ObjectNotFoundException
 from cloudshell.cp.vcenter.utils.cached_property import cached_property
 from cloudshell.cp.vcenter.utils.client_helpers import get_si
 
@@ -38,3 +39,26 @@ class VCenterAPIClient:
     @cached_property
     def _si(self):
         return self._get_si()
+
+    @property
+    def root_container(self):
+        return self._si.content.rootFolder
+
+    @contextmanager
+    def _get_ctx_view(self, container, vim_type, recursive=True):
+        if not isinstance(vim_type, list):
+            vim_type = [vim_type]
+        view = self._si.content.viewManager.CreateContainerView(
+            container, vim_type, recursive
+        )
+        try:
+            yield view.view
+        finally:
+            view.DestroyView()
+
+    def get_dc(self, name: str):
+        with self._get_ctx_view(self.root_container, vim.Datacenter) as dcs:
+            for dc in dcs:
+                if dc.name == name:
+                    return dc
+        raise ObjectNotFoundException(f"Datacenter '{name}' not found")

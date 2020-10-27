@@ -1,5 +1,7 @@
 from cloudshell.shell.core.driver_context import AutoLoadDetails
 
+from cloudshell.cp.vcenter.actions.validation import ValidationActions
+
 
 class VCenterAutoloadFlow:
     def __init__(self, resource_config, vcenter_client, logger):
@@ -18,4 +20,7 @@ class VCenterAutoloadFlow:
 
         :return:
         """
+        ValidationActions(
+            self._vcenter_client, self._resource_config, self._logger
+        ).validate()
         return AutoLoadDetails([], [])
