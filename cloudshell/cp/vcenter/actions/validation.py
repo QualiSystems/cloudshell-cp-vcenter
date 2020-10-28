@@ -18,7 +18,7 @@ class ValidationActions:
     def validate(self):
         self._validate_resource_conf()
         self._validate_connection()
-        self._validate_dc()
+        self._validate_dc_objects()
         # todo should we return attributes?
         #  auto_att.append(AutoLoadAttribute('', DEFAULT_DATACENTER, dc.name))  noqa
 
@@ -27,13 +27,25 @@ class ValidationActions:
         _is_not_empty(conf.address, "address")
         _is_not_empty(conf.user, conf.ATTR_NAMES.user)
         _is_not_empty(conf.password, conf.ATTR_NAMES.password)
+        # todo should datacenter name be optional?
         _is_not_empty(conf.default_datacenter, conf.ATTR_NAMES.default_datacenter)
+        _is_not_empty(conf.vm_location, conf.ATTR_NAMES.vm_location)
+        # todo should vm storage name be optional?
+        _is_not_empty(conf.vm_storage, conf.ATTR_NAMES.vm_storage)
 
     def _validate_connection(self):
         _ = self._vcenter_client._si  # try to connect
 
-    def _validate_dc(self):
-        self._vcenter_client.get_dc(self._resource_conf.default_datacenter)
+    def _validate_dc_objects(self):
+        dc = self._vcenter_client.get_dc(self._resource_conf.default_datacenter)
+        self._vcenter_client.get_folder(self._resource_conf.vm_location, dc.vmFolder)
+        self._vcenter_client.get_network(self._resource_conf.holding_network, dc)
+        self._vcenter_client.get_cluster(self._resource_conf.vm_cluster, dc)
+        self._vcenter_client.get_storage(self._resource_conf.vm_storage, dc)
+        if self._resource_conf.saved_sandbox_storage:
+            self._vcenter_client.get_storage(
+                self._resource_conf.saved_sandbox_storage, dc
+            )
 
 
 def _is_not_empty(value: str, attr_name: str):
