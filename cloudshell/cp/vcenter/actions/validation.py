@@ -1,7 +1,13 @@
+from __future__ import annotations
+
+from collections.abc import Iterable
 from logging import Logger
 
 from cloudshell.cp.vcenter.api.client import VCenterAPIClient
 from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
+
+SHUTDOWN_METHODS = ("hard", "soft")
+BEHAVIOURS_DURING_SAVE = ("Remain Powered On", "Power Off")
 
 
 class ValidationActions:
@@ -32,6 +38,14 @@ class ValidationActions:
         _is_not_empty(conf.vm_location, conf.ATTR_NAMES.vm_location)
         # todo should vm storage name be optional?
         _is_not_empty(conf.vm_storage, conf.ATTR_NAMES.vm_storage)
+        _is_value_in(
+            conf.shutdown_method, SHUTDOWN_METHODS, conf.ATTR_NAMES.shutdown_method
+        )
+        _is_value_in(
+            conf.behavior_during_save,
+            BEHAVIOURS_DURING_SAVE,
+            conf.ATTR_NAMES.behavior_during_save,
+        )
 
     def _validate_connection(self):
         _ = self._vcenter_client._si  # try to connect
@@ -46,8 +60,17 @@ class ValidationActions:
             self._vcenter_client.get_storage(
                 self._resource_conf.saved_sandbox_storage, dc
             )
+        if self._resource_conf.default_dv_switch:
+            self._vcenter_client.get_dv_switch(
+                self._resource_conf.default_dv_switch, dc
+            )
 
 
 def _is_not_empty(value: str, attr_name: str):
     if not value:
         raise ValueError(f"{attr_name} cannot be empty")
+
+
+def _is_value_in(value: str, expected_values: Iterable[str], attr_name: str):
+    if value not in expected_values:
+        raise ValueError(f"{attr_name} should be one of the {list(expected_values)}")
