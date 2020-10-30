@@ -1,8 +1,14 @@
+import time
 from logging import Logger
 
 from pyVmomi import vim  # noqa
 
-from cloudshell.cp.vcenter.exceptions import LoginException, ObjectNotFoundException
+from cloudshell.cp.vcenter.exceptions import (
+    LoginException,
+    ObjectNotFoundException,
+    TaskFaultException,
+    VMWareToolsNotInstalled,
+)
 from cloudshell.cp.vcenter.utils.cached_property import cached_property
 from cloudshell.cp.vcenter.utils.client_helpers import get_si
 
@@ -112,3 +118,49 @@ class VCenterAPIClient:
                 return dvs
         emsg = f"DVSwitch '{name}' not found in datacenter '{dc.name}'"
         raise ObjectNotFoundException(emsg)
+
+    def get_vm(self, uuid: str, dc):
+        search_index = self._si.content.searchIndex
+        return search_index.FindByUuid(dc, uuid, vmSearch=True)
+
+    def power_on_vm(self, vm):
+        if vm.summary.runtime.powerState == vim.VirtualMachine.PowerState.poweredOn:
+            self._logger.info("VM already powered on")
+            return
+
+        self._logger.info(f"Powering on VM '{vm.name}'")
+        task = vm.PowerOn()
+        self._wait_for_task(task)
+
+    def power_off_vm(self, vm, soft: bool):
+        if vm.summary.runtime.powerState == vim.VirtualMachine.PowerState.poweredOff:
+            self._logger.info("VM already powered off")
+            return
+
+        self._logger.info(f"Powering off VM '{vm.name}'")
+        if not soft:
+            task = vm.PowerOff()
+            self._wait_for_task(task)
+        else:
+            if vm.guest.toolsStatus != vim.vm.GuestInfo.ToolsStatus.toolsOk:
+                emsg = f"VMWare Tools are not installed or running on VM '{vm.name}'"
+                raise VMWareToolsNotInstalled(emsg)
+            vm.ShutdownGuest()  # do not return task
+
+    @staticmethod
+    def _wait_for_task(task):
+        while task.info.state in (
+            vim.TaskInfo.State.running,
+            vim.TaskInfo.State.queued,
+        ):
+            time.sleep(1)
+
+        if task.info.state == vim.TaskInfo.State.success:
+            return task.info.result
+        else:
+            emsg = ""
+            if task.info.error.faultMessage:
+                emsg = "; ".join([err.message for err in task.info.error.faultMessage])
+            elif task.info.error.msg:
+                emsg = task.info.error.msg
+            raise TaskFaultException(emsg)
