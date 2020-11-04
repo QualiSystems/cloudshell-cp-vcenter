@@ -20,3 +20,7 @@ class VMWareToolsNotInstalled(BaseVCenterException):
 
 class InvalidAttributeException(BaseVCenterException):
     """Attribute is not valid."""
+
+
+class NetworkNotFoundException(BaseVCenterException):
+    """Network is not found."""
