@@ -202,3 +202,24 @@ class VCenterAPIClient:
         task = dv_switch.AddDVPortgroup_Task([dv_pg_spec])
         self._logger.info(f"DV Port Group '{dv_port_name}' CREATE Task ...")
         self._wait_for_task(task)
+
+    def connect_vnic_to_port_group(self, vnic, port_group, vm):
+        vnic.backing = (
+            vim.vm.device.VirtualEthernetCard.DistributedVirtualPortBackingInfo(
+                port=vim.dvs.PortConnection(
+                    portgroupKey=port_group.key,
+                    switchUuid=port_group.config.distributedVirtualSwitch.uuid,
+                )
+            )
+        )
+        vnic.connectable = vim.vm.device.VirtualDevice.ConnectInfo(
+            connected=True,
+            startConnected=True,
+        )
+
+        nic_spec = vim.vm.device.VirtualDeviceSpec()
+        nic_spec.operation = vim.vm.device.VirtualDeviceSpec.Operation.edit
+        nic_spec.device = vnic
+        config_spec = vim.vm.ConfigSpec(deviceChange=[nic_spec])
+        task = vm.ReconfigVM_Task(config_spec)
+        self._wait_for_task(task)
