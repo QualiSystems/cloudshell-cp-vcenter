@@ -223,3 +223,20 @@ class VCenterAPIClient:
         config_spec = vim.vm.ConfigSpec(deviceChange=[nic_spec])
         task = vm.ReconfigVM_Task(config_spec)
         self._wait_for_task(task)
+
+    def connect_vnic_to_network(self, vnic, network, vm):
+        vnic.backing = vim.vm.device.VirtualEthernetCard.NetworkBackingInfo(
+            network=network, deviceName=network.name
+        )
+        vnic.wakeOnLanEnabled = True
+        vnic.deviceInfo = vim.Description()
+        vnic.connectable = vim.vm.device.VirtualDevice.ConnectInfo(
+            connected=False,
+            startConnected=False,
+        )
+        nic_spec = vim.vm.device.VirtualDeviceSpec()
+        nic_spec.operation = vim.vm.device.VirtualDeviceSpec.Operation.edit
+        nic_spec.device = vnic
+        config_spec = vim.vm.ConfigSpec(deviceChange=[nic_spec])
+        task = vm.ReconfigVM_Task(config_spec)
+        self._wait_for_task(task)

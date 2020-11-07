@@ -79,34 +79,58 @@ def get_vlan_spec(port_mode: str, vlan_range: str):
     return spec(vlanId=vlan_id, inherited=False)
 
 
+def _get_vnics(vm):
+    return (
+        device
+        for device in vm.config.hardware.device
+        if isinstance(device, vim.vm.device.VirtualEthernetCard)
+    )
+
+
 def get_available_vnic(
     vm, default_net_name: str, reserved_networks: list[str], vnic_name=None
 ):
     vnics = (
-        device
-        for device in vm.config.hardware.device
-        if isinstance(device, vim.vm.device.VirtualEthernetCard)
-        and not vnic_name
-        or vnic_name == device.deviceInfo.label
+        vnic
+        for vnic in _get_vnics(vm)
+        if not vnic_name or vnic_name == vnic.deviceInfo.label
     )
     for vnic in vnics:
-        try:
-            net_name = vnic.backing.network.name
-        except AttributeError:
-            for net in vm.network:
-                try:
-                    if net.key == vnic.backing.port.portgroupKey:
-                        net_name = net.name
-                        break
-                except AttributeError:
-                    continue
-            else:
-                net_name = default_net_name
-        if net_name == default_net_name or (
-            not is_network_generated_name(net_name)
-            and net_name not in reserved_networks
+        net_name = get_net_name_from_vnic(vnic, vm)
+        if (
+            not net_name
+            or net_name == default_net_name
+            or (
+                not is_network_generated_name(net_name)
+                and net_name not in reserved_networks
+            )
         ):
             break
     else:
         raise BaseVCenterException("No vNIC available")
     return vnic
+
+
+def get_vnic_by_mac(vm, mac_address: str):
+    try:
+        vnic = next(filter(lambda v: v.macAddress == mac_address, _get_vnics(vm)))
+    except StopIteration:
+        emsg = f"vNIC with mac address {mac_address} not found on VM {vm.name}"
+        raise BaseVCenterException(emsg)
+    return vnic
+
+
+def get_net_name_from_vnic(vnic, vm) -> str:
+    try:
+        net_name = vnic.backing.network.name
+    except AttributeError:
+        for net in vm.network:
+            try:
+                if net.key == vnic.backing.port.portgroupKey:
+                    net_name = net.name
+                    break
+            except AttributeError:
+                continue
+        else:
+            net_name = ""
+    return net_name
