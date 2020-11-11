@@ -13,14 +13,26 @@ with open("test_requirements.txt") as f_tests:
 
 setup(
     name="cloudshell-cp-vcenter",
-    url="http://www.qualisystems.com/",
     author="Quali",
+    url="https://github.com/QualiSystems/cloudshell-cp-vcenter",
+    description=(
+        "This Shell enables setting up vCenter as a cloud provider in CloudShell. "
+        "It supports connectivity, and adds new deployment types for apps which can be used in "
+        "CloudShell sandboxes."
+    ),
     author_email="info@quali.com",
     packages=find_packages(),
     install_requires=required,
     tests_require=required_for_tests,
     test_suite="nose.collector",
     version=version_from_file,
-    description="",
     include_package_data=True,
+    keywords="sandbox cloud virtualization vcenter cmp cloudshell",
+    package_data={"": ["*.txt"]},
+    classifiers=[
+        "Development Status :: 5 - Production/Stable",
+        "Programming Language :: Python :: 3.7",
+        "Topic :: Software Development :: Libraries",
+        "License :: OSI Approved :: Apache Software License",
+    ],
 )

@@ -3,14 +3,13 @@ python: 3.7
 
 jobs:
   include:
-    - if: branch = master
+    - if: branch = master__old_code
       env: TOXENV=py37-master
       after_success: codecov
-    - if: branch != master
+    - if: branch != master__old_code
       env: TOXENV=py37-dev
       after_success: codecov
     - env: TOXENV=build
-    - env: TOXENV=pre-commit
     - stage: Deploy to Test PyPI release
       env: TOXENV=build
       before_script: sed -i -E "s/^([0-9]+\.[0-9]+\.[0-9]+)$/\1.$TRAVIS_BUILD_NUMBER/" version.txt
@@ -53,16 +52,16 @@ jobs:
         file_glob: true
         file: dist/*
         name: cloudshell-cp-vcenter $GIT_TAG
-        target_commitish: master
+        target_commitish: master__old_code
         on:
-          branch: master
+          branch: master__old_code
     - stage: Check version
       language: bash
       install:
         - git clone https://github.com/$TRAVIS_REPO_SLUG.git $TRAVIS_REPO_SLUG
         - cd $TRAVIS_REPO_SLUG
         - git checkout -qf $TRAVIS_PULL_REQUEST_BRANCH
-      script: "! git diff --exit-code --quiet origin/master version.txt"
+      script: "! git diff --exit-code --quiet origin/master__old_code version.txt"
 
 install:
   - pip install tox
@@ -72,11 +71,11 @@ script: tox
 
 stages:
   - name: Check version
-    if: branch = master AND type = pull_request
+    if: branch = master__old_code AND type = pull_request
   - name: Test
   - name: Deploy to Test PyPI release
     if: branch = dev AND type != pull_request
   - name: Create GitHub release
-    if: branch = master AND type != pull_request
+    if: branch = master__old_code AND type != pull_request
   - name: Deploy to PyPI release
     if: tag IS present
