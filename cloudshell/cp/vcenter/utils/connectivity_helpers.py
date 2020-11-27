@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import re
 
+from cloudshell.shell.flows.connectivity.models.connectivity_model import (
+    ConnectionModeEnum,
+)
 from pyVmomi import vim  # noqa
 
 from cloudshell.cp.vcenter.exceptions import (
@@ -53,29 +56,18 @@ def get_network_from_vm(vm, net_name: str):
     raise NetworkNotFoundException(f"Network {net_name} not found in VM {vm.name}")
 
 
-def get_vlan_spec(port_mode: str, vlan_range: str):
-    if port_mode.lower() == "access":
+def get_vlan_spec(port_mode: ConnectionModeEnum, vlan_range: str):
+    if port_mode is port_mode.ACCESS:
         spec = vim.dvs.VmwareDistributedVirtualSwitch.VlanIdSpec
-        try:
-            vlan_id = int(vlan_range)
-        except ValueError:
-            raise BaseVCenterException("Access VLAN supports only int vlan id")
-    elif port_mode.lower() == "trunk":
-        emsg = "Trunk VLAN should be a number or range in format 1-100"
+        vlan_id = int(vlan_range)
+    else:
         spec = vim.dvs.VmwareDistributedVirtualSwitch.TrunkVlanSpec
-        try:
-            parts = list(map(int, vlan_range.split("-")))
-        except ValueError:
-            raise BaseVCenterException(emsg)
+        parts = list(map(int, vlan_range.split("-")))
         if len(parts) == 1:
             start = end = next(parts)
-        elif len(parts) == 2:
-            start, end = parts
         else:
-            raise BaseVCenterException(emsg)
+            start, end = parts
         vlan_id = [vim.NumericRange(start=start, end=end)]
-    else:
-        raise BaseVCenterException("Port mode should be access or trunk")
     return spec(vlanId=vlan_id, inherited=False)
 
 

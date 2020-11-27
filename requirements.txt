@@ -1,5 +1,5 @@
 setuptools>=40.0
 cloudshell-cp-core~=2.1
 cloudshell-shell-standards~=1.1
-cloudshell-shell-connectivity-flow~=2.0
+cloudshell-shell-connectivity-flow~=3.0
 pyvmomi~=7.0.0

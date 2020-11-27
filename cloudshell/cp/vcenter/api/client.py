@@ -1,6 +1,9 @@
 import time
 from logging import Logger
 
+from cloudshell.shell.flows.connectivity.models.connectivity_model import (
+    ConnectionModeEnum,
+)
 from pyVmomi import vim  # noqa
 
 from cloudshell.cp.vcenter.exceptions import (
@@ -177,7 +180,7 @@ class VCenterAPIClient:
         dv_switch,
         dv_port_name: str,
         vlan_range: str,
-        port_mode: str,
+        port_mode: ConnectionModeEnum,
         promiscuous_mode: bool,
         num_ports: int = 32,
     ):
