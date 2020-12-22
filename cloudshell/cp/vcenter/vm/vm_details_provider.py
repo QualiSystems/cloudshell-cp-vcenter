@@ -1,3 +1,4 @@
+import ipaddress
 import re
 
 from cloudshell.cp.core.models import (
@@ -148,11 +149,21 @@ class VmDetailsProvider(object):
         return primary_ip
 
     @staticmethod
+    def _is_ipv4_address(ip):
+        try:
+            ipaddress.IPv4Address(ip)
+        except ipaddress.AddressValueError:
+            return False
+
+        return True
+
+    @staticmethod
     def _get_ip_by_device(vm, device):
         for net in vm.guest.net:
             if str(net.deviceConfigId) == str(device.key):
-                return next(iter(net.ipAddress), None)
-        return None
+                for ip_address in net.ipAddress:
+                    if VmDetailsProvider._is_ipv4_address(ip_address):
+                        return ip_address
 
     @staticmethod
     def _get_snapshot_path(nodes, snapshot):
