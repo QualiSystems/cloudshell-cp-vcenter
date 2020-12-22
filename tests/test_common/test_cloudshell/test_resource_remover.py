@@ -2,7 +2,9 @@ from unittest import TestCase
 
 from mock import Mock
 
-from cloudshell.cp.vcenter.common.cloud_shell.resource_remover import CloudshellResourceRemover
+from cloudshell.cp.vcenter.common.cloud_shell.resource_remover import (
+    CloudshellResourceRemover,
+)
 
 
 class TestResourceRemover(TestCase):
@@ -10,7 +12,7 @@ class TestResourceRemover(TestCase):
         # assert
         helpers = Mock()
         session = Mock()
-        to_remove = 'remove this'
+        to_remove = "remove this"
 
         session.DeleteResource = Mock(return_value=True)
         session = Mock(return_value=session)

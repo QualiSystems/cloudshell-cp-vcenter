@@ -26,8 +26,18 @@ class DeployDataHolder(object):
         return isinstance(thing, primitive)
 
     @classmethod
-    def create_from_params(cls, template_model, datastore_name, vm_cluster_model, ip_regex, refresh_ip_timeout,
-                           auto_power_on, auto_power_off, wait_for_ip, auto_delete):
+    def create_from_params(
+        cls,
+        template_model,
+        datastore_name,
+        vm_cluster_model,
+        ip_regex,
+        refresh_ip_timeout,
+        auto_power_on,
+        auto_power_off,
+        wait_for_ip,
+        auto_delete,
+    ):
         """
         :param VCenterTemplateModel template_model:
         :param str datastore_name:
@@ -40,14 +50,14 @@ class DeployDataHolder(object):
         :param bool auto_delete:
         """
         dic = {
-            'template_model': template_model,
-            'datastore_name': datastore_name,
-            'vm_cluster_model': vm_cluster_model,
-            'ip_regex': ip_regex,
-            'refresh_ip_timeout': refresh_ip_timeout,
-            'auto_power_on': auto_power_on,
-            'auto_power_off': auto_power_off,
-            'wait_for_ip': wait_for_ip,
-            'auto_delete': auto_delete
+            "template_model": template_model,
+            "datastore_name": datastore_name,
+            "vm_cluster_model": vm_cluster_model,
+            "ip_regex": ip_regex,
+            "refresh_ip_timeout": refresh_ip_timeout,
+            "auto_power_on": auto_power_on,
+            "auto_power_off": auto_power_off,
+            "wait_for_ip": wait_for_ip,
+            "auto_delete": auto_delete,
         }
         return cls(dic)

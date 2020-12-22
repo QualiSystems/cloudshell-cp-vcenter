@@ -2,8 +2,8 @@ import os
 import xml.etree.ElementTree as ET
 from os import listdir
 from unittest import TestCase
-from cloudshell.cp.vcenter.common.model_factory import ResourceModelParser
 
+from cloudshell.cp.vcenter.common.model_factory import ResourceModelParser
 
 # class TestDataModel(TestCase):
 #
@@ -64,4 +64,3 @@ from cloudshell.cp.vcenter.common.model_factory import ResourceModelParser
 #     def get_attribute_name_from_attribute_node(self, attribute_node):
 #         return ResourceModelParser.get_property_name_from_attribute_name(attribute_node.attrib['Name'])
 #
-

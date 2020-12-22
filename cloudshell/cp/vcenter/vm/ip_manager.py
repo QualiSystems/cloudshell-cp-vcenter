@@ -1,13 +1,16 @@
-import time
 import re
+import time
+
 from cloudshell.cp.vcenter.commands.ip_result import IpReason, IpResult
 
 
 class VMIPManager(object):
     INTERVAL = 5
-    IP_V4_PATTERN = re.compile('^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$')
+    IP_V4_PATTERN = re.compile("^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$")
 
-    def get_ip(self, vm, default_network, match_function, cancellation_context, timeout, logger):
+    def get_ip(
+        self, vm, default_network, match_function, cancellation_context, timeout, logger
+    ):
         self._validate_vmware_tools_installed(logger, vm)
         ip = None
         reason = IpReason.Success
@@ -35,23 +38,27 @@ class VMIPManager(object):
     @staticmethod
     def get_ip_match_function(ip_regex=None):
 
-        if(not ip_regex):
-            return  re.compile('.*').match
+        if not ip_regex:
+            return re.compile(".*").match
 
         try:
             return re.compile(ip_regex).match
         except Exception as e:
-            raise ValueError('Invalid IP REGEX : {0} '.format(ip_regex))
+            raise ValueError("Invalid IP REGEX : {0} ".format(ip_regex))
 
     def _obtain_ip(self, vm, default_network, match_function, logger):
         ip = None
         ips = self._get_ip_addresses(vm, default_network)
 
         if ips:
-            logger.debug('Filtering IP adresses to limit to IP V4 \'{0}\''.format(','.join(ips)))
+            logger.debug(
+                "Filtering IP adresses to limit to IP V4 '{0}'".format(",".join(ips))
+            )
             ips = self._select_ip_by_match(ips, self.IP_V4_PATTERN.match)
         if ips:
-            logger.debug('Filtering IP adresses by custom IP Regex'.format(','.join(ips)))
+            logger.debug(
+                "Filtering IP adresses by custom IP Regex".format(",".join(ips))
+            )
             ips = self._select_ip_by_match(ips, match_function)
 
         # select the first on that found
@@ -78,8 +85,12 @@ class VMIPManager(object):
 
     @staticmethod
     def _validate_vmware_tools_installed(logger, vm):
-        if vm.guest.toolsStatus == 'toolsNotInstalled':
-            msg = 'VMWare Tools status on virtual machine \'{0}\' are not installed'.format(vm.name)
+        if vm.guest.toolsStatus == "toolsNotInstalled":
+            msg = (
+                "VMWare Tools status on virtual machine '{0}' are not installed".format(
+                    vm.name
+                )
+            )
             logger.warning(msg)
             raise ValueError(msg)
         return True

@@ -1,10 +1,12 @@
 ﻿import unittest
 from datetime import datetime
 
-from mock import Mock, MagicMock, create_autospec
-from pyVim.connect import SmartConnect, Disconnect
+from mock import MagicMock, Mock, create_autospec
+from pyVim.connect import Disconnect, SmartConnect
 from pyVmomi import vim
+
 from cloudshell.cp.vcenter.common.vcenter.vmomi_service import pyVmomiService
+
 from tests.utils.testing_credentials import TestCredentials
 
 
@@ -19,29 +21,27 @@ class TestVmomiService(unittest.TestCase):
         """
         Checks whether clone_vm and destroy methods works
         """
-        '#arrange'
+        "#arrange"
         cred = TestCredentials()
         pv_service = pyVmomiService(SmartConnect, Disconnect)
         si = pv_service.connect(cred.host, cred.username, cred.password)
 
-        params = pv_service.CloneVmParameters(si=si,
-                                              template_name='DC0_C0_RP0_VM20',
-                                              vm_name='my_clone',
-                                              vm_folder='DC0')
-        '#act'
+        params = pv_service.CloneVmParameters(
+            si=si, template_name="DC0_C0_RP0_VM20", vm_name="my_clone", vm_folder="DC0"
+        )
+        "#act"
         now = datetime.now()
-        res = pv_service.clone_vm(clone_params=params,
-                                  logger=Mock())
+        res = pv_service.clone_vm(clone_params=params, logger=Mock())
 
-        '#assert'
+        "#assert"
         self.assertTrue(type(res.vm), vim.VirtualMachine)
 
-        '#teardown'
+        "#teardown"
         now = datetime.now()
         if res.error is None and res.vm is not None:
             destroyed = pv_service.destroy_vm(vm=res.vm, logger=Mock())
 
-        print(('destroy took: {0}'.format(str(datetime.now() - now))))
+        print(("destroy took: {0}".format(str(datetime.now() - now))))
 
         self.assertIsNone(destroyed)
 
@@ -49,7 +49,7 @@ class TestVmomiService(unittest.TestCase):
         """
         Checks clone_vm
         """
-        '#arrange'
+        "#arrange"
         si = Mock(spec=vim.ServiceInstance)
         vim_mock = Mock()
         vim_mock.vm = Mock()
@@ -68,18 +68,24 @@ class TestVmomiService(unittest.TestCase):
         pv_service.get_obj = Mock()
         pv_service.get_folder = Mock(return_value=datacenter)
         pv_service._get_datastore = Mock(return_value=Mock(spec=vim.Datastore))
-        pv_service.get_resource_pool = Mock(return_value=(Mock(spec=vim.ResourcePool), None))
+        pv_service.get_resource_pool = Mock(
+            return_value=(Mock(spec=vim.ResourcePool), None)
+        )
 
-        params = pv_service.CloneVmParameters(si=si,
-                                              template_name='my_temp',
-                                              vm_name='my_name',
-                                              vm_folder='my_folder',
-                                              power_on=False)
+        params = pv_service.CloneVmParameters(
+            si=si,
+            template_name="my_temp",
+            vm_name="my_name",
+            vm_folder="my_folder",
+            power_on=False,
+        )
 
-        '#act'
-        res = pv_service.clone_vm(clone_params=params, logger=Mock(), cancellation_context=Mock())
+        "#act"
+        res = pv_service.clone_vm(
+            clone_params=params, logger=Mock(), cancellation_context=Mock()
+        )
 
-        '#assert'
+        "#assert"
         self.assertIsNone(res.error)
         self.assertTrue(vim_mock.vm.RelocateSpec.called)
         self.assertTrue(vim_mock.vm.CloneSpec.called)
@@ -91,7 +97,7 @@ class TestVmomiService(unittest.TestCase):
         """
         Checks clone_vm
         """
-        '#arrange'
+        "#arrange"
         si = Mock(spec=vim.ServiceInstance)
         vim_mock = Mock()
         vim_mock.vm = Mock()
@@ -110,18 +116,24 @@ class TestVmomiService(unittest.TestCase):
         pv_service.get_obj = Mock()
         pv_service.get_folder = Mock(return_value=datacenter)
         pv_service._get_datastore = Mock(return_value=Mock(spec=vim.Datastore))
-        pv_service.get_resource_pool = Mock(return_value=(Mock(spec=vim.ResourcePool), None))
+        pv_service.get_resource_pool = Mock(
+            return_value=(Mock(spec=vim.ResourcePool), None)
+        )
 
-        params = pv_service.CloneVmParameters(si=si,
-                                              template_name='my_temp',
-                                              vm_name='my_name',
-                                              vm_folder='my_folder',
-                                              resource_pool='my_resource_pool')
+        params = pv_service.CloneVmParameters(
+            si=si,
+            template_name="my_temp",
+            vm_name="my_name",
+            vm_folder="my_folder",
+            resource_pool="my_resource_pool",
+        )
 
-        '#act'
-        res = pv_service.clone_vm(clone_params=params, logger=Mock(), cancellation_context=Mock())
+        "#act"
+        res = pv_service.clone_vm(
+            clone_params=params, logger=Mock(), cancellation_context=Mock()
+        )
 
-        '#assert'
+        "#assert"
         self.assertIsNone(res.error)
         self.assertTrue(vim_mock.vm.RelocateSpec.called)
         self.assertTrue(vim_mock.vm.CloneSpec.called)
@@ -133,7 +145,7 @@ class TestVmomiService(unittest.TestCase):
         """
         Checks clone_vm
         """
-        '#arrange'
+        "#arrange"
         si = Mock(spec=vim.ServiceInstance)
         vim_mock = Mock()
         vim_mock.vm = Mock()
@@ -152,18 +164,24 @@ class TestVmomiService(unittest.TestCase):
         pv_service.get_obj = Mock()
         pv_service.get_folder = Mock(return_value=datacenter)
         pv_service._get_datastore = Mock(return_value=Mock(spec=vim.Datastore))
-        pv_service.get_resource_pool = Mock(return_value=(Mock(spec=vim.ResourcePool), None))
+        pv_service.get_resource_pool = Mock(
+            return_value=(Mock(spec=vim.ResourcePool), None)
+        )
 
-        params = pv_service.CloneVmParameters(si=si,
-                                              template_name='my_temp',
-                                              vm_name='my_name',
-                                              vm_folder='my_folder',
-                                              datastore_name='my_datastore')
+        params = pv_service.CloneVmParameters(
+            si=si,
+            template_name="my_temp",
+            vm_name="my_name",
+            vm_folder="my_folder",
+            datastore_name="my_datastore",
+        )
 
-        '#act'
-        res = pv_service.clone_vm(clone_params=params, logger=Mock(), cancellation_context=Mock())
+        "#act"
+        res = pv_service.clone_vm(
+            clone_params=params, logger=Mock(), cancellation_context=Mock()
+        )
 
-        '#assert'
+        "#assert"
         self.assertIsNone(res.error)
         self.assertTrue(vim_mock.vm.RelocateSpec.called)
         self.assertTrue(vim_mock.vm.CloneSpec.called)
@@ -175,7 +193,7 @@ class TestVmomiService(unittest.TestCase):
         """
         Checks clone_vm
         """
-        '#arrange'
+        "#arrange"
         si = Mock(spec=vim.ServiceInstance)
         vim_mock = Mock()
         vim_mock.vm = Mock()
@@ -196,12 +214,11 @@ class TestVmomiService(unittest.TestCase):
         pv_service._get_datastore = Mock(return_value=Mock(spec=vim.Datastore))
         pv_service.get_resource_pool = Mock(return_value=Mock(spec=vim.ResourcePool))
 
-        params = pv_service.CloneVmParameters(si=si,
-                                              template_name='my_temp',
-                                              vm_name='my_name',
-                                              vm_folder='my_folder')
+        params = pv_service.CloneVmParameters(
+            si=si, template_name="my_temp", vm_name="my_name", vm_folder="my_folder"
+        )
 
-        '#assert'
+        "#assert"
         self.assertRaises(ValueError, pv_service.clone_vm, params, Mock(), Mock())
         self.assertTrue(pv_service.get_folder.called)
         self.assertFalse(vim_mock.vm.RelocateSpec.called)
@@ -213,7 +230,7 @@ class TestVmomiService(unittest.TestCase):
         """
         Checks clone_vm
         """
-        '#arrange'
+        "#arrange"
         si = Mock(spec=vim.ServiceInstance)
         vim_mock = Mock()
         vim_mock.vm = Mock()
@@ -232,17 +249,20 @@ class TestVmomiService(unittest.TestCase):
         pv_service.get_obj = Mock()
         pv_service.get_folder = Mock(return_value=folder)
         pv_service._get_datastore = Mock(return_value=Mock(spec=vim.Datastore))
-        pv_service.get_resource_pool = Mock(return_value=(Mock(spec=vim.ResourcePool), None))
+        pv_service.get_resource_pool = Mock(
+            return_value=(Mock(spec=vim.ResourcePool), None)
+        )
 
-        params = pv_service.CloneVmParameters(si=si,
-                                              template_name='my_temp',
-                                              vm_name='my_name',
-                                              vm_folder='my_folder')
+        params = pv_service.CloneVmParameters(
+            si=si, template_name="my_temp", vm_name="my_name", vm_folder="my_folder"
+        )
 
-        '#act'
-        res = pv_service.clone_vm(clone_params=params, logger=Mock(), cancellation_context=Mock())
+        "#act"
+        res = pv_service.clone_vm(
+            clone_params=params, logger=Mock(), cancellation_context=Mock()
+        )
 
-        '#assert'
+        "#assert"
         self.assertIsNone(res.error)
         self.assertTrue(vim_mock.vm.RelocateSpec.called)
         self.assertTrue(vim_mock.vm.CloneSpec.called)
@@ -254,7 +274,7 @@ class TestVmomiService(unittest.TestCase):
         """
         Checks clone_vm
         """
-        '#arrange'
+        "#arrange"
         si = Mock(spec=vim.ServiceInstance)
         vim_mock = Mock()
         vim_mock.vm = Mock()
@@ -272,19 +292,23 @@ class TestVmomiService(unittest.TestCase):
         pv_service.get_obj = Mock()
         pv_service.get_folder = Mock(return_value=datacenter)
         pv_service._get_datastore = Mock(return_value=Mock(spec=vim.Datastore))
-        pv_service.get_resource_pool = Mock(return_value=(Mock(spec=vim.ResourcePool), None))
+        pv_service.get_resource_pool = Mock(
+            return_value=(Mock(spec=vim.ResourcePool), None)
+        )
 
-        params = pv_service.CloneVmParameters(si=si,
-                                              template_name='my_temp',
-                                              vm_name='my_name',
-                                              vm_folder='my_folder')
+        params = pv_service.CloneVmParameters(
+            si=si, template_name="my_temp", vm_name="my_name", vm_folder="my_folder"
+        )
         cancellation_context = object()
 
-        '#act'
-        res = pv_service.clone_vm(clone_params=params,
-                                  logger=Mock(), cancellation_context=cancellation_context)
+        "#act"
+        res = pv_service.clone_vm(
+            clone_params=params,
+            logger=Mock(),
+            cancellation_context=cancellation_context,
+        )
 
-        '#assert'
+        "#assert"
         self.assertIsNone(res.error)
         self.assertTrue(vim_mock.vm.RelocateSpec.called)
         self.assertTrue(vim_mock.vm.CloneSpec.called)
@@ -296,81 +320,85 @@ class TestVmomiService(unittest.TestCase):
         """
         Checks clone_vm
         """
-        '#arrange'
+        "#arrange"
         si = create_autospec(spec=vim.ServiceInstance)
 
         pv_service = pyVmomiService(None, None, Mock())
-        params = pv_service.CloneVmParameters(si=si,
-                                              template_name='my_temp',
-                                              vm_name='my_name',
-                                              vm_folder=None)
+        params = pv_service.CloneVmParameters(
+            si=si, template_name="my_temp", vm_name="my_name", vm_folder=None
+        )
 
-        '#act'
-        res = pv_service.clone_vm(clone_params=params, logger=Mock(), cancellation_context=Mock())
+        "#act"
+        res = pv_service.clone_vm(
+            clone_params=params, logger=Mock(), cancellation_context=Mock()
+        )
 
-        '#assert'
+        "#assert"
         self.assertTrue(res.error is not None)
 
     def test_clone_vm_vm_name_is_none(self):
         """
         Checks clone_vm
         """
-        '#arrange'
+        "#arrange"
         si = create_autospec(spec=vim.ServiceInstance)
 
         pv_service = pyVmomiService(None, None, Mock())
-        params = pv_service.CloneVmParameters(si=si,
-                                              template_name='my_temp',
-                                              vm_name=None,
-                                              vm_folder=None)
+        params = pv_service.CloneVmParameters(
+            si=si, template_name="my_temp", vm_name=None, vm_folder=None
+        )
 
-        '#act'
-        res = pv_service.clone_vm(clone_params=params, logger=Mock(), cancellation_context=Mock())
+        "#act"
+        res = pv_service.clone_vm(
+            clone_params=params, logger=Mock(), cancellation_context=Mock()
+        )
 
-        '#assert'
+        "#assert"
         self.assertTrue(res.error is not None)
 
     def test_clone_vm_template_name_is_none(self):
         """
         Checks clone_vm
         """
-        '#arrange'
+        "#arrange"
         si = create_autospec(spec=vim.ServiceInstance)
 
         pv_service = pyVmomiService(None, None, Mock())
-        params = pv_service.CloneVmParameters(si=si,
-                                              template_name=None,
-                                              vm_name=None,
-                                              vm_folder=None)
+        params = pv_service.CloneVmParameters(
+            si=si, template_name=None, vm_name=None, vm_folder=None
+        )
 
-        '#act'
-        res = pv_service.clone_vm(clone_params=params, logger=Mock(), cancellation_context=Mock())
+        "#act"
+        res = pv_service.clone_vm(
+            clone_params=params, logger=Mock(), cancellation_context=Mock()
+        )
 
-        '#assert'
+        "#assert"
         self.assertTrue(res.error is not None)
 
     def test_clone_vm_si_is_none(self):
         """
         Checks clone_vm
         """
-        '#arrange'
+        "#arrange"
         pv_service = pyVmomiService(None, None, Mock())
-        params = pv_service.CloneVmParameters(si=None,
-                                              template_name=None,
-                                              vm_name=None,
-                                              vm_folder=None)
+        params = pv_service.CloneVmParameters(
+            si=None, template_name=None, vm_name=None, vm_folder=None
+        )
 
-        '#act'
-        res = pv_service.clone_vm(clone_params=params, logger=Mock(), cancellation_context=Mock())
+        "#act"
+        res = pv_service.clone_vm(
+            clone_params=params, logger=Mock(), cancellation_context=Mock()
+        )
 
-        '#assert'
+        "#assert"
         self.assertTrue(res.error is not None)
 
     def test_destroy_vm_by_name(self):
         """
         Checks whether the vm found and call to be destroy
         """
-        '#arrange'
+        "#arrange"
         pv_service = pyVmomiService(None, None, Mock())
 
         si = create_autospec(spec=vim.ServiceInstance)
@@ -378,13 +406,15 @@ class TestVmomiService(unittest.TestCase):
         si.content = create_autospec(spec=vim.ServiceInstanceContent())
         si.content.searchIndex = Mock()
 
-        pv_service.find_vm_by_name = Mock(return_value=Mock(name='vm'))
+        pv_service.find_vm_by_name = Mock(return_value=Mock(name="vm"))
         pv_service.destroy_vm = Mock(return_value=True)
 
-        '#act'
-        result = pv_service.destroy_vm_by_name(si=si, vm_name='vm_name:name', vm_path='fake/path', logger=Mock())
+        "#act"
+        result = pv_service.destroy_vm_by_name(
+            si=si, vm_name="vm_name:name", vm_path="fake/path", logger=Mock()
+        )
 
-        '#assert'
+        "#assert"
         self.assertTrue(result)
         self.assertTrue(pv_service.find_vm_by_name.called)
         self.assertTrue(pv_service.destroy_vm.called)
@@ -393,7 +423,7 @@ class TestVmomiService(unittest.TestCase):
         """
         Checks whether the vm found and call to be destroy
         """
-        '#arrange'
+        "#arrange"
         pv_service = pyVmomiService(None, None, Mock())
 
         si = create_autospec(spec=vim.ServiceInstance)
@@ -401,15 +431,18 @@ class TestVmomiService(unittest.TestCase):
         si.content = create_autospec(spec=vim.ServiceInstanceContent())
         si.content.searchIndex = Mock()
 
-        pv_service.find_by_uuid = Mock(return_value=Mock(name='vm'))
+        pv_service.find_by_uuid = Mock(return_value=Mock(name="vm"))
         pv_service.destroy_vm = Mock(return_value=True)
 
-        '#act'
-        result = pv_service.destroy_vm_by_uuid(si=si, vm_uuid='thisuni-vers-ally-uniq-ueidentifier',
-                                               vm_path='fake/path',
-                                               logger=Mock())
+        "#act"
+        result = pv_service.destroy_vm_by_uuid(
+            si=si,
+            vm_uuid="thisuni-vers-ally-uniq-ueidentifier",
+            vm_path="fake/path",
+            logger=Mock(),
+        )
 
-        '#assert'
+        "#assert"
         self.assertTrue(result)
         self.assertTrue(pv_service.find_by_uuid.called)
         self.assertTrue(pv_service.destroy_vm.called)
@@ -418,7 +451,7 @@ class TestVmomiService(unittest.TestCase):
         """
         Checks when path not found
         """
-        '#arrange'
+        "#arrange"
         pv_service = pyVmomiService(None, None, Mock())
 
         def find_child_mock(*args):
@@ -439,26 +472,26 @@ class TestVmomiService(unittest.TestCase):
         si.content.searchIndex = Mock()
         si.content.searchIndex.FindChild = MagicMock(side_effect=find_child_mock)
 
-        first_folder = Mock(spec=[], name='first')
-        first_folder.name = 'first'
+        first_folder = Mock(spec=[], name="first")
+        first_folder.name = "first"
 
-        second_folder = Mock(spec=[], name='second')
-        second_folder.name = 'second'
+        second_folder = Mock(spec=[], name="second")
+        second_folder.name = "second"
 
-        third_folder = Mock(spec=[], name='third')
-        third_folder.name = 'third'
+        third_folder = Mock(spec=[], name="third")
+        third_folder.name = "third"
 
-        fourth_folder = Mock(spec=[], name='fourth')
-        fourth_folder.name = 'fourth'
+        fourth_folder = Mock(spec=[], name="fourth")
+        fourth_folder.name = "fourth"
 
-        fifth_folder = Mock(spec=[], name='fifth')
-        fifth_folder.name = 'fifth'
+        fifth_folder = Mock(spec=[], name="fifth")
+        fifth_folder.name = "fifth"
 
-        sixth_folder = Mock(spec=[], name='sixth')
-        sixth_folder.name = 'sixth'
+        sixth_folder = Mock(spec=[], name="sixth")
+        sixth_folder.name = "sixth"
 
-        si.content.rootFolder = Mock(spec=['name', 'childEntity'])
-        si.content.rootFolder.name = 'rootFolder'
+        si.content.rootFolder = Mock(spec=["name", "childEntity"])
+        si.content.rootFolder.name = "rootFolder"
         si.content.rootFolder.childEntity = [first_folder, second_folder]
         first_folder.vmFolder = [second_folder, sixth_folder]
         second_folder.networkFolder = [fourth_folder, third_folder]
@@ -466,17 +499,17 @@ class TestVmomiService(unittest.TestCase):
         fourth_folder.datacenterFolder = [fifth_folder]
         fifth_folder.datastoreFolder = [sixth_folder]
 
-        '#act'
-        result = pv_service.get_folder(si, 'first/second/third/first/fifth/sixth')
+        "#act"
+        result = pv_service.get_folder(si, "first/second/third/first/fifth/sixth")
 
-        '#assert'
+        "#assert"
         self.assertIsNone(result)
 
     def test_get_folder_deep_and_complex_path(self):
         """
         Checks when path is deep and complex, goes through all the folder types
         """
-        '#arrange'
+        "#arrange"
         pv_service = pyVmomiService(None, None, Mock())
 
         def find_child_mock(*args):
@@ -497,26 +530,26 @@ class TestVmomiService(unittest.TestCase):
         si.content.searchIndex = Mock()
         si.content.searchIndex.FindChild = MagicMock(side_effect=find_child_mock)
 
-        first_folder = Mock(spec=[], name='first')
-        first_folder.name = 'first'
+        first_folder = Mock(spec=[], name="first")
+        first_folder.name = "first"
 
-        second_folder = Mock(spec=[], name='second')
-        second_folder.name = 'second'
+        second_folder = Mock(spec=[], name="second")
+        second_folder.name = "second"
 
-        third_folder = Mock(spec=[], name='third')
-        third_folder.name = 'third'
+        third_folder = Mock(spec=[], name="third")
+        third_folder.name = "third"
 
-        fourth_folder = Mock(spec=[], name='fourth')
-        fourth_folder.name = 'fourth'
+        fourth_folder = Mock(spec=[], name="fourth")
+        fourth_folder.name = "fourth"
 
-        fifth_folder = Mock(spec=[], name='fifth')
-        fifth_folder.name = 'fifth'
+        fifth_folder = Mock(spec=[], name="fifth")
+        fifth_folder.name = "fifth"
 
-        sixth_folder = Mock(spec=[], name='sixth')
-        sixth_folder.name = 'sixth'
+        sixth_folder = Mock(spec=[], name="sixth")
+        sixth_folder.name = "sixth"
 
         si.content.rootFolder = Mock()
-        si.content.rootFolder.name = 'rootFolder'
+        si.content.rootFolder.name = "rootFolder"
         si.content.rootFolder.childEntity = [first_folder, second_folder]
         first_folder.vmFolder = [second_folder, sixth_folder]
         second_folder.networkFolder = [fourth_folder, third_folder]
@@ -524,17 +557,17 @@ class TestVmomiService(unittest.TestCase):
         fourth_folder.datacenterFolder = [fifth_folder]
         fifth_folder.datastoreFolder = [sixth_folder]
 
-        '#act'
-        result = pv_service.get_folder(si, 'first/second/third/fourth/fifth/sixth')
+        "#act"
+        result = pv_service.get_folder(si, "first/second/third/fourth/fifth/sixth")
 
-        '#assert'
+        "#assert"
         self.assertEqual(result, sixth_folder)
 
     def test_get_folder_deep_path(self):
         """
         Checks when path is deep, more then two
         """
-        '#arrange'
+        "#arrange"
         pv_service = pyVmomiService(None, None, Mock())
 
         def find_child_mock(*args):
@@ -551,32 +584,32 @@ class TestVmomiService(unittest.TestCase):
         si.content.searchIndex.FindChild = MagicMock(side_effect=find_child_mock)
 
         inner_folder = Mock()
-        inner_folder.name = 'inner'
+        inner_folder.name = "inner"
 
         inner_decoy_folder = Mock()
-        inner_decoy_folder.name = 'decoy'
+        inner_decoy_folder.name = "decoy"
 
         inner_deep_folder = Mock()
-        inner_deep_folder.name = 'inner_deep_folder'
+        inner_deep_folder.name = "inner_deep_folder"
 
         inner_folder.childEntity = [inner_deep_folder, inner_decoy_folder]
         inner_decoy_folder.childEntity = [inner_folder]
 
         si.content.rootFolder = Mock()
         si.content.rootFolder.childEntity = [inner_decoy_folder, inner_folder]
-        si.content.rootFolder.name = 'rootFolder'
+        si.content.rootFolder.name = "rootFolder"
 
-        '#act'
-        result = pv_service.get_folder(si, 'decoy/inner/inner_deep_folder/')
+        "#act"
+        result = pv_service.get_folder(si, "decoy/inner/inner_deep_folder/")
 
-        '#assert'
+        "#assert"
         self.assertEqual(result, inner_deep_folder)
 
     def test_get_folder_one_sub_folder(self):
         """
         Checks when path is only one level deep without '/' and in child entity
         """
-        '#arrange'
+        "#arrange"
 
         pv_service = pyVmomiService(None, None, Mock())
 
@@ -594,27 +627,27 @@ class TestVmomiService(unittest.TestCase):
         si.content.searchIndex.FindChild = MagicMock(side_effect=find_child_mock)
 
         inner_folder = Mock()
-        inner_folder.name = 'inner'
+        inner_folder.name = "inner"
 
         inner_decoy_folder = Mock()
-        inner_decoy_folder.name = 'decoy'
+        inner_decoy_folder.name = "decoy"
 
         si.content.rootFolder = Mock()
         si.content.rootFolder.childEntity = [inner_decoy_folder, inner_folder]
-        si.content.rootFolder.name = 'rootFolder'
+        si.content.rootFolder.name = "rootFolder"
 
-        '#act'
-        result = pv_service.get_folder(si, 'inner')
+        "#act"
+        result = pv_service.get_folder(si, "inner")
 
-        '#assert'
+        "#assert"
         self.assertEqual(result, inner_folder)
 
     def test_get_folder_path_empty(self):
         """
         Checks if the receiving path is empty, the function returns root folder
         """
-        '#arrange'
-        folder_name = 'rootFolder'
+        "#arrange"
+        folder_name = "rootFolder"
 
         pv_service = pyVmomiService(None, None, Mock())
 
@@ -625,17 +658,17 @@ class TestVmomiService(unittest.TestCase):
         si.content.rootFolder = Mock()
         si.content.rootFolder.name = folder_name
 
-        '#act'
-        result = pv_service.get_folder(si, '')
+        "#act"
+        result = pv_service.get_folder(si, "")
 
-        '#assert'
+        "#assert"
         self.assertEqual(result.name, folder_name)
 
     def test_get_object_by_path_checks_networkFolder(self):
         """
         Checks whether the function can grab network folder
         """
-        '#arrange'
+        "#arrange"
         pv_service = pyVmomiService(None, None, Mock())
 
         def search_child(*args, **keys):
@@ -647,7 +680,7 @@ class TestVmomiService(unittest.TestCase):
             networkFolder = None
 
         folder = Mock(spec=FolderMock())
-        folder.name = 'parentFolder'
+        folder.name = "parentFolder"
         folder.networkFolder.name = pv_service.Network
         get_folder = MagicMock(return_value=folder)
         pv_service.get_folder = get_folder
@@ -658,17 +691,17 @@ class TestVmomiService(unittest.TestCase):
         si.content.searchIndex = Mock()
         si.content.searchIndex.FindChild = MagicMock(side_effect=search_child)
 
-        '#act'
-        result = pv_service.find_obj_by_path(si, '', '', pv_service.Network)
+        "#act"
+        result = pv_service.find_obj_by_path(si, "", "", pv_service.Network)
 
-        '#assert'
+        "#assert"
         self.assertTrue(result)
 
     def test_get_object_by_path_checks_hostFolder(self):
         """
         Checks whether the function can grab host folder
         """
-        '#arrange'
+        "#arrange"
         pv_service = pyVmomiService(None, None, Mock())
 
         def search_child(*args, **keys):
@@ -680,7 +713,7 @@ class TestVmomiService(unittest.TestCase):
             hostFolder = None
 
         folder = Mock(spec=FolderMock())
-        folder.name = 'parentFolder'
+        folder.name = "parentFolder"
         folder.hostFolder.name = pv_service.Host
         get_folder = MagicMock(return_value=folder)
         pv_service.get_folder = get_folder
@@ -691,17 +724,17 @@ class TestVmomiService(unittest.TestCase):
         si.content.searchIndex = Mock()
         si.content.searchIndex.FindChild = MagicMock(side_effect=search_child)
 
-        '#act'
-        result = pv_service.find_obj_by_path(si, '', '', pv_service.Host)
+        "#act"
+        result = pv_service.find_obj_by_path(si, "", "", pv_service.Host)
 
-        '#assert'
+        "#assert"
         self.assertTrue(result)
 
     def test_get_object_by_path_checks_datacenterFolder(self):
         """
         Checks whether the function can grab datacenter folder
         """
-        '#arrange'
+        "#arrange"
         pv_service = pyVmomiService(None, None, Mock())
 
         def search_child(*args, **keys):
@@ -713,7 +746,7 @@ class TestVmomiService(unittest.TestCase):
             datacenterFolder = None
 
         folder = Mock(spec=FolderMock())
-        folder.name = 'parentFolder'
+        folder.name = "parentFolder"
         folder.datacenterFolder.name = pv_service.Datacenter
         get_folder = MagicMock(return_value=folder)
         pv_service.get_folder = get_folder
@@ -724,17 +757,17 @@ class TestVmomiService(unittest.TestCase):
         si.content.searchIndex = Mock()
         si.content.searchIndex.FindChild = MagicMock(side_effect=search_child)
 
-        '#act'
-        result = pv_service.find_obj_by_path(si, '', '', pv_service.Datacenter)
+        "#act"
+        result = pv_service.find_obj_by_path(si, "", "", pv_service.Datacenter)
 
-        '#assert'
+        "#assert"
         self.assertTrue(result)
 
     def test_get_object_by_path_checks_datastoreFolder(self):
         """
         Checks whether the function can grab datastore folder
         """
-        '#arrange'
+        "#arrange"
         pv_service = pyVmomiService(None, None, Mock())
 
         def search_child(*args, **keys):
@@ -746,7 +779,7 @@ class TestVmomiService(unittest.TestCase):
             datastoreFolder = None
 
         folder = Mock(spec=FolderMock())
-        folder.name = 'parentFolder'
+        folder.name = "parentFolder"
         folder.datastoreFolder.name = pv_service.Datastore
         get_folder = MagicMock(return_value=folder)
         pv_service.get_folder = get_folder
@@ -757,17 +790,17 @@ class TestVmomiService(unittest.TestCase):
         si.content.searchIndex = Mock()
         si.content.searchIndex.FindChild = MagicMock(side_effect=search_child)
 
-        '#act'
-        result = pv_service.find_obj_by_path(si, '', '', pv_service.Datastore)
+        "#act"
+        result = pv_service.find_obj_by_path(si, "", "", pv_service.Datastore)
 
-        '#assert'
+        "#assert"
         self.assertTrue(result)
 
     def test_get_object_by_path_checks_vmFolder(self):
         """
         Checks whether the function can grab vm folder
         """
-        '#arrange'
+        "#arrange"
         pv_service = pyVmomiService(None, None, Mock())
 
         def search_child(*args, **keys):
@@ -779,7 +812,7 @@ class TestVmomiService(unittest.TestCase):
             vmFolder = None
 
         folder = Mock(spec=FolderMock())
-        folder.name = 'parentFolder'
+        folder.name = "parentFolder"
         folder.vmFolder.name = pv_service.VM
         get_folder = MagicMock(return_value=folder)
         pv_service.get_folder = get_folder
@@ -790,17 +823,17 @@ class TestVmomiService(unittest.TestCase):
         si.content.searchIndex = Mock()
         si.content.searchIndex.FindChild = MagicMock(side_effect=search_child)
 
-        '#act'
-        result = pv_service.find_obj_by_path(si, '', '', pv_service.VM)
+        "#act"
+        result = pv_service.find_obj_by_path(si, "", "", pv_service.VM)
 
-        '#assert'
+        "#assert"
         self.assertTrue(result)
 
     def test_get_object_by_path_checks_childEntity(self):
         """
         Checks whether the function can grab from child entities
         """
-        '#arrange'
+        "#arrange"
         pv_service = pyVmomiService(None, None, Mock())
 
         def search_child(*args, **keys):
@@ -822,17 +855,17 @@ class TestVmomiService(unittest.TestCase):
         si.content.searchIndex = Mock()
         si.content.searchIndex.FindChild = MagicMock(side_effect=search_child)
 
-        '#act'
-        result = pv_service.find_obj_by_path(si, '', '', '')
+        "#act"
+        result = pv_service.find_obj_by_path(si, "", "", "")
 
-        '#assert'
+        "#assert"
         self.assertTrue(result)
 
     def test_get_object_by_path_no_nested_objs(self):
         """
         Checks whether the function returns 'None' if it doesn't find an object
         """
-        '#arrange'
+        "#arrange"
         pv_service = pyVmomiService(None, None, Mock())
 
         get_folder = MagicMock(return_value=Mock(spec=[]))
@@ -842,15 +875,15 @@ class TestVmomiService(unittest.TestCase):
         si.RetrieveContent = Mock()
         si.content = create_autospec(spec=vim.ServiceInstanceContent())
 
-        '#act'
-        self.assertRaises(ValueError, pv_service.find_obj_by_path, si, '', '', '')
+        "#act"
+        self.assertRaises(ValueError, pv_service.find_obj_by_path, si, "", "", "")
 
     def test_get_object_by_path_no_folder_found(self):
         """
         Checks if the receiving path that does not exist
         """
-        '#arrange'
-        folder_name = 'rootFolder'
+        "#arrange"
+        folder_name = "rootFolder"
 
         pv_service = pyVmomiService(None, None, Mock())
 
@@ -862,24 +895,31 @@ class TestVmomiService(unittest.TestCase):
         si.content.rootFolder.name = folder_name
         pv_service.get_folder = Mock(return_value=None)
 
-        '#act'
-        self.assertRaises(ValueError, pv_service.find_obj_by_path, si, 'nothing/to/be/found', 'fake_vm', pv_service.VM)
+        "#act"
+        self.assertRaises(
+            ValueError,
+            pv_service.find_obj_by_path,
+            si,
+            "nothing/to/be/found",
+            "fake_vm",
+            pv_service.VM,
+        )
 
-        '#assert'
+        "#assert"
         self.assertTrue(pv_service.get_folder.called)
 
     def test_find_item_in_path_by_type_not_found(self):
         """
         Checks whether the function can grab object by uuid
         """
-        '#arrange'
+        "#arrange"
 
         class counter:
             i = 0
 
         def side_eff(*args, **kwargs):
             counter.i += 1
-            return 'not found'
+            return "not found"
 
         pv_service = pyVmomiService(None, None, Mock())
 
@@ -891,10 +931,12 @@ class TestVmomiService(unittest.TestCase):
         si.content.rootFolder = Mock()
         si.content.searchIndex.FindChild = Mock(side_effect=side_eff)
 
-        '#act'
-        result = pv_service.find_item_in_path_by_type(si, 'test//dc/asd', vim.Datacenter)
+        "#act"
+        result = pv_service.find_item_in_path_by_type(
+            si, "test//dc/asd", vim.Datacenter
+        )
 
-        '#assert'
+        "#assert"
         self.assertIsNone(result)
         self.assertTrue(counter.i, 2)
 
@@ -902,17 +944,17 @@ class TestVmomiService(unittest.TestCase):
         """
         Checks whether the function can grab object by uuid
         """
-        '#arrange'
+        "#arrange"
 
         class counter:
             i = 0
 
         def side_eff(*args, **kwargs):
             if counter.i != 1:
-                counter.i = counter.i + 1;
-                return 'not yet'
+                counter.i = counter.i + 1
+                return "not yet"
             else:
-                counter.i = counter.i + 1;
+                counter.i = counter.i + 1
                 return Mock(spec=vim.Datacenter)
 
         pv_service = pyVmomiService(None, None, Mock())
@@ -925,10 +967,12 @@ class TestVmomiService(unittest.TestCase):
         si.content.rootFolder = Mock()
         si.content.searchIndex.FindChild = Mock(side_effect=side_eff)
 
-        '#act'
-        result = pv_service.find_item_in_path_by_type(si, 'test//dc/asd', vim.Datacenter)
+        "#act"
+        result = pv_service.find_item_in_path_by_type(
+            si, "test//dc/asd", vim.Datacenter
+        )
 
-        '#assert'
+        "#assert"
         self.assertTrue(isinstance(result, vim.Datacenter))
         self.assertTrue(counter.i, 1)
 
@@ -936,7 +980,7 @@ class TestVmomiService(unittest.TestCase):
         """
         Checks whether the function can grab object by uuid
         """
-        '#arrange'
+        "#arrange"
         pv_service = pyVmomiService(None, None, Mock())
 
         si = create_autospec(spec=vim.ServiceInstance)
@@ -946,17 +990,17 @@ class TestVmomiService(unittest.TestCase):
         si.content.searchIndex = Mock()
         si.content.rootFolder = Mock()
 
-        '#act'
-        result = pv_service.find_item_in_path_by_type(si, 'test', None)
+        "#act"
+        result = pv_service.find_item_in_path_by_type(si, "test", None)
 
-        '#assert'
+        "#assert"
         self.assertIsNone(result, si.content.rootFolder)
 
     def test_find_item_in_path_by_type_path_None(self):
         """
         Checks whether the function can grab object by uuid
         """
-        '#arrange'
+        "#arrange"
         pv_service = pyVmomiService(None, None, Mock())
 
         si = create_autospec(spec=vim.ServiceInstance)
@@ -966,17 +1010,17 @@ class TestVmomiService(unittest.TestCase):
         si.content.searchIndex = Mock()
         si.content.rootFolder = Mock
 
-        '#act'
-        result = pv_service.find_item_in_path_by_type(si, None, 'not none')
+        "#act"
+        result = pv_service.find_item_in_path_by_type(si, None, "not none")
 
-        '#assert'
+        "#assert"
         self.assertEqual(result, si.content.rootFolder)
 
     def test_get_vm_by_uuid_vm_with_path(self):
         """
         Checks whether the function can grab object by uuid
         """
-        '#arrange'
+        "#arrange"
         pv_service = pyVmomiService(None, None, Mock())
 
         dc = Mock(spec=vim.Datacenter)
@@ -987,37 +1031,45 @@ class TestVmomiService(unittest.TestCase):
         si.content = create_autospec(spec=vim.ServiceInstanceContent())
 
         si.content.searchIndex = Mock()
-        si.content.searchIndex.FindByUuid = Mock(return_value='b8e4da4e-a2ff-11e5-bf7f-feff819cdc9f')
+        si.content.searchIndex.FindByUuid = Mock(
+            return_value="b8e4da4e-a2ff-11e5-bf7f-feff819cdc9f"
+        )
 
-        '#act'
-        result = pv_service.find_by_uuid(si, 'b8e4da4e-a2ff-11e5-bf7f-feff819cdc9f', True, 'path/path/path')
+        "#act"
+        result = pv_service.find_by_uuid(
+            si, "b8e4da4e-a2ff-11e5-bf7f-feff819cdc9f", True, "path/path/path"
+        )
 
-        '#assert'
+        "#assert"
         self.assertTrue(result)
-        self.assertTrue(pv_service.find_item_in_path_by_type.called_with(si, 'path/path/path', vim.Datacenter))
+        self.assertTrue(
+            pv_service.find_item_in_path_by_type.called_with(
+                si, "path/path/path", vim.Datacenter
+            )
+        )
 
     def test_get_vm_by_uuid_vm_without_uuid(self):
         """
         Checks whether the function can grab object by uuid
         """
-        '#arrange'
+        "#arrange"
         pv_service = pyVmomiService(None, None, Mock())
 
         si = create_autospec(spec=vim.ServiceInstance)
         si.RetrieveContent = Mock()
         si.content = create_autospec(spec=vim.ServiceInstanceContent())
 
-        '#act'
+        "#act"
         result = pv_service.find_by_uuid(si, None)
 
-        '#assert'
+        "#assert"
         self.assertIsNone(result)
 
     def test_get_vm_by_uuid_vm_without_path(self):
         """
         Checks whether the function can grab object by uuid
         """
-        '#arrange'
+        "#arrange"
         pv_service = pyVmomiService(None, None, Mock())
 
         si = create_autospec(spec=vim.ServiceInstance)
@@ -1025,12 +1077,14 @@ class TestVmomiService(unittest.TestCase):
         si.content = create_autospec(spec=vim.ServiceInstanceContent())
 
         si.content.searchIndex = Mock()
-        si.content.searchIndex.FindByUuid = Mock(return_value='b8e4da4e-a2ff-11e5-bf7f-feff819cdc9f')
+        si.content.searchIndex.FindByUuid = Mock(
+            return_value="b8e4da4e-a2ff-11e5-bf7f-feff819cdc9f"
+        )
 
-        '#act'
-        result = pv_service.find_by_uuid(si, 'b8e4da4e-a2ff-11e5-bf7f-feff819cdc9f')
+        "#act"
+        result = pv_service.find_by_uuid(si, "b8e4da4e-a2ff-11e5-bf7f-feff819cdc9f")
 
-        '#assert'
+        "#assert"
         self.assertTrue(result)
         self.assertTrue(si.content.searchIndex.FindByUuid.called)
 
@@ -1038,7 +1092,7 @@ class TestVmomiService(unittest.TestCase):
         """
         Checks whether the function can passes vm type
         """
-        '#arrange'
+        "#arrange"
         pv_service = pyVmomiService(None, None, Mock())
 
         def find_obj_by_path_mock(*args, **kwargs):
@@ -1050,17 +1104,17 @@ class TestVmomiService(unittest.TestCase):
 
         pv_service.find_obj_by_path = Mock(side_effect=find_obj_by_path_mock)
 
-        '#act'
-        result = pv_service.find_vm_by_name(si, '', '')
+        "#act"
+        result = pv_service.find_vm_by_name(si, "", "")
 
-        '#assert'
+        "#assert"
         self.assertTrue(result)
 
     def test_get_datastore_by_name_is_Datastore_type(self):
         """
         Checks whether the function can passes datastore type
         """
-        '#arrange'
+        "#arrange"
         pv_service = pyVmomiService(None, None, Mock())
 
         def find_obj_by_path_mock(*args, **kwargs):
@@ -1072,17 +1126,17 @@ class TestVmomiService(unittest.TestCase):
 
         pv_service.find_obj_by_path = Mock(side_effect=find_obj_by_path_mock)
 
-        '#act'
-        result = pv_service.find_datastore_by_name(si, '', '')
+        "#act"
+        result = pv_service.find_datastore_by_name(si, "", "")
 
-        '#assert'
+        "#assert"
         self.assertTrue(result)
 
     def test_get_datacenter_by_name_is_Datacenter_type(self):
         """
         Checks whether the function can passes datascenter type
         """
-        '#arrange'
+        "#arrange"
         pv_service = pyVmomiService(None, None, Mock())
 
         def find_obj_by_path_mock(*args, **kwargs):
@@ -1094,17 +1148,17 @@ class TestVmomiService(unittest.TestCase):
 
         pv_service.find_obj_by_path = Mock(side_effect=find_obj_by_path_mock)
 
-        '#act'
-        result = pv_service.find_datacenter_by_name(si, '', '')
+        "#act"
+        result = pv_service.find_datacenter_by_name(si, "", "")
 
-        '#assert'
+        "#assert"
         self.assertTrue(result)
 
     def test_get_host_by_name_is_Host_type(self):
         """
         Checks whether the function can passes host type
         """
-        '#arrange'
+        "#arrange"
         pv_service = pyVmomiService(None, None, Mock())
 
         def find_obj_by_path_mock(*args, **kwargs):
@@ -1116,17 +1170,17 @@ class TestVmomiService(unittest.TestCase):
 
         pv_service.find_obj_by_path = Mock(side_effect=find_obj_by_path_mock)
 
-        '#act'
-        result = pv_service.find_host_by_name(si, '', '')
+        "#act"
+        result = pv_service.find_host_by_name(si, "", "")
 
-        '#assert'
+        "#assert"
         self.assertTrue(result)
 
     def test_get_network_by_name_is_network_type(self):
         """
         Checks whether the function can passes network type
         """
-        '#arrange'
+        "#arrange"
         pv_service = pyVmomiService(None, None, Mock())
 
         def find_obj_by_path_mock(*args, **kwargs):
@@ -1138,10 +1192,10 @@ class TestVmomiService(unittest.TestCase):
 
         pv_service.find_obj_by_path = Mock(side_effect=find_obj_by_path_mock)
 
-        '#act'
-        result = pv_service.find_network_by_name(si, '', '')
+        "#act"
+        result = pv_service.find_network_by_name(si, "", "")
 
-        '#assert'
+        "#assert"
         self.assertTrue(result)
 
     def test_connect(self):
@@ -1174,7 +1228,7 @@ class TestVmomiService(unittest.TestCase):
         # arrange
         pv_service = pyVmomiService(None, None, Mock())
         si = create_autospec(spec=vim.ServiceInstance)
-        default_network_full_name = 'Root/Folder/Folder2/Name'
+        default_network_full_name = "Root/Folder/Folder2/Name"
         pv_service.find_network_by_name = Mock()
 
         # act
@@ -1189,7 +1243,7 @@ class TestVmomiService(unittest.TestCase):
         pv_service.wait_for_task = Mock()
         vm = Mock()
         vm.runtime = Mock()
-        vm.runtime.powerState = 'poweredOn'
+        vm.runtime.powerState = "poweredOn"
         vm.PowerOffVM_Task = Mock()
         vm.Destroy_Task = Mock()
 
@@ -1206,13 +1260,13 @@ class TestVmomiService(unittest.TestCase):
         pv_service.wait_for_task = Mock()
 
         network = Mock()
-        network.name = 'main_network'
+        network.name = "main_network"
 
         backing = Mock()
         backing.network = network
 
         virtual_card = create_autospec(vim.vm.device.VirtualEthernetCard)
-        virtual_card.macAddress = 'AA-BB'
+        virtual_card.macAddress = "AA-BB"
         virtual_card.backing = backing
 
         hardware = Mock()
@@ -1225,10 +1279,10 @@ class TestVmomiService(unittest.TestCase):
         vm.config = config
 
         # Act
-        actual_network = pv_service.get_network_by_mac_address(vm, 'AA-BB')
+        actual_network = pv_service.get_network_by_mac_address(vm, "AA-BB")
 
         # Assert
-        self.assertEqual(actual_network.name, 'main_network')
+        self.assertEqual(actual_network.name, "main_network")
 
     def test_vm_get_network_by_name_1(self):
         # Arrange
@@ -1236,13 +1290,13 @@ class TestVmomiService(unittest.TestCase):
         pv_service.wait_for_task = Mock()
 
         network = Mock()
-        network.name = 'main_network'
+        network.name = "main_network"
 
         backing = Mock()
         backing.network = network
 
         virtual_card = create_autospec(vim.vm.device.VirtualEthernetCard)
-        virtual_card.macAddress = 'AA-BB'
+        virtual_card.macAddress = "AA-BB"
         virtual_card.backing = backing
 
         hardware = Mock()
@@ -1255,7 +1309,7 @@ class TestVmomiService(unittest.TestCase):
         vm.config = config
 
         # Act
-        actual_network = pv_service.get_network_by_mac_address(vm, 'BB-CC')
+        actual_network = pv_service.get_network_by_mac_address(vm, "BB-CC")
 
         # Assert
         self.assertIsNone(actual_network)
@@ -1277,7 +1331,7 @@ class TestVmomiService(unittest.TestCase):
         pv_service.wait_for_task = Mock()
 
         params = Mock()
-        params.snapshot = 'aa/bb/ee'
+        params.snapshot = "aa/bb/ee"
 
         template = Mock(vim.VirtualMachine)
         template.snapshot = Mock()
@@ -1292,7 +1346,7 @@ class TestVmomiService(unittest.TestCase):
         pv_service.wait_for_task = Mock()
 
         params = Mock()
-        params.snapshot = 'aa/bb/ee'
+        params.snapshot = "aa/bb/ee"
 
         template = Mock(vim.VirtualMachine)
         template.snapshot = Mock()
@@ -1307,7 +1361,7 @@ class TestVmomiService(unittest.TestCase):
         pv_service.wait_for_task = Mock()
 
         params = Mock()
-        params.snapshot = 'aa/bb/ee'
+        params.snapshot = "aa/bb/ee"
 
         template = Mock(vim.VirtualMachine)
         template.snapshot = Mock()
@@ -1318,22 +1372,22 @@ class TestVmomiService(unittest.TestCase):
         cc = Mock(spec=[])
         dd = Mock(spec=[])
         ee = Mock(spec=[])
-        aa.name = 'aa'
+        aa.name = "aa"
         aa.createTime = 1
 
-        bb1.name = 'bb'
+        bb1.name = "bb"
         bb1.createTime = 1
 
-        bb2.name = 'bb'
+        bb2.name = "bb"
         bb2.createTime = 2
 
-        cc.name = 'cc'
+        cc.name = "cc"
         cc.createTime = 1
 
-        dd.name = 'dd'
+        dd.name = "dd"
         dd.createTime = 1
 
-        ee.name = 'ee'
+        ee.name = "ee"
         ee.createTime = 1
 
         ee.snapshot = Mock()

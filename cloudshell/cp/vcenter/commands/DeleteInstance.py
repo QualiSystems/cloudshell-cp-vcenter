@@ -1,5 +1,7 @@
 ﻿from cloudshell.api.cloudshell_api import CloudShellAPISession
-from cloudshell.cp.vcenter.common.utilites.common_utils import get_error_message_from_exception
+from cloudshell.cp.vcenter.common.utilites.common_utils import (
+    get_error_message_from_exception,
+)
 
 
 class DestroyVirtualMachineCommand(object):
@@ -16,7 +18,9 @@ class DestroyVirtualMachineCommand(object):
         self.disconnector = disconnector
 
     # obsolete
-    def destroy(self, si, logger, session, vcenter_data_model, vm_uuid, vm_name, reservation_id):
+    def destroy(
+        self, si, logger, session, vcenter_data_model, vm_uuid, vm_name, reservation_id
+    ):
         """
         :param si:
         :param logger:
@@ -28,8 +32,12 @@ class DestroyVirtualMachineCommand(object):
         :return:
         """
         # disconnect
-        self._disconnect_all_my_connectors(session=session, resource_name=vm_name, reservation_id=reservation_id,
-                                           logger=logger)
+        self._disconnect_all_my_connectors(
+            session=session,
+            resource_name=vm_name,
+            reservation_id=reservation_id,
+            logger=logger,
+        )
         # find vm
         vm = self.pv_service.find_by_uuid(si, vm_uuid)
 
@@ -37,11 +45,15 @@ class DestroyVirtualMachineCommand(object):
             # destroy vm
             result = self.pv_service.destroy_vm(vm=vm, logger=logger)
         else:
-            logger.info("Could not find the VM {0},will remove the resource.".format(vm_name))
+            logger.info(
+                "Could not find the VM {0},will remove the resource.".format(vm_name)
+            )
             result = True
 
         # delete resources
-        self.resource_remover.remove_resource(session=session, resource_full_name=vm_name)
+        self.resource_remover.remove_resource(
+            session=session, resource_full_name=vm_name
+        )
         return result
 
     def DeleteInstance(self, si, logger, session, vcenter_data_model, vm_uuid, vm_name):
@@ -57,7 +69,9 @@ class DestroyVirtualMachineCommand(object):
             # destroy vm
             result = self.pv_service.destroy_vm(vm=vm, logger=logger)
         else:
-            resource___format = "Could not find the VM {0},will remove the resource.".format(vm_name)
+            resource___format = (
+                "Could not find the VM {0},will remove the resource.".format(vm_name)
+            )
             logger.info(resource___format)
             result = resource___format
 
@@ -79,15 +93,24 @@ class DestroyVirtualMachineCommand(object):
                 endpoints.append(endpoint.Source)
 
         if len(endpoints) == 0:
-            logger.info("No routes to disconnect for resource {0} in reservation {1}"
-                        .format(resource_name, reservation_id))
+            logger.info(
+                "No routes to disconnect for resource {0} in reservation {1}".format(
+                    resource_name, reservation_id
+                )
+            )
             return
 
-        logger.info("Executing disconnect routes for resource {0} in reservation {1}"
-                    .format(resource_name, reservation_id))
+        logger.info(
+            "Executing disconnect routes for resource {0} in reservation {1}".format(
+                resource_name, reservation_id
+            )
+        )
 
         try:
             session.DisconnectRoutesInReservation(reservation_id, endpoints)
         except Exception as exc:
-            logger.exception("Error disconnecting routes for resource {0} in reservation {1}. Error: {2}"
-                             .format(resource_name, reservation_id, get_error_message_from_exception(exc)))
+            logger.exception(
+                "Error disconnecting routes for resource {0} in reservation {1}. Error: {2}".format(
+                    resource_name, reservation_id, get_error_message_from_exception(exc)
+                )
+            )

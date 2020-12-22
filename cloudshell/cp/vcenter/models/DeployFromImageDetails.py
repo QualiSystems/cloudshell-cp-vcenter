@@ -1,4 +1,6 @@
-from cloudshell.cp.vcenter.models.vCenterVMFromImageResourceModel import vCenterVMFromImageResourceModel
+from cloudshell.cp.vcenter.models.vCenterVMFromImageResourceModel import (
+    vCenterVMFromImageResourceModel,
+)
 
 
 class DeployFromImageDetails(object):

@@ -1,6 +1,12 @@
-from cloudshell.cp.vcenter.models.VMwarevCenterResourceModel import VMwarevCenterResourceModel
-from cloudshell.cp.vcenter.models.vCenterCloneVMFromVMResourceModel import vCenterCloneVMFromVMResourceModel
-from cloudshell.cp.vcenter.common.utilites.common_utils import back_slash_to_front_converter
+from cloudshell.cp.vcenter.common.utilites.common_utils import (
+    back_slash_to_front_converter,
+)
+from cloudshell.cp.vcenter.models.vCenterCloneVMFromVMResourceModel import (
+    vCenterCloneVMFromVMResourceModel,
+)
+from cloudshell.cp.vcenter.models.VMwarevCenterResourceModel import (
+    VMwarevCenterResourceModel,
+)
 
 
 class ResourceModelParser:
@@ -12,15 +18,30 @@ class ResourceModelParser:
     def convert_to_vcenter_model(self, resource):
         vcenter_data_model = self.convert_to_resource_model(
             attributes=ResourceModelParser.get_resource_attributes_as_dict(resource),
-            resource_model_type=VMwarevCenterResourceModel)
+            resource_model_type=VMwarevCenterResourceModel,
+        )
 
-        vcenter_data_model.default_dvswitch = back_slash_to_front_converter(vcenter_data_model.default_dvswitch)
-        vcenter_data_model.default_datacenter = back_slash_to_front_converter(vcenter_data_model.default_datacenter)
-        vcenter_data_model.reserved_networks = back_slash_to_front_converter(vcenter_data_model.reserved_networks)
-        vcenter_data_model.vm_location = back_slash_to_front_converter(vcenter_data_model.vm_location)
-        vcenter_data_model.vm_storage = back_slash_to_front_converter(vcenter_data_model.vm_storage)
-        vcenter_data_model.vm_resource_pool = back_slash_to_front_converter(vcenter_data_model.vm_resource_pool)
-        vcenter_data_model.vm_cluster = back_slash_to_front_converter(vcenter_data_model.vm_cluster)
+        vcenter_data_model.default_dvswitch = back_slash_to_front_converter(
+            vcenter_data_model.default_dvswitch
+        )
+        vcenter_data_model.default_datacenter = back_slash_to_front_converter(
+            vcenter_data_model.default_datacenter
+        )
+        vcenter_data_model.reserved_networks = back_slash_to_front_converter(
+            vcenter_data_model.reserved_networks
+        )
+        vcenter_data_model.vm_location = back_slash_to_front_converter(
+            vcenter_data_model.vm_location
+        )
+        vcenter_data_model.vm_storage = back_slash_to_front_converter(
+            vcenter_data_model.vm_storage
+        )
+        vcenter_data_model.vm_resource_pool = back_slash_to_front_converter(
+            vcenter_data_model.vm_resource_pool
+        )
+        vcenter_data_model.vm_cluster = back_slash_to_front_converter(
+            vcenter_data_model.vm_cluster
+        )
 
         return vcenter_data_model
 
@@ -34,15 +55,25 @@ class ResourceModelParser:
         """
         if resource_model_type:
             if not callable(resource_model_type):
-                raise ValueError('resource_model_type {0} cannot be instantiated'.format(resource_model_type))
+                raise ValueError(
+                    "resource_model_type {0} cannot be instantiated".format(
+                        resource_model_type
+                    )
+                )
             instance = resource_model_type()
         else:
-            raise ValueError('resource_model_type must have a value')
+            raise ValueError("resource_model_type must have a value")
 
         props = ResourceModelParser.get_public_properties(instance)
         for attrib in attributes:
-            property_name = ResourceModelParser.get_property_name_from_attribute_name(attrib)
-            property_name_for_attribute_name = ResourceModelParser.get_property_name_with_attribute_name_postfix(attrib)
+            property_name = ResourceModelParser.get_property_name_from_attribute_name(
+                attrib
+            )
+            property_name_for_attribute_name = (
+                ResourceModelParser.get_property_name_with_attribute_name_postfix(
+                    attrib
+                )
+            )
             property_name = property_name.rsplit(".", 1)[-1]
 
             if props.__contains__(property_name):
@@ -54,25 +85,33 @@ class ResourceModelParser:
                 props.remove(property_name)
 
         if props:
-            raise ValueError('Property(ies) {0} not found on resource with attributes {1}'
-                             .format(','.join(props),
-                                     ','.join(attributes)))
+            raise ValueError(
+                "Property(ies) {0} not found on resource with attributes {1}".format(
+                    ",".join(props), ",".join(attributes)
+                )
+            )
 
-        if hasattr(instance, 'vcenter_vm'):
+        if hasattr(instance, "vcenter_vm"):
             instance.vcenter_vm = back_slash_to_front_converter(instance.vcenter_vm)
 
-        if hasattr(instance, 'vcenter_vm_snapshot'):
-            instance.vcenter_vm_snapshot = back_slash_to_front_converter(instance.vcenter_vm_snapshot)
+        if hasattr(instance, "vcenter_vm_snapshot"):
+            instance.vcenter_vm_snapshot = back_slash_to_front_converter(
+                instance.vcenter_vm_snapshot
+            )
 
         return instance
 
     def get_attribute_value(self, attrib, resource_instance):
         attributes = ResourceModelParser.get_resource_attributes(resource_instance)
-        if hasattr(attrib, 'Value') and hasattr(attrib, 'Name'):
-            attribute_by_name = [attribute.Value for attribute in attributes if attribute.Name == attrib.Name]
+        if hasattr(attrib, "Value") and hasattr(attrib, "Name"):
+            attribute_by_name = [
+                attribute.Value
+                for attribute in attributes
+                if attribute.Name == attrib.Name
+            ]
             if attribute_by_name:
                 return attribute_by_name[0]
-            raise Exception('Attribute {0} not found'.format(attrib.Name))
+            raise Exception("Attribute {0} not found".format(attrib.Name))
 
         return ResourceModelParser.get_resource_attributes(resource_instance)[attrib]
 
@@ -84,7 +123,11 @@ class ResourceModelParser:
             return resource_instance.ResourceAttributes
         if hasattr(resource_instance, "attributes"):
             return resource_instance.attributes
-        raise ValueError('Object {0} does not have any attributes property'.format(str(resource_instance)))
+        raise ValueError(
+            "Object {0} does not have any attributes property".format(
+                str(resource_instance)
+            )
+        )
 
     @staticmethod
     def get_resource_attributes_as_dict(resource_instance):
@@ -93,10 +136,16 @@ class ResourceModelParser:
             return {}
         elif isinstance(attributes, dict):
             return attributes
-        if isinstance(attributes, list) and hasattr(attributes[0], 'Value') and hasattr(attributes[0], 'Name'):
-            return dict((att.Name,att.Value) for att in attributes)
+        if (
+            isinstance(attributes, list)
+            and hasattr(attributes[0], "Value")
+            and hasattr(attributes[0], "Name")
+        ):
+            return dict((att.Name, att.Value) for att in attributes)
         else:
-            ValueError('Attribute object {0} was not recognized'.format(str(resource_instance)))
+            ValueError(
+                "Attribute object {0} was not recognized".format(str(resource_instance))
+            )
 
     @staticmethod
     def get_public_properties(instance):
@@ -105,7 +154,7 @@ class ResourceModelParser:
         :param instance: class instance
         :return: list
         """
-        return [prop for prop in dir(instance) if not prop.startswith('__')]
+        return [prop for prop in dir(instance) if not prop.startswith("__")]
 
     @staticmethod
     def create_resource_model_instance(resource_instance):
@@ -117,9 +166,12 @@ class ResourceModelParser:
         """
         resource_model = ResourceModelParser.get_resource_model(resource_instance)
         resource_class_name = ResourceModelParser.get_resource_model_class_name(
-            resource_model)
+            resource_model
+        )
         # print 'Family name is ' + resource_class_name
-        instance = ResourceModelParser.get_class('cloudshell.cp.vcenter.models.' + resource_class_name)
+        instance = ResourceModelParser.get_class(
+            "cloudshell.cp.vcenter.models." + resource_class_name
+        )
         return instance
 
     @staticmethod
@@ -136,7 +188,7 @@ class ResourceModelParser:
         :param resource_family: Resource family
         :rtype: string
         """
-        return resource_family.replace(' ', '') + 'ResourceModel'
+        return resource_family.replace(" ", "") + "ResourceModel"
 
     @staticmethod
     def get_class(class_path):
@@ -150,17 +202,27 @@ class ResourceModelParser:
         try:
             module = __import__(class_path, fromlist=[class_name])
         except ImportError:
-            raise ValueError('Class {0} could not be imported'.format(class_path))
+            raise ValueError("Class {0} could not be imported".format(class_path))
 
         try:
             cls = getattr(module, class_name)
         except AttributeError:
-            raise ValueError("Module '%s' has no class '%s'" % (module_path, class_name,))
+            raise ValueError(
+                "Module '%s' has no class '%s'"
+                % (
+                    module_path,
+                    class_name,
+                )
+            )
 
         try:
             instance = cls()
         except TypeError as type_error:
-            raise ValueError('Failed to instantiate class {0}. Error: {1}'.format(class_name, type_error))
+            raise ValueError(
+                "Failed to instantiate class {0}. Error: {1}".format(
+                    class_name, type_error
+                )
+            )
 
         return instance
 
@@ -173,12 +235,14 @@ class ResourceModelParser:
         """
         if isinstance(attribute, str) or isinstance(attribute, str):
             attribute_name = attribute
-        elif hasattr(attribute, 'Name'):
+        elif hasattr(attribute, "Name"):
             attribute_name = attribute.Name
         else:
-            raise Exception('Attribute type {0} is not supported'.format(str(type(attribute))))
+            raise Exception(
+                "Attribute type {0} is not supported".format(str(type(attribute)))
+            )
 
-        return attribute_name.lower().replace(' ', '_')
+        return attribute_name.lower().replace(" ", "_")
 
     @staticmethod
     def get_property_name_with_attribute_name_postfix(attribute):
@@ -187,5 +251,7 @@ class ResourceModelParser:
         :param attribute: Attribute name, may contain upper and lower case and spaces
         :return: string
         """
-        return ResourceModelParser.get_property_name_from_attribute_name(attribute) + \
-               ResourceModelParser.ATTRIBUTE_NAME_POSTFIX.lower()
+        return (
+            ResourceModelParser.get_property_name_from_attribute_name(attribute)
+            + ResourceModelParser.ATTRIBUTE_NAME_POSTFIX.lower()
+        )

@@ -1,4 +1,3 @@
-
 def get_vm_custom_param(vm_custom_params, param_name):
     """
     :param list[VmCustomParam] vm_custom_params:

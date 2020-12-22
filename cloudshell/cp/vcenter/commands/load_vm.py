@@ -1,5 +1,6 @@
-from cloudshell.cp.vcenter.common.vcenter.vm_location import VMLocation
 from pyVmomi import vim
+
+from cloudshell.cp.vcenter.common.vcenter.vm_location import VMLocation
 
 
 class VMLoader(object):
@@ -18,14 +19,16 @@ class VMLoader(object):
         :return: str uuid
         """
         path = VMLocation.combine([vcenter_data_model.default_datacenter, vm_name])
-        paths = path.split('/')
+        paths = path.split("/")
         name = paths[len(paths) - 1]
-        path = VMLocation.combine(paths[:len(paths) - 1])
+        path = VMLocation.combine(paths[: len(paths) - 1])
         vm = self.pv_service.find_vm_by_name(si, path, name)
         if not vm:
-            raise ValueError('Could not find the vm in the given path: {0}/{1}'.format(path, name))
+            raise ValueError(
+                "Could not find the vm in the given path: {0}/{1}".format(path, name)
+            )
 
         if isinstance(vm, vim.VirtualMachine):
             return vm.config.uuid
 
-        raise ValueError('The given object is not a vm: {0}/{1}'.format(path, name))
+        raise ValueError("The given object is not a vm: {0}/{1}".format(path, name))

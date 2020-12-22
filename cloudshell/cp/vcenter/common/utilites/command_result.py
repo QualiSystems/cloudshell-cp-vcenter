@@ -1,4 +1,5 @@
 from re import search
+
 import jsonpickle
 
 EMPTY_STRING = ""
@@ -32,4 +33,3 @@ def set_command_result(result, unpicklable=False):
     json = jsonpickle.encode(result, unpicklable=unpicklable)
     result_for_output = str(json)
     return result_for_output
-

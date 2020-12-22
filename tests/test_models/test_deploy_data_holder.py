@@ -8,7 +8,7 @@ from cloudshell.cp.vcenter.models.DeployDataHolder import DeployDataHolder
 class TestDeployDataHolder(TestCase):
     def test_deploy_data_holder(self):
         # Arrange
-        json = '''
+        json = """
             {
               "driverRequest": {
                 "actions": [
@@ -36,7 +36,7 @@ class TestDeployDataHolder(TestCase):
                   }
                 ]
               }
-            }   '''
+            }   """
 
         dictionary = jsonpickle.decode(json)
 
@@ -44,22 +44,46 @@ class TestDeployDataHolder(TestCase):
         holder = DeployDataHolder(dictionary)
 
         # Assert
-        self.assertEqual(holder.driverRequest.actions[0].actionId, 'vlan1%<=>%resourceA')
-        self.assertEqual(holder.driverRequest.actions[0].type, 'setVlan')
-        self.assertEqual(holder.driverRequest.actions[0].actionTarget.fullName, 'Chassis1/Blade1/port1')
-        self.assertEqual(holder.driverRequest.actions[0].actionTarget.fullAddress, '1/2/3')
-        self.assertEqual(holder.driverRequest.actions[0].connectionId, 'vlan1%<=>%resourceA')
-        self.assertEqual(holder.driverRequest.actions[0].connectionParams.connectionParams, 'setVlanParameter')
-        self.assertEqual(holder.driverRequest.actions[0].connectionParams.vlanIds[0], '100-200')
-        self.assertEqual(holder.driverRequest.actions[0].connectionParams.vlanIds[1], '300')
-        self.assertEqual(holder.driverRequest.actions[0].connectionParams.mode, 'Trunk')
-        self.assertEqual(holder.driverRequest.actions[0].connectorAttributes[0].type, 'connectorAttribute')
-        self.assertEqual(holder.driverRequest.actions[0].connectorAttributes[0].attributeName, 'QNQ')
-        self.assertEqual(holder.driverRequest.actions[0].connectorAttributes[0].attributeValue, 'Enabled')
+        self.assertEqual(
+            holder.driverRequest.actions[0].actionId, "vlan1%<=>%resourceA"
+        )
+        self.assertEqual(holder.driverRequest.actions[0].type, "setVlan")
+        self.assertEqual(
+            holder.driverRequest.actions[0].actionTarget.fullName,
+            "Chassis1/Blade1/port1",
+        )
+        self.assertEqual(
+            holder.driverRequest.actions[0].actionTarget.fullAddress, "1/2/3"
+        )
+        self.assertEqual(
+            holder.driverRequest.actions[0].connectionId, "vlan1%<=>%resourceA"
+        )
+        self.assertEqual(
+            holder.driverRequest.actions[0].connectionParams.connectionParams,
+            "setVlanParameter",
+        )
+        self.assertEqual(
+            holder.driverRequest.actions[0].connectionParams.vlanIds[0], "100-200"
+        )
+        self.assertEqual(
+            holder.driverRequest.actions[0].connectionParams.vlanIds[1], "300"
+        )
+        self.assertEqual(holder.driverRequest.actions[0].connectionParams.mode, "Trunk")
+        self.assertEqual(
+            holder.driverRequest.actions[0].connectorAttributes[0].type,
+            "connectorAttribute",
+        )
+        self.assertEqual(
+            holder.driverRequest.actions[0].connectorAttributes[0].attributeName, "QNQ"
+        )
+        self.assertEqual(
+            holder.driverRequest.actions[0].connectorAttributes[0].attributeValue,
+            "Enabled",
+        )
 
     def test_deploy_data_holder_with_inner_list(self):
         # Arrange
-        json = '''
+        json = """
             {
               "driverRequest": {
                 "actions": [
@@ -69,7 +93,7 @@ class TestDeployDataHolder(TestCase):
                       ]
                 ]
               }
-            }   '''
+            }   """
 
         dictionary = jsonpickle.decode(json)
 
@@ -77,6 +101,5 @@ class TestDeployDataHolder(TestCase):
         holder = DeployDataHolder(dictionary)
 
         # Assert
-        self.assertEqual(holder.driverRequest.actions[0][1][0], '100-200')
-        self.assertEqual(holder.driverRequest.actions[0][1][1], '300')
-
+        self.assertEqual(holder.driverRequest.actions[0][1][0], "100-200")
+        self.assertEqual(holder.driverRequest.actions[0][1][1], "300")

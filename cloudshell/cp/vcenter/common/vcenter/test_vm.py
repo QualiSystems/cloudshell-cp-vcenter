@@ -1,39 +1,43 @@
-'''
+"""
 Copyright 2013-2014 Reubenur Rahman
 All Rights Reserved
 @author: reuben.13@gmail.com
-'''
+"""
 
-import atexit
 import argparse
+import atexit
 import sys
 import time
 
-from pyVmomi import vim, vmodl
 from pyVim import connect
-from pyVim.connect import Disconnect, SmartConnect, GetSi
+from pyVim.connect import Disconnect, GetSi, SmartConnect
+from pyVmomi import vim, vmodl
 
-inputs = {'vcenter_ip': '15.10.10.211',
-          'vcenter_password': 'Password123',
-          'vcenter_user': 'Administrator',
-          'vm_name' : 'reuben-test',
-          #create, remove or revert
-          'operation' : 'create',
-          'snapshot_name' : 'my_test_snapshot',
-          }
+inputs = {
+    "vcenter_ip": "15.10.10.211",
+    "vcenter_password": "Password123",
+    "vcenter_user": "Administrator",
+    "vm_name": "reuben-test",
+    # create, remove or revert
+    "operation": "create",
+    "snapshot_name": "my_test_snapshot",
+}
 
 
 def get_obj(content, vimtype, name):
     """
-     Get the vsphere object associated with a given text name
+    Get the vsphere object associated with a given text name
     """
     obj = None
-    container = content.viewManager.CreateContainerView(content.rootFolder, vimtype, True)
+    container = content.viewManager.CreateContainerView(
+        content.rootFolder, vimtype, True
+    )
     for c in container.view:
         if c.name == name:
             obj = c
             break
     return obj
+
 
 def wait_for_task(task, raiseOnError=True, si=None, pc=None):
     if si is None:
@@ -49,8 +53,8 @@ def wait_for_task(task, raiseOnError=True, si=None, pc=None):
 
     # Next, create the property specification as the state.
     propspec = vmodl.Query.PropertyCollector.PropertySpec()
-    propspec.SetType(vim.Task);
-    propspec.SetPathSet(["info.state"]);
+    propspec.SetType(vim.Task)
+    propspec.SetPathSet(["info.state"])
     propspec.SetAll(True)
 
     # Create a filter spec with the specified object and property spec.
@@ -65,9 +69,8 @@ def wait_for_task(task, raiseOnError=True, si=None, pc=None):
     taskName = task.GetInfo().GetName()
     update = pc.WaitForUpdates(None)
     state = task.GetInfo().GetState()
-    while state != vim.TaskInfo.State.success and \
-            state != vim.TaskInfo.State.error:
-        if (state == 'running') and (taskName.info.name != "Destroy"):
+    while state != vim.TaskInfo.State.success and state != vim.TaskInfo.State.error:
+        if (state == "running") and (taskName.info.name != "Destroy"):
             # check to see if VM needs to ask a question, thow exception
             vm = task.GetInfo().GetEntity()
             if vm is not None and isinstance(vm, vim.VirtualMachine):
@@ -86,11 +89,12 @@ def wait_for_task(task, raiseOnError=True, si=None, pc=None):
 
 
 def invoke_and_track(func, *args, **kw):
-    try :
+    try:
         task = func(*args, **kw)
         wait_for_task(task)
     except:
         raise
+
 
 def main():
 
@@ -98,8 +102,13 @@ def main():
         si = None
         try:
             print("Trying to connect to VCENTER SERVER . . .")
-            #si = connect.Connect(args.host, int(args.port), args.user, args.password, service="hostd")
-            si = connect.Connect(inputs['vcenter_ip'], 443, inputs['vcenter_user'], inputs['vcenter_password'])
+            # si = connect.Connect(args.host, int(args.port), args.user, args.password, service="hostd")
+            si = connect.Connect(
+                inputs["vcenter_ip"],
+                443,
+                inputs["vcenter_user"],
+                inputs["vcenter_password"],
+            )
         except IOError as e:
             pass
             atexit.register(Disconnect, si)
@@ -108,23 +117,25 @@ def main():
 
         content = si.RetrieveContent()
 
-        operation = inputs['operation']
+        operation = inputs["operation"]
 
-        vm_name = inputs['vm_name']
-        snapshot_name = inputs['snapshot_name']
+        vm_name = inputs["vm_name"]
+        snapshot_name = inputs["snapshot_name"]
 
         vm = get_obj(content, [vim.VirtualMachine], vm_name)
 
-        if operation == 'create':
+        if operation == "create":
 
             description = "Test snapshot"
             # Read about dumpMemory : http://pubs.vmware.com/vi3/sdk/ReferenceGuide/vim.VirtualMachine.html#createSnapshot
             dumpMemory = False
             quiesce = True
 
-            invoke_and_track(vm.CreateSnapshot(snapshot_name, description, dumpMemory, quiesce))
+            invoke_and_track(
+                vm.CreateSnapshot(snapshot_name, description, dumpMemory, quiesce)
+            )
 
-        elif operation == 'remove':
+        elif operation == "remove":
             snapshots = vm.snapshot.rootSnapshotList
 
             for snapshot in snapshots:
@@ -143,6 +154,7 @@ def main():
             return 1
         print(("Caught exception: %s" % str(e)))
         return 1
+
 
 # Start program
 if __name__ == "__main__":

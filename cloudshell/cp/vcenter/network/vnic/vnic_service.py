@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
 
 from pyVmomi import vim
+
 from cloudshell.cp.vcenter.common.vcenter.vmomi_service import pyVmomiService
-from cloudshell.cp.vcenter.network.network_specifications import network_is_standard, network_is_portgroup
+from cloudshell.cp.vcenter.network.network_specifications import (
+    network_is_portgroup,
+    network_is_standard,
+)
 
 
 class VNicService(object):
@@ -31,11 +35,17 @@ class VNicService(object):
         if issubclass(type(nicspec), vim.vm.device.VirtualDeviceSpec):
             nicspec.operation = vim.vm.device.VirtualDeviceSpec.Operation.add
             VNicService.vnic_set_connectivity_status(nicspec, True)
-            logger.debug("Attaching new vNIC '{}' to VM '{}'...".format(nicspec, virtual_machine))
+            logger.debug(
+                "Attaching new vNIC '{}' to VM '{}'...".format(nicspec, virtual_machine)
+            )
             task = pyVmomiService.vm_reconfig_task(virtual_machine, [nicspec])
             return task
         else:
-            logger.warn("Cannot attach new vNIC '{}' to VM '{}'".format(nicspec, virtual_machine))
+            logger.warn(
+                "Cannot attach new vNIC '{}' to VM '{}'".format(
+                    nicspec, virtual_machine
+                )
+            )
             return None
 
     @staticmethod
@@ -48,8 +58,9 @@ class VNicService(object):
         """
         device_change = []
         for device in virtual_machine.config.hardware.device:
-            if isinstance(device, vim.vm.device.VirtualEthernetCard) and \
-                    (filter_function is None or filter_function(device)):
+            if isinstance(device, vim.vm.device.VirtualEthernetCard) and (
+                filter_function is None or filter_function(device)
+            ):
                 nicspec = vim.vm.device.VirtualDeviceSpec()
                 nicspec.operation = vim.vm.device.VirtualDeviceSpec.Operation.remove
                 nicspec.device = device
@@ -79,12 +90,16 @@ class VNicService(object):
 
         try:
             backing = device.backing
-            if hasattr(backing, 'network'):
+            if hasattr(backing, "network"):
                 return backing.network
-            elif hasattr(backing, 'port') and hasattr(backing.port, 'portgroupKey'):
-                return VNicService._network_get_network_by_connection(vm, backing.port, pyvmomi_service)
+            elif hasattr(backing, "port") and hasattr(backing.port, "portgroupKey"):
+                return VNicService._network_get_network_by_connection(
+                    vm, backing.port, pyvmomi_service
+                )
         except:
-            logger.debug("Cannot determinate which Network connected to device {}".format(device))
+            logger.debug(
+                "Cannot determinate which Network connected to device {}".format(device)
+            )
             return None
 
     @staticmethod
@@ -99,9 +114,9 @@ class VNicService(object):
             backing = device.backing
         except:
             return False
-        if hasattr(backing, 'network') and hasattr(backing.network, 'name'):
+        if hasattr(backing, "network") and hasattr(backing.network, "name"):
             return network_name == backing.network.name
-        elif hasattr(backing, 'port') and hasattr(backing.port, 'portgroupKey'):
+        elif hasattr(backing, "port") and hasattr(backing.port, "portgroupKey"):
             return network_name == backing.port.portgroupKey
 
         return False
@@ -154,7 +169,9 @@ class VNicService(object):
         """
         if nicspec and network_is_standard(network):
             network_name = network.name
-            nicspec.device.backing = vim.vm.device.VirtualEthernetCard.NetworkBackingInfo()
+            nicspec.device.backing = (
+                vim.vm.device.VirtualEthernetCard.NetworkBackingInfo()
+            )
             nicspec.device.backing.network = network
 
             nicspec.device.wakeOnLanEnabled = True
@@ -186,9 +203,13 @@ class VNicService(object):
 
             dvs_port_connection = vim.dvs.PortConnection()
             dvs_port_connection.portgroupKey = port_group.key
-            dvs_port_connection.switchUuid = port_group.config.distributedVirtualSwitch.uuid
+            dvs_port_connection.switchUuid = (
+                port_group.config.distributedVirtualSwitch.uuid
+            )
 
-            nicspec.device.backing = vim.vm.device.VirtualEthernetCard.DistributedVirtualPortBackingInfo()
+            nicspec.device.backing = (
+                vim.vm.device.VirtualEthernetCard.DistributedVirtualPortBackingInfo()
+            )
             nicspec.device.backing.port = dvs_port_connection
 
             logger.debug("Assigning portgroup '{}' for vNIC".format(network_name))
@@ -207,11 +228,13 @@ class VNicService(object):
 
         if nicspec:
             if network_is_portgroup(network):
-                return VNicService.vnic_attach_to_network_distributed(nicspec, network,
-                                                                      logger=logger)
+                return VNicService.vnic_attach_to_network_distributed(
+                    nicspec, network, logger=logger
+                )
             elif network_is_standard(network):
-                return VNicService.vnic_attach_to_network_standard(nicspec, network,
-                                                                   logger=logger)
+                return VNicService.vnic_attach_to_network_standard(
+                    nicspec, network, logger=logger
+                )
         return None
 
     @staticmethod
@@ -222,7 +245,9 @@ class VNicService(object):
         :param network: <vim network obj>
         :return: <vim.vm.device.VirtualDeviceSpec> ready for inserting to VM
         """
-        return VNicService.vnic_attached_to_network(VNicService.vnic_compose_empty(), network, logger)
+        return VNicService.vnic_attached_to_network(
+            VNicService.vnic_compose_empty(), network, logger
+        )
 
     @staticmethod
     def vnic_add_new_to_vm_task(vm, network, logger):
@@ -239,22 +264,30 @@ class VNicService(object):
 
     @staticmethod
     def is_vnic_attached_to_network(device, network):
-        if hasattr(device, 'backing'):
-            if hasattr(device.backing, 'port') and hasattr(device.backing.port, 'portgroupKey'):
+        if hasattr(device, "backing"):
+            if hasattr(device.backing, "port") and hasattr(
+                device.backing.port, "portgroupKey"
+            ):
                 return device.backing.port.portgroupKey == network.key
-            if hasattr(device.backing, 'network') and hasattr(device.backing.network, 'name'):
+            if hasattr(device.backing, "network") and hasattr(
+                device.backing.network, "name"
+            ):
                 return device.backing.network.name == network.name
         return False
 
     @staticmethod
     def is_vnic_attached_to_one_of_these_networks(device, networks):
         for network in networks:
-            if hasattr(device, 'backing'):
+            if hasattr(device, "backing"):
                 found = False
-                if hasattr(device.backing, 'port') and hasattr(device.backing.port, 'portgroupKey'):
+                if hasattr(device.backing, "port") and hasattr(
+                    device.backing.port, "portgroupKey"
+                ):
                     if device.backing.port.portgroupKey == network.key:
                         found = True
-                if hasattr(device.backing, 'network') and hasattr(device.backing.network, 'name'):
+                if hasattr(device.backing, "network") and hasattr(
+                    device.backing.network, "name"
+                ):
                     if device.backing.network.name == network.name:
                         found = True
                 if found:
@@ -263,7 +296,7 @@ class VNicService(object):
 
     @staticmethod
     def is_vnic_connected(vnic):
-        is_connected = hasattr(vnic, 'connectable') and vnic.connectable.connected
+        is_connected = hasattr(vnic, "connectable") and vnic.connectable.connected
         return is_connected
 
     @staticmethod
@@ -273,9 +306,11 @@ class VNicService(object):
         :param vm: virtual machine
         :return: dictionary: {'vnic_name': vnic}
         """
-        return {device.deviceInfo.label: device
-                for device in vm.config.hardware.device
-                if isinstance(device, vim.vm.device.VirtualEthernetCard)}
+        return {
+            device.deviceInfo.label: device
+            for device in vm.config.hardware.device
+            if isinstance(device, vim.vm.device.VirtualEthernetCard)
+        }
 
     @staticmethod
     def get_device_spec(vnic, set_connected):
@@ -304,19 +339,19 @@ class VNicService(object):
     @staticmethod
     def set_vnic_connectivity_status(nic_spec, to_connect):
         """
-            sets the device spec as connected or disconnected
-            :param nic_spec: the specification
-            :param to_connect: bool
-            """
+        sets the device spec as connected or disconnected
+        :param nic_spec: the specification
+        :param to_connect: bool
+        """
         nic_spec.device.connectable = vim.vm.device.VirtualDevice.ConnectInfo()
         nic_spec.device.connectable.connected = to_connect
         nic_spec.device.connectable.startConnected = to_connect
 
     @staticmethod
     def get_network_vlan_id(network):
-        if hasattr(network, 'config'):
-            if hasattr(network.config, 'defaultPortConfig'):
-                if hasattr(network.config.defaultPortConfig, 'vlan'):
-                    if hasattr(network.config.defaultPortConfig.vlan, 'vlanId'):
+        if hasattr(network, "config"):
+            if hasattr(network.config, "defaultPortConfig"):
+                if hasattr(network.config.defaultPortConfig, "vlan"):
+                    if hasattr(network.config.defaultPortConfig.vlan, "vlanId"):
                         return network.config.defaultPortConfig.vlan.vlanId
         return None

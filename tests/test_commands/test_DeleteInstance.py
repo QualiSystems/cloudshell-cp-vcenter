@@ -1,7 +1,9 @@
-from cloudshell.cp.vcenter.commands.DeleteInstance import DestroyVirtualMachineCommand
 import unittest
+
 from mock import Mock, create_autospec
 from pyVmomi import vim
+
+from cloudshell.cp.vcenter.commands.DeleteInstance import DestroyVirtualMachineCommand
 
 
 class TestDestroyVirtualMachineCommand(unittest.TestCase):
@@ -11,8 +13,8 @@ class TestDestroyVirtualMachineCommand(unittest.TestCase):
         resource_remover = Mock()
         disconnector = Mock()
         si = create_autospec(spec=vim.ServiceInstance)
-        resource_name = 'this/is the name of the template'
-        uuid = 'uuid'
+        resource_name = "this/is the name of the template"
+        uuid = "uuid"
         vm = Mock()
 
         pv_service.destory_vm = Mock(return_value=True)
@@ -27,16 +29,20 @@ class TestDestroyVirtualMachineCommand(unittest.TestCase):
         session = Mock()
         session.GetReservationDetails = Mock(return_value=reservation_details)
         vcenter_data_model = Mock()
-        destroyer = DestroyVirtualMachineCommand(pv_service, resource_remover, disconnector)
+        destroyer = DestroyVirtualMachineCommand(
+            pv_service, resource_remover, disconnector
+        )
 
         # act
-        res = destroyer.destroy(si=si,
-                                logger=Mock(),
-                                session=session,
-                                vcenter_data_model=vcenter_data_model,
-                                vm_uuid=uuid,
-                                vm_name=resource_name,
-                                reservation_id="reservation_id")
+        res = destroyer.destroy(
+            si=si,
+            logger=Mock(),
+            session=session,
+            vcenter_data_model=vcenter_data_model,
+            vm_uuid=uuid,
+            vm_name=resource_name,
+            reservation_id="reservation_id",
+        )
 
         # assert
         self.assertTrue(res)
@@ -45,15 +51,16 @@ class TestDestroyVirtualMachineCommand(unittest.TestCase):
         self.assertTrue(resource_remover.remove_resource.called_with(resource_name))
         self.assertTrue(pv_service.find_by_uuid.called_with(si, uuid))
 
-
-    def test_destroyVirtualMachineCommandDeletesResourceWhenTheVMActualllyRemovedInVCenter(self):
+    def test_destroyVirtualMachineCommandDeletesResourceWhenTheVMActualllyRemovedInVCenter(
+        self,
+    ):
         # arrange
         pv_service = Mock()
         resource_remover = Mock()
         disconnector = Mock()
         si = create_autospec(spec=vim.ServiceInstance)
-        resource_name = 'this/is the name of the template'
-        uuid = 'uuid'
+        resource_name = "this/is the name of the template"
+        uuid = "uuid"
         vm = None
 
         pv_service.destory_vm = Mock(return_value=True)
@@ -68,16 +75,20 @@ class TestDestroyVirtualMachineCommand(unittest.TestCase):
         session = Mock()
         session.GetReservationDetails = Mock(return_value=reservation_details)
         vcenter_data_model = Mock()
-        destroyer = DestroyVirtualMachineCommand(pv_service, resource_remover, disconnector)
+        destroyer = DestroyVirtualMachineCommand(
+            pv_service, resource_remover, disconnector
+        )
 
         # act
-        res = destroyer.destroy(si=si,
-                                logger=Mock(),
-                                session=session,
-                                vcenter_data_model=vcenter_data_model,
-                                vm_uuid=uuid,
-                                vm_name=resource_name,
-                                reservation_id="reservation_id")
+        res = destroyer.destroy(
+            si=si,
+            logger=Mock(),
+            session=session,
+            vcenter_data_model=vcenter_data_model,
+            vm_uuid=uuid,
+            vm_name=resource_name,
+            reservation_id="reservation_id",
+        )
 
         # assert
         self.assertTrue(res)
@@ -92,8 +103,8 @@ class TestDestroyVirtualMachineCommand(unittest.TestCase):
         resource_remover = Mock()
         disconnector = Mock()
         si = create_autospec(spec=vim.ServiceInstance)
-        resource_name = 'this/is the name of the template'
-        uuid = 'uuid'
+        resource_name = "this/is the name of the template"
+        uuid = "uuid"
         vm = Mock()
 
         pv_service.destory_mv = Mock(return_value=True)
@@ -108,15 +119,19 @@ class TestDestroyVirtualMachineCommand(unittest.TestCase):
         session = Mock()
         session.GetReservationDetails = Mock(return_value=reservation_details)
         vcenter_data_model = Mock()
-        destroyer = DestroyVirtualMachineCommand(pv_service, resource_remover, disconnector)
+        destroyer = DestroyVirtualMachineCommand(
+            pv_service, resource_remover, disconnector
+        )
 
         # act
-        res = destroyer.DeleteInstance(si=si,
-                                        logger=Mock(),
-                                        session=session,
-                                        vcenter_data_model=vcenter_data_model,
-                                        vm_uuid=uuid,
-                                        vm_name=resource_name)
+        res = destroyer.DeleteInstance(
+            si=si,
+            logger=Mock(),
+            session=session,
+            vcenter_data_model=vcenter_data_model,
+            vm_uuid=uuid,
+            vm_name=resource_name,
+        )
 
         # assert
         self.assertTrue(res)

@@ -3,7 +3,9 @@ from cloudshell.cp.vcenter.common.vcenter.deployment_details import DeploymentDe
 
 class DeploymentDetailsFactory(object):
     @staticmethod
-    def create_deployment_details(vcenter_resource_model, vm_cluster, vm_storage, vm_resource_pool, vm_location):
+    def create_deployment_details(
+        vcenter_resource_model, vm_cluster, vm_storage, vm_resource_pool, vm_location
+    ):
         """
         :type vcenter_resource_model: VMwarevCenterResourceModel
         :type vm_cluster: str
@@ -21,5 +23,5 @@ class DeploymentDetailsFactory(object):
             vm_cluster=vm_cluster,
             vm_storage=vm_storage,
             vm_resource_pool=vm_resource_pool,
-            vm_location=vm_location
+            vm_location=vm_location,
         )

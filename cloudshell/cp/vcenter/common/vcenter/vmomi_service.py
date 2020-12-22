@@ -3,10 +3,10 @@
 import requests
 from pyVmomi import vim
 
-from cloudshell.cp.vcenter.common.utilites.io import get_path_and_name
-from cloudshell.cp.vcenter.common.vcenter.vm_location import VMLocation
 from cloudshell.cp.vcenter.common.utilites.common_utils import str2bool
+from cloudshell.cp.vcenter.common.utilites.io import get_path_and_name
 from cloudshell.cp.vcenter.common.vcenter.task_waiter import SynchronousTaskWaiter
+from cloudshell.cp.vcenter.common.vcenter.vm_location import VMLocation
 from cloudshell.cp.vcenter.exceptions.task_waiter import TaskFaultException
 
 
@@ -23,13 +23,13 @@ class VCenterAuthError(Exception):
 
 class pyVmomiService:
     # region consts
-    ChildEntity = 'childEntity'
-    VM = 'vmFolder'
-    Network = 'networkFolder'
-    Datacenter = 'datacenterFolder'
-    Host = 'hostFolder'
-    Datastore = 'datastoreFolder'
-    Cluster = 'cluster'
+    ChildEntity = "childEntity"
+    VM = "vmFolder"
+    Network = "networkFolder"
+    Datacenter = "datacenterFolder"
+    Host = "hostFolder"
+    Datastore = "datastoreFolder"
+    Cluster = "cluster"
 
     # endregion
 
@@ -43,46 +43,60 @@ class pyVmomiService:
         self.task_waiter = task_waiter
         if vim_import is None:
             from pyVmomi import vim
+
             self.vim = vim
         else:
             self.vim = vim_import
 
     def connect(self, address, user, password, port=443):
-        """  
+        """
         Connect to vCenter via SSL and return SI object
-        
+
         :param address: vCenter address (host / ip address)
         :param user:    user name for authentication
         :param password:password for authentication
         :param port:    port for the SSL connection. Default = 443
         """
 
-        '# Disabling urllib3 ssl warnings'
+        "# Disabling urllib3 ssl warnings"
         requests.packages.urllib3.disable_warnings()
 
-        '# Disabling SSL certificate verification'
+        "# Disabling SSL certificate verification"
         context = None
         import ssl
+
         ssl._create_default_https_context = ssl._create_unverified_context
 
         try:
             if context:
                 try:
-                    '#si = SmartConnect(host=address, user=user, pwd=password, port=port, sslContext=context)'
-                    si = self.pyvmomi_connect(host=address, user=user, pwd=password, port=port)
+                    "#si = SmartConnect(host=address, user=user, pwd=password, port=port, sslContext=context)"
+                    si = self.pyvmomi_connect(
+                        host=address, user=user, pwd=password, port=port
+                    )
                 except (ssl.SSLEOFError, vim.fault.HostConnectFault):
                     context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
                     context.verify_mode = ssl.CERT_NONE
-                    si = self.pyvmomi_connect(host=address, user=user, pwd=password, port=port, sslContext=context)
+                    si = self.pyvmomi_connect(
+                        host=address,
+                        user=user,
+                        pwd=password,
+                        port=port,
+                        sslContext=context,
+                    )
             else:
-                '#si = SmartConnect(host=address, user=user, pwd=password, port=port)'
-                si = self.pyvmomi_connect(host=address, user=user, pwd=password, port=port)
+                "#si = SmartConnect(host=address, user=user, pwd=password, port=port)"
+                si = self.pyvmomi_connect(
+                    host=address, user=user, pwd=password, port=port
+                )
             return si
         except vim.fault.InvalidLogin as e:
             raise VCenterAuthError(e.msg, e)
         except IOError as e:
             # logger.info("I/O error({0}): {1}".format(e.errno, e.strerror))
-            raise ValueError('Cannot connect to vCenter, please check that the address is valid')
+            raise ValueError(
+                "Cannot connect to vCenter, please check that the address is valid"
+            )
 
     def disconnect(self, si):
         """ Disconnect from vCenter """
@@ -211,7 +225,7 @@ class pyVmomiService:
 
         folder = self.get_folder(si, path)
         if folder is None:
-            raise ValueError('vmomi managed object not found at: {0}'.format(path))
+            raise ValueError("vmomi managed object not found at: {0}".format(path))
 
         look_in = None
         if hasattr(folder, type_name):
@@ -219,10 +233,10 @@ class pyVmomiService:
         if hasattr(folder, self.ChildEntity):
             look_in = folder
         if look_in is None:
-            raise ValueError('vmomi managed object not found at: {0}'.format(path))
+            raise ValueError("vmomi managed object not found at: {0}".format(path))
 
         search_index = si.content.searchIndex
-        '#searches for the specific vm in the folder'
+        "#searches for the specific vm in the folder"
         return search_index.FindChild(look_in, name)
 
     def find_dvs_by_path(self, si, path):
@@ -234,9 +248,13 @@ class pyVmomiService:
         dvs = self.get_folder(si, path)
 
         if not dvs:
-            raise ValueError('Could not find Default DvSwitch in path {0}'.format(path))
+            raise ValueError("Could not find Default DvSwitch in path {0}".format(path))
         elif not isinstance(dvs, vim.dvs.VmwareDistributedVirtualSwitch):
-            raise ValueError('The object in path {0} is {1} and not a DvSwitch'.format(path, type(dvs)))
+            raise ValueError(
+                "The object in path {0} is {1} and not a DvSwitch".format(
+                    path, type(dvs)
+                )
+            )
 
         return dvs
 
@@ -260,44 +278,44 @@ class pyVmomiService:
         try:
             new_root = search_index.FindChild(sub_folder, paths[0])
             if new_root:
-                child = self.get_folder(si, '/'.join(paths[1:]), new_root)
+                child = self.get_folder(si, "/".join(paths[1:]), new_root)
         except:
             child = None
 
         if child is None and hasattr(sub_folder, self.ChildEntity):
             new_root = search_index.FindChild(sub_folder, paths[0])
             if new_root:
-                child = self.get_folder(si, '/'.join(paths[1:]), new_root)
+                child = self.get_folder(si, "/".join(paths[1:]), new_root)
 
         if child is None and hasattr(sub_folder, self.VM):
             new_root = search_index.FindChild(sub_folder.vmFolder, paths[0])
             if new_root:
-                child = self.get_folder(si, '/'.join(paths[1:]), new_root)
+                child = self.get_folder(si, "/".join(paths[1:]), new_root)
 
         if child is None and hasattr(sub_folder, self.Datastore):
             new_root = search_index.FindChild(sub_folder.datastoreFolder, paths[0])
             if new_root:
-                child = self.get_folder(si, '/'.join(paths[1:]), new_root)
+                child = self.get_folder(si, "/".join(paths[1:]), new_root)
 
         if child is None and hasattr(sub_folder, self.Network):
             new_root = search_index.FindChild(sub_folder.networkFolder, paths[0])
             if new_root:
-                child = self.get_folder(si, '/'.join(paths[1:]), new_root)
+                child = self.get_folder(si, "/".join(paths[1:]), new_root)
 
         if child is None and hasattr(sub_folder, self.Host):
             new_root = search_index.FindChild(sub_folder.hostFolder, paths[0])
             if new_root:
-                child = self.get_folder(si, '/'.join(paths[1:]), new_root)
+                child = self.get_folder(si, "/".join(paths[1:]), new_root)
 
         if child is None and hasattr(sub_folder, self.Datacenter):
             new_root = search_index.FindChild(sub_folder.datacenterFolder, paths[0])
             if new_root:
-                child = self.get_folder(si, '/'.join(paths[1:]), new_root)
+                child = self.get_folder(si, "/".join(paths[1:]), new_root)
 
-        if child is None and hasattr(sub_folder, 'resourcePool'):
+        if child is None and hasattr(sub_folder, "resourcePool"):
             new_root = search_index.FindChild(sub_folder.resourcePool, paths[0])
             if new_root:
-                child = self.get_folder(si, '/'.join(paths[1:]), new_root)
+                child = self.get_folder(si, "/".join(paths[1:]), new_root)
 
         return child
 
@@ -339,7 +357,8 @@ class pyVmomiService:
     @staticmethod
     def _get_all_objects_by_type(content, vimtype):
         container = content.viewManager.CreateContainerView(
-            content.rootFolder, vimtype, True)
+            content.rootFolder, vimtype, True
+        )
         return container
 
     @staticmethod
@@ -348,31 +367,39 @@ class pyVmomiService:
         if arr_items:
             if accept_multi or len(arr_items) == 1:
                 return arr_items[0]
-            raise Exception('There is more the one items of the given type')
-        raise KeyError('Could not find item of the given type')
+            raise Exception("There is more the one items of the given type")
+        raise KeyError("Could not find item of the given type")
 
     @staticmethod
     def get_all_items_in_vcenter(si, type_filter, root=None):
         root = root if root else si.content.rootFolder
-        container = si.content.viewManager.CreateContainerView(container=root, recursive=True)
-        return [item for item in container.view if not type_filter or isinstance(item, type_filter)]
+        container = si.content.viewManager.CreateContainerView(
+            container=root, recursive=True
+        )
+        return [
+            item
+            for item in container.view
+            if not type_filter or isinstance(item, type_filter)
+        ]
 
     class CloneVmParameters:
         """
         This is clone_vm method params object
         """
 
-        def __init__(self,
-                     si,
-                     template_name,
-                     vm_name,
-                     vm_folder,
-                     datastore_name=None,
-                     cluster_name=None,
-                     resource_pool=None,
-                     power_on=True,
-                     snapshot='',
-                     customization_spec=''):
+        def __init__(
+            self,
+            si,
+            template_name,
+            vm_name,
+            vm_folder,
+            datastore_name=None,
+            cluster_name=None,
+            resource_pool=None,
+            power_on=True,
+            snapshot="",
+            customization_spec="",
+        ):
             """
             Constructor of CloneVmParameters
             :param si:              pyvmomi 'ServiceInstance'
@@ -423,19 +450,19 @@ class pyVmomiService:
         result = self.CloneVmResult()
 
         if not isinstance(clone_params.si, self.vim.ServiceInstance):
-            result.error = 'si must be init as ServiceInstance'
+            result.error = "si must be init as ServiceInstance"
             return result
 
         if clone_params.template_name is None:
-            result.error = 'template_name param cannot be None'
+            result.error = "template_name param cannot be None"
             return result
 
         if clone_params.vm_name is None:
-            result.error = 'vm_name param cannot be None'
+            result.error = "vm_name param cannot be None"
             return result
 
         if clone_params.vm_folder is None:
-            result.error = 'vm_folder param cannot be None'
+            result.error = "vm_folder param cannot be None"
             return result
 
         datacenter = self.get_datacenter(clone_params)
@@ -453,9 +480,11 @@ class pyVmomiService:
         customization_spec = self._get_customization_spec(clone_params)
 
         if not resource_pool and not host:
-            raise ValueError('The specifed host, cluster or resource pool could not be found')
+            raise ValueError(
+                "The specifed host, cluster or resource pool could not be found"
+            )
 
-        '# set relo_spec'
+        "# set relo_spec"
         placement = self.vim.vm.RelocateSpec()
         if resource_pool:
             placement.pool = resource_pool
@@ -467,7 +496,7 @@ class pyVmomiService:
         if snapshot:
             clone_spec.snapshot = snapshot
             clone_spec.template = False
-            placement.diskMoveType = 'createNewChildDiskBacking'
+            placement.diskMoveType = "createNewChildDiskBacking"
 
         if customization_spec:
             clone_spec.customization = customization_spec.spec
@@ -482,75 +511,104 @@ class pyVmomiService:
 
         logger.info("cloning VM...")
         try:
-            task = template.Clone(folder=dest_folder, name=clone_params.vm_name, spec=clone_spec)
-            vm = self.task_waiter.wait_for_task(task=task, logger=logger, action_name='Clone VM',
-                                                cancellation_context=cancellation_context)
+            task = template.Clone(
+                folder=dest_folder, name=clone_params.vm_name, spec=clone_spec
+            )
+            vm = self.task_waiter.wait_for_task(
+                task=task,
+                logger=logger,
+                action_name="Clone VM",
+                cancellation_context=cancellation_context,
+            )
         except TaskFaultException:
             raise
         except vim.fault.NoPermission as error:
             logger.error("vcenter returned - no permission: {0}".format(error))
-            raise Exception('Permissions is not set correctly, please check the log for more info.')
+            raise Exception(
+                "Permissions is not set correctly, please check the log for more info."
+            )
         except Exception as e:
             logger.error("error deploying: {0}".format(e))
-            raise Exception('Error has occurred while deploying, please look at the log for more info.')
+            raise Exception(
+                "Error has occurred while deploying, please look at the log for more info."
+            )
 
         result.vm = vm
         return result
 
     def get_datacenter(self, clone_params):
-        splited = clone_params.vm_folder.split('/')
+        splited = clone_params.vm_folder.split("/")
         root_path = splited[0]
         datacenter = self.get_folder(clone_params.si, root_path)
         return datacenter
 
     def _get_destination_folder(self, clone_params):
         managed_object = self.get_folder(clone_params.si, clone_params.vm_folder)
-        dest_folder = ''
+        dest_folder = ""
         if isinstance(managed_object, self.vim.Datacenter):
             dest_folder = managed_object.vmFolder
         elif isinstance(managed_object, self.vim.Folder):
             dest_folder = managed_object
         if not dest_folder:
-            raise ValueError('Failed to find folder: {0}'.format(clone_params.vm_folder))
+            raise ValueError(
+                "Failed to find folder: {0}".format(clone_params.vm_folder)
+            )
         return dest_folder
 
     def _get_template(self, clone_params, vm_location):
-        template = self.find_vm_by_name(clone_params.si, vm_location.path, vm_location.name)
+        template = self.find_vm_by_name(
+            clone_params.si, vm_location.path, vm_location.name
+        )
         if not template:
-            raise ValueError('Virtual Machine Template with name {0} was not found under folder {1}'
-                             .format(vm_location.name, vm_location.path))
+            raise ValueError(
+                "Virtual Machine Template with name {0} was not found under folder {1}".format(
+                    vm_location.name, vm_location.path
+                )
+            )
         return template
 
     def _get_datastore(self, clone_params):
-        datastore = ''
-        parts = clone_params.datastore_name.split('/')
+        datastore = ""
+        parts = clone_params.datastore_name.split("/")
         if not parts:
-            raise ValueError('Datastore could not be empty')
+            raise ValueError("Datastore could not be empty")
         name = parts[len(parts) - 1]
         if name:
-            datastore = self.get_obj(clone_params.si.content,
-                                     [[self.vim.Datastore]],
-                                     name)
+            datastore = self.get_obj(
+                clone_params.si.content, [[self.vim.Datastore]], name
+            )
         if not datastore:
-            datastore = self.get_obj(clone_params.si.content,
-                                     [[self.vim.StoragePod]],
-                                     name)
+            datastore = self.get_obj(
+                clone_params.si.content, [[self.vim.StoragePod]], name
+            )
             if datastore:
-                datastore = sorted(datastore.childEntity,
-                                   key=lambda data: data.summary.freeSpace,
-                                   reverse=True)[0]
+                datastore = sorted(
+                    datastore.childEntity,
+                    key=lambda data: data.summary.freeSpace,
+                    reverse=True,
+                )[0]
 
         if not datastore:
-            raise ValueError('Could not find Datastore: "{0}"'.format(clone_params.datastore_name))
+            raise ValueError(
+                'Could not find Datastore: "{0}"'.format(clone_params.datastore_name)
+            )
         return datastore
 
     def get_resource_pool(self, datacenter_name, clone_params):
 
-        obj_name = '{0}/{1}/{2}'.format(datacenter_name,
-                                        clone_params.cluster_name,
-                                        clone_params.resource_pool).rstrip('/').split('/')[-1]
+        obj_name = (
+            "{0}/{1}/{2}".format(
+                datacenter_name, clone_params.cluster_name, clone_params.resource_pool
+            )
+            .rstrip("/")
+            .split("/")[-1]
+        )
         # obj = self.get_folder(clone_params.si, resource_full_path)
-        accepted_types = [[vim.ResourcePool], [vim.ClusterComputeResource], [vim.HostSystem]]
+        accepted_types = [
+            [vim.ResourcePool],
+            [vim.ClusterComputeResource],
+            [vim.HostSystem],
+        ]
         obj = self.get_obj(clone_params.si.content, accepted_types, obj_name)
 
         resource_pool = None
@@ -568,8 +626,8 @@ class pyVmomiService:
         return resource_pool, host
 
     def destroy_vm(self, vm, logger):
-        """ 
-        destroy the given vm  
+        """
+        destroy the given vm
         :param vm: virutal machine pyvmomi object
         :param logger:
         """
@@ -579,18 +637,27 @@ class pyVmomiService:
         logger.info(("Destroying VM {0}".format(vm.name)))
 
         task = vm.Destroy_Task()
-        return self.task_waiter.wait_for_task(task=task, logger=logger, action_name="Destroy VM")
+        return self.task_waiter.wait_for_task(
+            task=task, logger=logger, action_name="Destroy VM"
+        )
 
     def power_off_before_destroy(self, logger, vm):
-        if vm.runtime.powerState == 'poweredOn':
-            logger.info(("The current powerState is: {0}. Attempting to power off {1}"
-                         .format(vm.runtime.powerState, vm.name)))
+        if vm.runtime.powerState == "poweredOn":
+            logger.info(
+                (
+                    "The current powerState is: {0}. Attempting to power off {1}".format(
+                        vm.runtime.powerState, vm.name
+                    )
+                )
+            )
             task = vm.PowerOffVM_Task()
-            self.task_waiter.wait_for_task(task=task, logger=logger, action_name="Power Off Before Destroy")
+            self.task_waiter.wait_for_task(
+                task=task, logger=logger, action_name="Power Off Before Destroy"
+            )
 
     def destroy_vm_by_name(self, si, vm_name, vm_path, logger):
-        """ 
-        destroy the given vm  
+        """
+        destroy the given vm
         :param si:      pyvmomi 'ServiceInstance'
         :param vm_name: str name of the vm to destroyed
         :param vm_path: str path to the vm that will be destroyed
@@ -600,7 +667,7 @@ class pyVmomiService:
             vm = self.find_vm_by_name(si, vm_path, vm_name)
             if vm:
                 return self.destroy_vm(vm, logger)
-        raise ValueError('vm not found')
+        raise ValueError("vm not found")
 
     def destroy_vm_by_uuid(self, si, vm_uuid, vm_path, logger):
         """
@@ -616,7 +683,7 @@ class pyVmomiService:
                 return self.destroy_vm(vm, logger)
         # return 'vm not found'
         # for apply the same Interface as for 'destroy_vm_by_name'
-        raise ValueError('vm not found')
+        raise ValueError("vm not found")
 
     def get_vm_by_uuid(self, si, vm_uuid):
         return self.find_by_uuid(si, vm_uuid, True)
@@ -629,28 +696,34 @@ class pyVmomiService:
 
     def get_network_by_key_from_vm(self, vm, network_key):
         for network in vm.network:
-            if hasattr(network, 'key') and network_key == network.key:
+            if hasattr(network, "key") and network_key == network.key:
                 return network
         return
 
     def get_network_by_mac_address(self, vm, mac_address):
-        backing = [device.backing for device in vm.config.hardware.device
-                   if isinstance(device, vim.vm.device.VirtualEthernetCard)
-                   and hasattr(device, 'macAddress')
-                   and device.macAddress == mac_address]
+        backing = [
+            device.backing
+            for device in vm.config.hardware.device
+            if isinstance(device, vim.vm.device.VirtualEthernetCard)
+            and hasattr(device, "macAddress")
+            and device.macAddress == mac_address
+        ]
 
         if backing:
             back = backing[0]
-            if hasattr(back, 'network'):
+            if hasattr(back, "network"):
                 return back.network
-            if hasattr(back, 'port'):
+            if hasattr(back, "port"):
                 return back.port
         return None
 
     def get_vnic_by_mac_address(self, vm, mac_address):
         for device in vm.config.hardware.device:
-            if isinstance(device, vim.vm.device.VirtualEthernetCard) \
-                    and hasattr(device, 'macAddress') and device.macAddress == mac_address:
+            if (
+                isinstance(device, vim.vm.device.VirtualEthernetCard)
+                and hasattr(device, "macAddress")
+                and device.macAddress == mac_address
+            ):
                 # mac address is unique
                 return device
         return None
@@ -683,18 +756,24 @@ class pyVmomiService:
 
     @staticmethod
     def _get_snapshot(clone_params, template):
-        snapshot_name = getattr(clone_params, 'snapshot', None)
+        snapshot_name = getattr(clone_params, "snapshot", None)
         if not snapshot_name:
             return None
 
-        if not hasattr(template, 'snapshot') and hasattr(template.snapshot, 'rootSnapshotList'):
-            raise ValueError('The given vm does not have any snapshots')
+        if not hasattr(template, "snapshot") and hasattr(
+            template.snapshot, "rootSnapshotList"
+        ):
+            raise ValueError("The given vm does not have any snapshots")
 
-        paths = snapshot_name.split('/')
+        paths = snapshot_name.split("/")
         temp_snap = template.snapshot
         for path in paths:
             if path:
-                root = getattr(temp_snap, 'rootSnapshotList', getattr(temp_snap, 'childSnapshotList', None))
+                root = getattr(
+                    temp_snap,
+                    "rootSnapshotList",
+                    getattr(temp_snap, "childSnapshotList", None),
+                )
                 if not root:
                     temp_snap = None
                     break
@@ -710,11 +789,13 @@ class pyVmomiService:
         if temp_snap:
             return temp_snap.snapshot
 
-        raise ValueError('Could not find snapshot in vm')
+        raise ValueError("Could not find snapshot in vm")
 
     @staticmethod
     def _get_snapshot_from_root_snapshot(name, root_snapshot):
-        sorted_by_creation = sorted(root_snapshot, key=lambda x: x.createTime, reverse=True)
+        sorted_by_creation = sorted(
+            root_snapshot, key=lambda x: x.createTime, reverse=True
+        )
         for snapshot_header in sorted_by_creation:
             if snapshot_header.name == name:
                 return snapshot_header
@@ -747,28 +828,41 @@ class pyVmomiService:
             folder_name = folder.name
             folder_parent = folder.parent
 
-            while folder_parent and folder_parent.name and folder_parent != si.content.rootFolder and not isinstance(
-                    folder_parent, vim.Datacenter):
-                folder_name = folder_parent.name + '/' + folder_name
+            while (
+                folder_parent
+                and folder_parent.name
+                and folder_parent != si.content.rootFolder
+                and not isinstance(folder_parent, vim.Datacenter)
+            ):
+                folder_name = folder_parent.name + "/" + folder_name
                 try:
                     folder_parent = folder_parent.parent
                 except Exception:
                     break
             # at this stage we receive a path like this: vm/FOLDER1/FOLDER2;
             # we're not interested in the "vm" part, so we throw that away
-            folder_name = '/'.join(folder_name.split('/')[1:])
+            folder_name = "/".join(folder_name.split("/")[1:])
         # ok, now we're adding the vm name; btw, if there is no folder, that's cool, just return vm.name
         return VMLocation.combine([folder_name, vm.name]) if folder_name else vm.name
 
     def _get_customization_spec(self, clone_params):
         if clone_params.customization_spec:
-            return clone_params.si.content.customizationSpecManager.GetCustomizationSpec(
-                name=clone_params.customization_spec)
+            return (
+                clone_params.si.content.customizationSpecManager.GetCustomizationSpec(
+                    name=clone_params.customization_spec
+                )
+            )
         return None
-
 
 
 def vm_has_no_vnics(vm):
     # Is there any network device on vm
-    return next((False for device in vm.config.hardware.device
-                 if isinstance(device, vim.vm.device.VirtualEthernetCard) and hasattr(device, 'macAddress')), True)
+    return next(
+        (
+            False
+            for device in vm.config.hardware.device
+            if isinstance(device, vim.vm.device.VirtualEthernetCard)
+            and hasattr(device, "macAddress")
+        ),
+        True,
+    )

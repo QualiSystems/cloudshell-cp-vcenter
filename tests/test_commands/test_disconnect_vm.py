@@ -1,16 +1,21 @@
 from unittest import TestCase
+
 from mock import Mock
 from pyVmomi import vim
-from cloudshell.cp.vcenter.commands.disconnect_dvswitch import VirtualSwitchToMachineDisconnectCommand
-from cloudshell.cp.vcenter.models.VMwarevCenterResourceModel import VMwarevCenterResourceModel
+
+from cloudshell.cp.vcenter.commands.disconnect_dvswitch import (
+    VirtualSwitchToMachineDisconnectCommand,
+)
+from cloudshell.cp.vcenter.models.VMwarevCenterResourceModel import (
+    VMwarevCenterResourceModel,
+)
 from cloudshell.cp.vcenter.network.vnic.vnic_service import VNicService
 
 
 class TestVirtualSwitchToMachineDisconnectCommand(TestCase):
-
     def test_delete_all(self):
         # arrange
-        uuid = 'uuid'
+        uuid = "uuid"
         si = Mock()
         vm = Mock()
 
@@ -24,32 +29,40 @@ class TestVirtualSwitchToMachineDisconnectCommand(TestCase):
         pv_service.connect = Mock(return_value=si)
         pv_service.find_by_uuid = Mock(return_value=vm)
 
-        connector = VirtualSwitchToMachineDisconnectCommand(pv_service, Mock(), 'anetwork')
+        connector = VirtualSwitchToMachineDisconnectCommand(
+            pv_service, Mock(), "anetwork"
+        )
         # virtual_switch_to_machine_connector.remove_interfaces_from_vm = Mock(return_value=True)
         connector.get_network_by_name = lambda x, y: Mock()
 
         vcenter_data_model = VMwarevCenterResourceModel()
 
         # act
-        res = connector.disconnect(si=si,
-                                   logger=Mock(),
-                                   vcenter_data_model=vcenter_data_model,
-                                   vm_uuid=uuid,
-                                   network_name=None,
-                                   vm=None)
+        res = connector.disconnect(
+            si=si,
+            logger=Mock(),
+            vcenter_data_model=vcenter_data_model,
+            vm_uuid=uuid,
+            network_name=None,
+            vm=None,
+        )
         # assert
-        self.assertTrue(pv_service.connect.called_with(connection_detail.host,
-                                                       connection_detail.username,
-                                                       connection_detail.password,
-                                                       connection_detail.port))
+        self.assertTrue(
+            pv_service.connect.called_with(
+                connection_detail.host,
+                connection_detail.username,
+                connection_detail.password,
+                connection_detail.port,
+            )
+        )
         self.assertTrue(pv_service.find_by_uuid.called_with(si, uuid))
         # self.assertTrue(virtual_switch_to_machine_connector.remove_interfaces_from_vm.called_with(vm))
         self.assertTrue(res)
 
     def test_delete(self):
         # arrange
-        uuid = 'uuid'
-        network_name = 'network_name'
+        uuid = "uuid"
+        network_name = "network_name"
 
         network = Mock()
         network.name = network_name
@@ -67,22 +80,30 @@ class TestVirtualSwitchToMachineDisconnectCommand(TestCase):
         pv_service.connect = Mock(return_value=si)
         pv_service.find_by_uuid = Mock(return_value=vm)
 
-        connector = VirtualSwitchToMachineDisconnectCommand(pv_service, Mock(), 'anetwork')
+        connector = VirtualSwitchToMachineDisconnectCommand(
+            pv_service, Mock(), "anetwork"
+        )
 
         vcenter_data_model = VMwarevCenterResourceModel()
 
         # act
-        res = connector.disconnect(si=si,
-                                   logger=Mock(),
-                                   vcenter_data_model=vcenter_data_model,
-                                   vm_uuid= uuid,
-                                   network_name=network_name)
+        res = connector.disconnect(
+            si=si,
+            logger=Mock(),
+            vcenter_data_model=vcenter_data_model,
+            vm_uuid=uuid,
+            network_name=network_name,
+        )
 
         # assert
-        self.assertTrue(pv_service.connect.called_with(connection_detail.host,
-                                                       connection_detail.username,
-                                                       connection_detail.password,
-                                                       connection_detail.port))
+        self.assertTrue(
+            pv_service.connect.called_with(
+                connection_detail.host,
+                connection_detail.username,
+                connection_detail.password,
+                connection_detail.port,
+            )
+        )
         self.assertTrue(pv_service.find_by_uuid.called_with(si, uuid))
         self.assertTrue(res)
 
@@ -94,7 +115,7 @@ class TestVirtualSwitchToMachineDisconnectCommand(TestCase):
 
         device.backing = backing
         backing.port = port
-        port.portgroupKey = 'port key'
+        port.portgroupKey = "port key"
 
         # act
         res = VNicService.device_is_attached_to_network(device, port.portgroupKey)
@@ -110,7 +131,7 @@ class TestVirtualSwitchToMachineDisconnectCommand(TestCase):
 
         device.backing = backing
         backing.network = nerwork
-        nerwork.name = 'vln name or network name'
+        nerwork.name = "vln name or network name"
 
         # act
         res = VNicService.device_is_attached_to_network(device, nerwork.name)
@@ -123,11 +144,13 @@ class TestVirtualSwitchToMachineDisconnectCommand(TestCase):
         device = Mock()
         device.backing = Mock(spec=[])
 
-        virtual_switch_to_machine_connector = VirtualSwitchToMachineDisconnectCommand(Mock(), Mock(), 'anetwork')
+        virtual_switch_to_machine_connector = VirtualSwitchToMachineDisconnectCommand(
+            Mock(), Mock(), "anetwork"
+        )
 
         # act
         # res = virtual_switch_to_machine_connector.is_device_match_network(device, 'Fake name')
-        res = VNicService.device_is_attached_to_network(device, 'Fake name')
+        res = VNicService.device_is_attached_to_network(device, "Fake name")
 
         # assert
         self.assertFalse(res)
@@ -139,7 +162,9 @@ class TestVirtualSwitchToMachineDisconnectCommand(TestCase):
         vm.config.hardware()
         vm.config.hardware.device = []
 
-        virtual_switch_to_machine_connector = VirtualSwitchToMachineDisconnectCommand(Mock(), Mock(), 'anetwork')
+        virtual_switch_to_machine_connector = VirtualSwitchToMachineDisconnectCommand(
+            Mock(), Mock(), "anetwork"
+        )
 
         # act
         res = virtual_switch_to_machine_connector.remove_interfaces_from_vm_task(vm)
@@ -156,7 +181,9 @@ class TestVirtualSwitchToMachineDisconnectCommand(TestCase):
         vm.config.hardware()
         vm.config.hardware.device = [device2, device1]
 
-        virtual_switch_to_machine_connector = VirtualSwitchToMachineDisconnectCommand(Mock(), Mock(), 'anetwork')
+        virtual_switch_to_machine_connector = VirtualSwitchToMachineDisconnectCommand(
+            Mock(), Mock(), "anetwork"
+        )
 
         # act
         res = virtual_switch_to_machine_connector.remove_interfaces_from_vm_task(vm)
@@ -171,17 +198,17 @@ class TestVirtualSwitchToMachineDisconnectCommand(TestCase):
         device2 = Mock(spec=vim.vm.device.VirtualEthernetCard)
         device3 = Mock(spec=vim.vm.device.VirtualSoundCard)
 
-        device1.name = 'this is the one'
-        device2.name = 'very close'
-        device3.name = 'not it'
+        device1.name = "this is the one"
+        device2.name = "very close"
+        device3.name = "not it"
 
         vm = Mock()
         vm.config = Mock()
         vm.config.hardware()
         vm.config.hardware.device = [device3, device2, device1]
 
-        connector = VirtualSwitchToMachineDisconnectCommand(Mock(), Mock(), 'anetwork')
-        #connector.remove_devices = Mock(return_value=True)
+        connector = VirtualSwitchToMachineDisconnectCommand(Mock(), Mock(), "anetwork")
+        # connector.remove_devices = Mock(return_value=True)
 
         # act
         condition = lambda device: device.name == device1.name

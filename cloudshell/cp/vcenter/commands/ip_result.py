@@ -2,9 +2,9 @@ from enum import Enum
 
 
 class IpReason(Enum):
-    Success = 0,
-    Timeout = 1,
-    Cancelled = 2,
+    Success = (0,)
+    Timeout = (1,)
+    Cancelled = (2,)
     NotFound = 3
 
 

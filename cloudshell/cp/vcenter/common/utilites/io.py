@@ -30,5 +30,7 @@ def get_path_and_name(full_name):
     """
     if full_name:
         parts = full_name.split("/")
-        return ("/".join(parts[0:-1]), parts[-1]) if len(parts) > 1 else ("/", full_name)
+        return (
+            ("/".join(parts[0:-1]), parts[-1]) if len(parts) > 1 else ("/", full_name)
+        )
     return None, None

@@ -1,5 +1,3 @@
-
-
 class CloudshellResourceRemover(object):
     def remove_resource(self, session, resource_full_name):
         """

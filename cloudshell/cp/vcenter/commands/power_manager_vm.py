@@ -1,5 +1,3 @@
-
-
 class VirtualMachinePowerManagementCommand(object):
     def __init__(self, pyvmomi_service, synchronous_task_waiter):
         """
@@ -12,7 +10,9 @@ class VirtualMachinePowerManagementCommand(object):
         self.pv_service = pyvmomi_service
         self.synchronous_task_waiter = synchronous_task_waiter
 
-    def power_off(self, si, logger, session, vcenter_data_model, vm_uuid, resource_fullname):
+    def power_off(
+        self, si, logger, session, vcenter_data_model, vm_uuid, resource_fullname
+    ):
         """
         Power off of a vm
         :param vcenter_data_model: vcenter model
@@ -25,32 +25,44 @@ class VirtualMachinePowerManagementCommand(object):
         :return:
         """
 
-        logger.info('retrieving vm by uuid: {0}'.format(vm_uuid))
+        logger.info("retrieving vm by uuid: {0}".format(vm_uuid))
         vm = self.pv_service.find_by_uuid(si, vm_uuid)
 
-        if vm.summary.runtime.powerState == 'poweredOff':
-            logger.info('vm already powered off')
-            task_result = 'Already powered off'
+        if vm.summary.runtime.powerState == "poweredOff":
+            logger.info("vm already powered off")
+            task_result = "Already powered off"
         else:
             # hard power off
-            logger.info('{0} powering of vm'.format(vcenter_data_model.shutdown_method))
-            if vcenter_data_model.shutdown_method.lower() != 'soft':
+            logger.info("{0} powering of vm".format(vcenter_data_model.shutdown_method))
+            if vcenter_data_model.shutdown_method.lower() != "soft":
                 task = vm.PowerOff()
-                task_result = self.synchronous_task_waiter.wait_for_task(task=task,
-                                                                         logger=logger,
-                                                                         action_name='Power Off')
+                task_result = self.synchronous_task_waiter.wait_for_task(
+                    task=task, logger=logger, action_name="Power Off"
+                )
             else:
-                if vm.guest.toolsStatus == 'toolsNotInstalled':
-                    logger.warning('VMWare Tools status on virtual machine \'{0}\' are not installed'.format(vm.name))
-                    raise ValueError('Cannot power off the vm softly because VMWare Tools are not installed')
+                if vm.guest.toolsStatus == "toolsNotInstalled":
+                    logger.warning(
+                        "VMWare Tools status on virtual machine '{0}' are not installed".format(
+                            vm.name
+                        )
+                    )
+                    raise ValueError(
+                        "Cannot power off the vm softly because VMWare Tools are not installed"
+                    )
 
-                if vm.guest.toolsStatus == 'toolsNotRunning':
-                    logger.warning('VMWare Tools status on virtual machine \'{0}\' are not running'.format(vm.name))
-                    raise ValueError('Cannot power off the vm softly because VMWare Tools are not running')
+                if vm.guest.toolsStatus == "toolsNotRunning":
+                    logger.warning(
+                        "VMWare Tools status on virtual machine '{0}' are not running".format(
+                            vm.name
+                        )
+                    )
+                    raise ValueError(
+                        "Cannot power off the vm softly because VMWare Tools are not running"
+                    )
 
                 vm.ShutdownGuest()
-                task_result = 'vm powered off'
-        
+                task_result = "vm powered off"
+
         return task_result
 
     def power_on(self, si, logger, session, vm_uuid, resource_fullname):
@@ -63,17 +75,17 @@ class VirtualMachinePowerManagementCommand(object):
         :param resource_fullname: the full name of the deployed app resource
         :return:
         """
-        logger.info('retrieving vm by uuid: {0}'.format(vm_uuid))
+        logger.info("retrieving vm by uuid: {0}".format(vm_uuid))
         vm = self.pv_service.find_by_uuid(si, vm_uuid)
 
-        if vm.summary.runtime.powerState == 'poweredOn':
-            logger.info('vm already powered on')
-            task_result = 'Already powered on'
+        if vm.summary.runtime.powerState == "poweredOn":
+            logger.info("vm already powered on")
+            task_result = "Already powered on"
         else:
-            logger.info('powering on vm')
+            logger.info("powering on vm")
             task = vm.PowerOn()
-            task_result = self.synchronous_task_waiter.wait_for_task(task=task,
-                                                                     logger=logger,
-                                                                     action_name='Power On')
+            task_result = self.synchronous_task_waiter.wait_for_task(
+                task=task, logger=logger, action_name="Power On"
+            )
 
         return task_result

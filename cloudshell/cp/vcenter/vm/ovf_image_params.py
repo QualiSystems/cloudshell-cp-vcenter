@@ -1,8 +1,11 @@
 import cloudshell
 
+
 class OvfImageParams(object):
     def __init__(self):
-        self.connectivity = None  # type: cloudshell.cp.vcenter.models.VCenterConnectionDetails
+        self.connectivity = (
+            None
+        )  # type: cloudshell.cp.vcenter.models.VCenterConnectionDetails
         self.datacenter = None  # type: str
         self.cluster = None  # type: str
         self.resource_pool = None  # type: str

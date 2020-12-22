@@ -1,8 +1,9 @@
-from cloudshell.cp.vcenter.models.VCenterConnectionDetails import VCenterConnectionDetails
+from cloudshell.cp.vcenter.models.VCenterConnectionDetails import (
+    VCenterConnectionDetails,
+)
 
 
 class ResourceConnectionDetailsRetriever:
-
     @staticmethod
     def get_connection_details(session, vcenter_resource_model, resource_context):
         """
@@ -22,4 +23,3 @@ class ResourceConnectionDetailsRetriever:
         password = session.DecryptPassword(vcenter_resource_model.password).Value
 
         return VCenterConnectionDetails(vcenter_url, user, password)
-

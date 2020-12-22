@@ -1,8 +1,11 @@
+from cloudshell.api.cloudshell_api import CloudShellAPISession
+
 from cloudshell.cp.vcenter.common.vcenter.task_waiter import SynchronousTaskWaiter
 from cloudshell.cp.vcenter.common.vcenter.vm_snapshots import SnapshotRetriever
 from cloudshell.cp.vcenter.common.vcenter.vmomi_service import pyVmomiService
-from cloudshell.cp.vcenter.exceptions.snapshot_not_found import SnapshotNotFoundException
-from cloudshell.api.cloudshell_api import CloudShellAPISession
+from cloudshell.cp.vcenter.exceptions.snapshot_not_found import (
+    SnapshotNotFoundException,
+)
 
 
 class SnapshotRestoreCommand:
@@ -18,7 +21,9 @@ class SnapshotRestoreCommand:
         self.pyvmomi_service = pyvmomi_service
         self.task_waiter = task_waiter
 
-    def restore_snapshot(self, si, logger, session, vm_uuid, resource_fullname, snapshot_name):
+    def restore_snapshot(
+        self, si, logger, session, vm_uuid, resource_fullname, snapshot_name
+    ):
         """
         Restores a virtual machine to a snapshot
         :param vim.ServiceInstance si: py_vmomi service instance
@@ -34,11 +39,15 @@ class SnapshotRestoreCommand:
 
         logger.info("Revert snapshot")
 
-        snapshot = SnapshotRestoreCommand._get_snapshot(vm=vm, snapshot_name=snapshot_name)
+        snapshot = SnapshotRestoreCommand._get_snapshot(
+            vm=vm, snapshot_name=snapshot_name
+        )
         session.SetResourceLiveStatus(resource_fullname, "Offline", "Powered Off")
         task = snapshot.RevertToSnapshot_Task()
-		
-        return self.task_waiter.wait_for_task(task=task, logger=logger, action_name='Revert Snapshot')
+
+        return self.task_waiter.wait_for_task(
+            task=task, logger=logger, action_name="Revert Snapshot"
+        )
 
     @staticmethod
     def _get_snapshot(vm, snapshot_name):
@@ -53,7 +62,8 @@ class SnapshotRestoreCommand:
         snapshots = SnapshotRetriever.get_vm_snapshots(vm)
 
         if snapshot_name not in snapshots:
-            raise SnapshotNotFoundException('Snapshot {0} was not found'.format(snapshot_name))
+            raise SnapshotNotFoundException(
+                "Snapshot {0} was not found".format(snapshot_name)
+            )
 
         return snapshots[snapshot_name]
-

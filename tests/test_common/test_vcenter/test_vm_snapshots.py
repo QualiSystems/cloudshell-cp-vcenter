@@ -24,7 +24,7 @@ class TestSnapshotRetriever(unittest.TestCase):
     def test_one_snapshot_when_one_snapshot_exists(self):
         # Arrange
         snapshot = Mock()
-        snapshot.name = 'snap1'
+        snapshot.name = "snap1"
         snapshot.childSnapshotList = []
 
         vm = Mock()
@@ -35,16 +35,16 @@ class TestSnapshotRetriever(unittest.TestCase):
         all_snapshots = SnapshotRetriever.get_vm_snapshots(vm)
 
         # assert
-        self.assertSequenceEqual(list(all_snapshots.keys()), ['snap1'])
+        self.assertSequenceEqual(list(all_snapshots.keys()), ["snap1"])
 
     def test_two_snapshots_when_root_snapshot_has_a_child(self):
         # Arrange
         child = Mock()
-        child.name = 'child'
+        child.name = "child"
         child.childSnapshotList = []
 
         root = Mock()
-        root.name = 'root'
+        root.name = "root"
         root.childSnapshotList = [child]
 
         vm = Mock()
@@ -55,14 +55,14 @@ class TestSnapshotRetriever(unittest.TestCase):
         all_snapshots = SnapshotRetriever.get_vm_snapshots(vm)
 
         # assert
-        self.assertSequenceEqual(list(all_snapshots.keys()), ['root', 'root/child'])
+        self.assertSequenceEqual(list(all_snapshots.keys()), ["root", "root/child"])
 
     def test_combine_should_combine_base_snapshot_location_with_snapshot_name(self):
         # Act
-        snapshot_path = SnapshotRetriever.combine('snapshot1/snapshot2', 'snapshot3')
+        snapshot_path = SnapshotRetriever.combine("snapshot1/snapshot2", "snapshot3")
 
         # Assert
-        self.assertEqual(snapshot_path, 'snapshot1/snapshot2/snapshot3')
+        self.assertEqual(snapshot_path, "snapshot1/snapshot2/snapshot3")
 
     def test_cet_current_snapshot_returns_none_when_no_snapshot_exists(self):
         # Arrange

@@ -23,4 +23,3 @@ class test_common_name_utils(unittest.TestCase):
         self.assertNotEqual(unique1, unique2)
         self.assertTrue(str(unique1).endswith("-8ba5"))
         self.assertTrue(str(unique2).endswith("-8ba5"))
-

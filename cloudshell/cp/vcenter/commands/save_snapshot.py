@@ -1,9 +1,11 @@
 from cloudshell.cp.vcenter.common.vcenter.task_waiter import SynchronousTaskWaiter
 from cloudshell.cp.vcenter.common.vcenter.vm_snapshots import SnapshotRetriever
 from cloudshell.cp.vcenter.common.vcenter.vmomi_service import pyVmomiService
-from cloudshell.cp.vcenter.exceptions.snapshot_exists import SnapshotAlreadyExistsException
+from cloudshell.cp.vcenter.exceptions.snapshot_exists import (
+    SnapshotAlreadyExistsException,
+)
 
-SNAPSHOT_ALREADY_EXISTS = 'A snapshot of this name already exist under this VM. Please select a different name for the VM snapshot'
+SNAPSHOT_ALREADY_EXISTS = "A snapshot of this name already exist under this VM. Please select a different name for the VM snapshot"
 
 
 class SaveSnapshotCommand:
@@ -36,20 +38,30 @@ class SaveSnapshotCommand:
         """
         vm = self.pyvmomi_service.find_by_uuid(si, vm_uuid)
 
-        snapshot_path_to_be_created = SaveSnapshotCommand._get_snapshot_name_to_be_created(snapshot_name, vm)
+        snapshot_path_to_be_created = (
+            SaveSnapshotCommand._get_snapshot_name_to_be_created(snapshot_name, vm)
+        )
 
-        save_vm_memory_to_snapshot = SaveSnapshotCommand._get_save_vm_memory_to_snapshot(save_memory)
+        save_vm_memory_to_snapshot = (
+            SaveSnapshotCommand._get_save_vm_memory_to_snapshot(save_memory)
+        )
 
         SaveSnapshotCommand._verify_snapshot_uniquness(snapshot_path_to_be_created, vm)
 
-        task = self._create_snapshot(logger, snapshot_name, vm, save_vm_memory_to_snapshot)
+        task = self._create_snapshot(
+            logger, snapshot_name, vm, save_vm_memory_to_snapshot
+        )
 
-        self.task_waiter.wait_for_task(task=task, logger=logger, action_name='Create Snapshot')
+        self.task_waiter.wait_for_task(
+            task=task, logger=logger, action_name="Create Snapshot"
+        )
         return snapshot_path_to_be_created
 
     @staticmethod
     def _get_save_vm_memory_to_snapshot(save_memory):
-        return True if save_memory is not None and save_memory.lower() == 'yes' else False
+        return (
+            True if save_memory is not None and save_memory.lower() == "yes" else False
+        )
 
     @staticmethod
     def _create_snapshot(logger, snapshot_name, vm, save_vm_memory_to_snapshot):
@@ -59,7 +71,9 @@ class SaveSnapshotCommand:
         logger.info("Create virtual machine snapshot")
         dump_memory = save_vm_memory_to_snapshot
         quiesce = True
-        task = vm.CreateSnapshot(snapshot_name, 'Created by CloudShell vCenterShell', dump_memory, quiesce)
+        task = vm.CreateSnapshot(
+            snapshot_name, "Created by CloudShell vCenterShell", dump_memory, quiesce
+        )
         return task
 
     @staticmethod

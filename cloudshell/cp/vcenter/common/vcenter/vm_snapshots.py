@@ -38,7 +38,9 @@ class SnapshotRetriever:
         """
         if not vm.snapshot:
             return {}
-        return SnapshotRetriever._get_snapshots_recursively(vm.snapshot.rootSnapshotList, '')
+        return SnapshotRetriever._get_snapshots_recursively(
+            vm.snapshot.rootSnapshotList, ""
+        )
 
     @staticmethod
     def _get_snapshots_recursively(snapshots, snapshot_location):
@@ -56,13 +58,16 @@ class SnapshotRetriever:
 
         for snapshot in snapshots:
             if snapshot_location:
-                current_snapshot_path = SnapshotRetriever.combine(snapshot_location, snapshot.name)
+                current_snapshot_path = SnapshotRetriever.combine(
+                    snapshot_location, snapshot.name
+                )
             else:
                 current_snapshot_path = snapshot.name
 
             snapshot_paths[current_snapshot_path] = snapshot.snapshot
-            child_snapshots = SnapshotRetriever._get_snapshots_recursively(snapshot.childSnapshotList,
-                                                                           current_snapshot_path)
+            child_snapshots = SnapshotRetriever._get_snapshots_recursively(
+                snapshot.childSnapshotList, current_snapshot_path
+            )
             snapshot_paths.update(child_snapshots)
 
         return snapshot_paths
@@ -76,4 +81,4 @@ class SnapshotRetriever:
         :return: combined snapshot path
         :rtype str
         """
-        return base_snapshot_location + '/' + snapshot_name
+        return base_snapshot_location + "/" + snapshot_name
