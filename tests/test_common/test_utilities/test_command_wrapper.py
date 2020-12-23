@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from cloudshell.shell.core.context import (
+from cloudshell.shell.core.driver_context import (
     ConnectivityContext,
     ReservationContextDetails,
     ResourceCommandContext,
