@@ -9,8 +9,8 @@ from cloudshell.cp.core.models import (
     DeployAppParams,
     DeployAppResult,
 )
-from cloudshell.shell.core.driver_context import AppContext
 from cloudshell.shell.core.driver_context import (
+    AppContext,
     ResourceContextDetails,
     ResourceRemoteCommandContext,
 )
