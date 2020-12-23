@@ -2,7 +2,7 @@ setuptools>=40.0
 lxml==4.6.1
 requests==2.18.4
 cloudshell-automation-api>=9.0.0.0,<9.0.1.0
-cloudshell-shell-core>=3.1.0,<3.2.0
+cloudshell-shell-core>=5.0.3,<6.0.0
 pyvmomi==6.5.0
 jsonpickle==0.9.3
 enum34==1.1.6
