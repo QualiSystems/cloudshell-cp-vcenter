@@ -1,4 +1,5 @@
-﻿import time
+﻿import re
+import time
 
 import requests
 from pyVmomi import vim
@@ -7,6 +8,7 @@ from cloudshell.cp.vcenter.common.utilites.common_utils import str2bool
 from cloudshell.cp.vcenter.common.utilites.io import get_path_and_name
 from cloudshell.cp.vcenter.common.vcenter.task_waiter import SynchronousTaskWaiter
 from cloudshell.cp.vcenter.common.vcenter.vm_location import VMLocation
+from cloudshell.cp.vcenter.exceptions.reconfigure_vm import ReconfigureVMException
 from cloudshell.cp.vcenter.exceptions.task_waiter import TaskFaultException
 
 
@@ -22,6 +24,8 @@ class VCenterAuthError(Exception):
 
 
 class pyVmomiService:
+    MAX_NUMBER_OF_VM_DISKS = 16
+    SCSI_CONTROLLER_UNIT_NUMBER = 7
     # region consts
     ChildEntity = "childEntity"
     VM = "vmFolder"
@@ -30,7 +34,6 @@ class pyVmomiService:
     Host = "hostFolder"
     Datastore = "datastoreFolder"
     Cluster = "cluster"
-
     # endregion
 
     def __init__(self, connect, disconnect, task_waiter, vim_import=None):
@@ -399,18 +402,26 @@ class pyVmomiService:
             power_on=True,
             snapshot="",
             customization_spec="",
+            cpu="",
+            ram="",
+            hhd="",
         ):
             """
             Constructor of CloneVmParameters
-            :param si:              pyvmomi 'ServiceInstance'
-            :param template_name:   str: the name of the template/vm to clone
-            :param vm_name:         str: the name that will be given to the cloned vm
-            :param vm_folder:       str: the path to the location of the template/vm to clone
-            :param datastore_name:  str: the name of the datastore
-            :param cluster_name:    str: the name of the dcluster
-            :param resource_pool:   str: the name of the resource pool
-            :param power_on:        bool: turn on the cloned vm
-            :param snapshot:        str: the name of the snapshot to clone from
+            :param si:                  pyvmomi 'ServiceInstance'
+            :param template_name:       str: the name of the template/vm to clone
+            :param vm_name:             str: the name that will be given to the cloned vm
+            :param vm_folder:           str: the path to the location of the template/vm to clone
+            :param datastore_name:      str: the name of the datastore
+            :param cluster_name:        str: the name of the dcluster
+            :param resource_pool:       str: the name of the resource pool
+            :param power_on:            bool: turn on the cloned vm
+            :param snapshot:            str: the name of the snapshot to clone from
+            :param customization_spec:  str: the name of the customization specification
+            :param cpu:                 str: the amount of CPUs
+            :param ram:                 str: the amount of RAM
+            :param hhd:               str: the amount of disks
+
             """
             self.si = si
             self.template_name = template_name
@@ -422,6 +433,9 @@ class pyVmomiService:
             self.power_on = str2bool(power_on)
             self.snapshot = snapshot
             self.customization_spec = customization_spec
+            self.cpu = cpu
+            self.ram = ram
+            self.hhd = hhd
 
     class CloneVmResult:
         """
@@ -491,7 +505,15 @@ class pyVmomiService:
         if host:
             placement.host = host
 
+        config_spec = self._prepare_vm_config_spec(
+            vm=template,
+            cpu=clone_params.cpu,
+            ram=clone_params.ram,
+            hhd=clone_params.hhd,
+        )
+
         clone_spec = self.vim.vm.CloneSpec()
+        clone_spec.config = config_spec
 
         if snapshot:
             clone_spec.snapshot = snapshot
@@ -512,7 +534,9 @@ class pyVmomiService:
         logger.info("cloning VM...")
         try:
             task = template.Clone(
-                folder=dest_folder, name=clone_params.vm_name, spec=clone_spec
+                folder=dest_folder,
+                name=clone_params.vm_name,
+                spec=clone_spec,
             )
             vm = self.task_waiter.wait_for_task(
                 task=task,
@@ -535,6 +559,146 @@ class pyVmomiService:
 
         result.vm = vm
         return result
+
+    def _get_device_unit_number_generator(self, vm):
+        """Get generator for the next available device unit number."""
+        unit_numbers = list(range(self.MAX_NUMBER_OF_VM_DISKS))
+        unit_numbers.remove(self.SCSI_CONTROLLER_UNIT_NUMBER)
+
+        for dev in vm.config.hardware.device:
+            if hasattr(dev.backing, "fileName"):
+                if dev.unitNumber in unit_numbers:
+                    unit_numbers.remove(dev.unitNumber)
+
+        for unit_number in unit_numbers:
+            yield unit_number
+
+        raise ReconfigureVMException(
+            f"Unable to create a new disk device. {self.MAX_NUMBER_OF_VM_DISKS} disks limit has been exceeded"
+        )
+
+    def reconfigure_vm(self, vm, cpu, ram, hhd, logger):
+        """
+
+        :param vm:
+        :param cpu:
+        :param ram:
+        :param hhd:
+        :param logger:
+        :return:
+        """
+        config_spec = self._prepare_vm_config_spec(vm=vm, cpu=cpu, ram=ram, hhd=hhd)
+
+        task = vm.ReconfigVM_Task(spec=config_spec)
+
+        return self.task_waiter.wait_for_task(
+            task=task, logger=logger, action_name="Reconfigure VM"
+        )
+
+    def _get_device_controller_key(self, vm):
+        """Get SCSI Controller device key for the new VM disk creation.
+
+        :param vm:
+        :return:
+        """
+        controller_key = next(
+            (
+                device.key
+                for device in vm.config.hardware.device
+                if isinstance(device, vim.vm.device.VirtualSCSIController)
+            ),
+            None,
+        )
+
+        if controller_key is None:
+            raise ReconfigureVMException(
+                f"Unable to find Controller for the new VM Disk creation"
+            )
+
+        return controller_key
+
+    def _prepare_vm_config_spec(self, vm, cpu, ram, hhd):
+        """Prepare VM Config Spec.
+
+        :param vm:
+        :param cpu:
+        :param ram:
+        :param hhd:
+        :return:
+        """
+        config_spec = vim.vm.ConfigSpec()
+        cpu = int(cpu) if cpu else 0
+        ram = float(ram) if ram else 0.0
+
+        if cpu:
+            config_spec.numCPUs = cpu
+
+        if ram:
+            config_spec.memoryMB = int(ram * 1024)
+
+        if hhd:
+            disks = {}
+
+            for disk_data in [
+                disk_data for disk_data in hhd.split(";") if ":" in disk_data
+            ]:
+                disk_name, disk_size = disk_data.split(":")
+                disks[int(re.search(r"\d+", disk_name).group())] = float(disk_size)
+
+            existing_disks = {
+                int(re.search(r"\d+", device.deviceInfo.label).group()): device
+                for device in vm.config.hardware.device
+                if isinstance(device, vim.vm.device.VirtualDisk)
+            }
+
+            last_disk_number = max(existing_disks.keys()) if existing_disks else 0
+            unit_number_generator = self._get_device_unit_number_generator(vm=vm)
+
+            for disk_number, disk_size in sorted(disks.items()):
+                disk_size_kb = int(disk_size * 2 ** 20)
+
+                if disk_number in existing_disks:
+                    disk = existing_disks[disk_number]
+
+                    if disk.capacityInKB == disk_size_kb:
+                        continue
+
+                    elif disk.capacityInKB > disk_size_kb:
+                        raise ReconfigureVMException(
+                            f"Invalid new size of 'Hard disk {disk_number}'."
+                            f" Current disk size {disk.capacityInKB}KB cannot be reduced to {disk_size_kb}KB"
+                        )
+
+                    disk.capacityInKB = disk_size_kb
+
+                    disk_spec = vim.vm.device.VirtualDeviceSpec(
+                        device=disk,
+                        operation=vim.vm.device.VirtualDeviceSpec.Operation.edit,
+                    )
+                    config_spec.deviceChange.append(disk_spec)
+                else:
+                    if disk_number != last_disk_number + 1:
+                        raise ReconfigureVMException(
+                            f"Invalid new hard disk number '{disk_number}'."
+                            f" Disk must have name 'Hard disk {last_disk_number + 1}'"
+                        )
+
+                    last_disk_number += 1
+                    new_disk = vim.vm.device.VirtualDisk()
+                    new_disk.controllerKey = self._get_device_controller_key(vm)
+                    new_disk.backing = vim.vm.device.VirtualDisk.FlatVer2BackingInfo()
+                    new_disk.backing.diskMode = "persistent"
+                    new_disk.unitNumber = next(unit_number_generator)
+                    new_disk.capacityInKB = disk_size_kb
+
+                    disk_spec = vim.vm.device.VirtualDeviceSpec(
+                        fileOperation=vim.vm.device.VirtualDeviceSpec.FileOperation.create,
+                        operation=vim.vm.device.VirtualDeviceSpec.Operation.add,
+                        device=new_disk,
+                    )
+                    config_spec.deviceChange.append(disk_spec)
+
+        return config_spec
 
     def get_datacenter(self, clone_params):
         splited = clone_params.vm_folder.split("/")

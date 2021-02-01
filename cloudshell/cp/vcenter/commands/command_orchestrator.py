@@ -21,6 +21,7 @@ from cloudshell.cp.vcenter.commands.load_vm import VMLoader
 from cloudshell.cp.vcenter.commands.power_manager_vm import (
     VirtualMachinePowerManagementCommand,
 )
+from cloudshell.cp.vcenter.commands.reconfigure_vm import ReconfigureVMCommand
 from cloudshell.cp.vcenter.commands.refresh_ip import RefreshIpCommand
 from cloudshell.cp.vcenter.commands.restore_snapshot import SnapshotRestoreCommand
 from cloudshell.cp.vcenter.commands.retrieve_snapshots import RetrieveSnapshotsCommand
@@ -213,6 +214,11 @@ class CommandOrchestrator(object):
 
         # Snapshot Restorer
         self.snapshot_restorer = SnapshotRestoreCommand(
+            pyvmomi_service=pv_service, task_waiter=synchronous_task_waiter
+        )
+
+        # Reconfigure VM command
+        self.reconfigure_vm_command = ReconfigureVMCommand(
             pyvmomi_service=pv_service, task_waiter=synchronous_task_waiter
         )
 
@@ -629,6 +635,26 @@ class CommandOrchestrator(object):
         resource_details = self._parse_remote_model(context)
         res = self.command_wrapper.execute_command_with_connection(
             context, self.snapshots_retriever.get_snapshots, resource_details.vm_uuid
+        )
+        return set_command_result(result=res, unpicklable=False)
+
+    def reconfigure_vm(self, context, cpu, ram, hhd):
+        """Reconfigure CPU/RAM/disks on the VM
+
+        :param context:
+        :param cpu:
+        :param ram:
+        :param hhd:
+        :return:
+        """
+        resource_details = self._parse_remote_model(context)
+        res = self.command_wrapper.execute_command_with_connection(
+            context,
+            self.reconfigure_vm_command.reconfigure,
+            resource_details.vm_uuid,
+            cpu,
+            ram,
+            hhd,
         )
         return set_command_result(result=res, unpicklable=False)
 

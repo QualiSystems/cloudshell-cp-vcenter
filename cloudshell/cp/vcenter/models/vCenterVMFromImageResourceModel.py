@@ -16,3 +16,6 @@ class vCenterVMFromImageResourceModel(object):
         self.default_datacenter = ""
         self.refresh_ip_timeout = 0
         self.behavior_during_save = ""
+        self.cpu = ""
+        self.ram = ""
+        self.hhd = ""

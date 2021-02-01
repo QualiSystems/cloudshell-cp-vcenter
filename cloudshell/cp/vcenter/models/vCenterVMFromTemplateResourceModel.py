@@ -14,3 +14,6 @@ class vCenterVMFromTemplateResourceModel(object):
         self.refresh_ip_timeout = 0
         self.behavior_during_save = ""
         self.customization_spec = ""
+        self.cpu = ""
+        self.ram = ""
+        self.hhd = ""

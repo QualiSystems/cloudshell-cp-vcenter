@@ -1,3 +1,5 @@
+import re
+
 from cloudshell.cp.vcenter.common.utilites.common_utils import (
     back_slash_to_front_converter,
 )

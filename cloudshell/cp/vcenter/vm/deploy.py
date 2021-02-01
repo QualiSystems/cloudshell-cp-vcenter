@@ -189,6 +189,9 @@ class VirtualMachineDeployer(object):
             power_on=False,
             snapshot=snapshot,
             customization_spec=deploy_params.customization_spec,
+            cpu=deploy_params.cpu,
+            ram=deploy_params.ram,
+            hhd=deploy_params.hhd,
         )
 
         if cancellation_context.is_cancelled:
@@ -264,6 +267,26 @@ class VirtualMachineDeployer(object):
             vm = self.pv_service.find_vm_by_name(si, vm_path, vm_name)
             if vm:
                 # remove a new created vm due to cancellation
+                if cancellation_context.is_cancelled:
+                    self.pv_service.destroy_vm(vm=vm, logger=logger)
+                    raise Exception("Action 'Deploy from image' was cancelled.")
+
+                # todo: add customization spec here also ???
+
+                try:
+                    self.pv_service.reconfigure_vm(
+                        vm=vm,
+                        cpu=data_holder.cpu,
+                        ram=data_holder.ram,
+                        hhd=data_holder.hhd,
+                        logger=logger,
+                    )
+                except Exception as e:
+                    logger.error("error reconfiguring deployed VM: {0}".format(e))
+                    raise Exception(
+                        "Error has occurred while reconfiguring deployed VM, please look at the log for more info."
+                    )
+
                 if cancellation_context.is_cancelled:
                     self.pv_service.destroy_vm(vm=vm, logger=logger)
                     raise Exception("Action 'Deploy from image' was cancelled.")
