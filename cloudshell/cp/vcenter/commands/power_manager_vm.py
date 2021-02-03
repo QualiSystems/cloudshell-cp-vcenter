@@ -1,14 +1,19 @@
+from datetime import datetime
+
+
 class VirtualMachinePowerManagementCommand(object):
-    def __init__(self, pyvmomi_service, synchronous_task_waiter):
+    def __init__(self, pyvmomi_service, synchronous_task_waiter, event_manager):
         """
 
         :param pyvmomi_service:
         :param synchronous_task_waiter:
         :type synchronous_task_waiter:  cloudshell.cp.vcenter.common.vcenter.task_waiter.SynchronousTaskWaiter
+        :param event_manager:
         :return:
         """
         self.pv_service = pyvmomi_service
         self.synchronous_task_waiter = synchronous_task_waiter
+        self.event_manager = event_manager
 
     def power_off(
         self, si, logger, session, vcenter_data_model, vm_uuid, resource_fullname
@@ -82,10 +87,24 @@ class VirtualMachinePowerManagementCommand(object):
             logger.info("vm already powered on")
             task_result = "Already powered on"
         else:
-            logger.info("powering on vm")
+            logger.info("Powering on VM ...")
+            start_time = datetime.now()
+
             task = vm.PowerOn()
             task_result = self.synchronous_task_waiter.wait_for_task(
                 task=task, logger=logger, action_name="Power On"
             )
+
+            logger.info("Checking for the VM OS customization events...")
+            event = self.event_manager.wait_for_vm_os_customization_start_event(
+                si=si, vm=vm, logger=logger, event_start_time=start_time
+            )
+
+            if event:
+                logger.info("Waiting for the VM OS Customization event to be proceeded")
+                self.event_manager.wait_for_vm_os_customization_end_event(
+                    si=si, vm=vm, logger=logger, event_start_time=start_time
+                )
+                # todo: do we need to raise an exception in case of timeout ?
 
         return task_result

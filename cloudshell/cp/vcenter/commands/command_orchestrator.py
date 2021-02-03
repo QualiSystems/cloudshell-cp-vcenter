@@ -43,6 +43,7 @@ from cloudshell.cp.vcenter.common.utilites.context_based_logger_factory import (
 from cloudshell.cp.vcenter.common.vcenter.cancellation_service import (
     CommandCancellationService,
 )
+from cloudshell.cp.vcenter.common.vcenter.event_manager import EventManager
 from cloudshell.cp.vcenter.common.vcenter.folder_manager import FolderManager
 from cloudshell.cp.vcenter.common.vcenter.ovf_service import OvfImageDeployerService
 from cloudshell.cp.vcenter.common.vcenter.task_waiter import SynchronousTaskWaiter
@@ -190,9 +191,14 @@ class CommandOrchestrator(object):
             resource_remover=resource_remover,
             disconnector=self.virtual_switch_disconnect_command,
         )
+
+        self.event_manager = EventManager(pv_service=pv_service)
+
         # Power Command
         self.vm_power_management_command = VirtualMachinePowerManagementCommand(
-            pyvmomi_service=pv_service, synchronous_task_waiter=synchronous_task_waiter
+            pyvmomi_service=pv_service,
+            synchronous_task_waiter=synchronous_task_waiter,
+            event_manager=self.event_manager,
         )
 
         # Refresh IP command
