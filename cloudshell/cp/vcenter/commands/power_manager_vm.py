@@ -102,7 +102,9 @@ class VirtualMachinePowerManagementCommand(object):
                 )
 
                 if event:
-                    logger.info("Waiting for the VM OS Customization event to be proceeded")
+                    logger.info(
+                        "Waiting for the VM OS Customization event to be proceeded"
+                    )
                     self.event_manager.wait_for_vm_os_customization_end_event(
                         si=si, vm=vm, logger=logger, event_start_time=start_time
                     )
@@ -110,7 +112,7 @@ class VirtualMachinePowerManagementCommand(object):
                 self.pv_service.unset_vm_custom_field(
                     si=si,
                     vm=vm,
-                    custom_field=self.pv_service.WAIT_FOR_OS_CUSTOMIZATION_CUSTOM_FIELD
+                    custom_field=self.pv_service.WAIT_FOR_OS_CUSTOMIZATION_CUSTOM_FIELD,
                 )
 
         return task_result
