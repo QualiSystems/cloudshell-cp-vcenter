@@ -271,25 +271,24 @@ class VirtualMachineDeployer(object):
                     self.pv_service.destroy_vm(vm=vm, logger=logger)
                     raise Exception("Action 'Deploy from image' was cancelled.")
 
-                # todo: add customization spec here also ???
+                if any([image_params.cpu, image_params.ram, image_params.hhd]):
+                    try:
+                        self.pv_service.reconfigure_vm(
+                            vm=vm,
+                            cpu=image_params.cpu,
+                            ram=image_params.ram,
+                            hhd=image_params.hhd,
+                            logger=logger,
+                        )
+                    except Exception as e:
+                        logger.error("error reconfiguring deployed VM: {0}".format(e))
+                        raise Exception(
+                            "Error has occurred while reconfiguring deployed VM, please look at the log for more info."
+                        )
 
-                try:
-                    self.pv_service.reconfigure_vm(
-                        vm=vm,
-                        cpu=data_holder.cpu,
-                        ram=data_holder.ram,
-                        hhd=data_holder.hhd,
-                        logger=logger,
-                    )
-                except Exception as e:
-                    logger.error("error reconfiguring deployed VM: {0}".format(e))
-                    raise Exception(
-                        "Error has occurred while reconfiguring deployed VM, please look at the log for more info."
-                    )
-
-                if cancellation_context.is_cancelled:
-                    self.pv_service.destroy_vm(vm=vm, logger=logger)
-                    raise Exception("Action 'Deploy from image' was cancelled.")
+                    if cancellation_context.is_cancelled:
+                        self.pv_service.destroy_vm(vm=vm, logger=logger)
+                        raise Exception("Action 'Deploy from image' was cancelled.")
 
                 vm_details_data = self._safely_get_vm_details(
                     vm, vm_name, vcenter_data_model, data_holder.image_params, logger
@@ -366,6 +365,10 @@ class VirtualMachineDeployer(object):
         image_params.image_url = data_holder.vcenter_image
         image_params.power_on = False
         image_params.vcenter_name = data_holder.vcenter_name
+        image_params.cpu = data_holder.cpu
+        image_params.ram = data_holder.ram
+        image_params.hhd = data_holder.hhd
+
         return image_params
 
 
