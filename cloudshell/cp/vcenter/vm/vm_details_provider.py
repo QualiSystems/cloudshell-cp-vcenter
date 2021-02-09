@@ -86,6 +86,9 @@ class VmDetailsProvider(object):
         data.append(
             VmDetailsProperty(key="Guest OS", value=vm.summary.config.guestFullName)
         )
+        data.append(
+            VmDetailsProperty(key="Managed Object Reference ID", value=vm._GetMoId())
+        )
 
         return data
 
