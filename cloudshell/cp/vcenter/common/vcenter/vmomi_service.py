@@ -26,7 +26,8 @@ class VCenterAuthError(Exception):
 class pyVmomiService:
     MAX_NUMBER_OF_VM_DISKS = 16
     SCSI_CONTROLLER_UNIT_NUMBER = 7
-    WAIT_FOR_OS_CUSTOMIZATION_CUSTOM_FIELD = "QUALI_WAIT_FOR_OS_CUSTOMIZATION"
+    WAIT_FOR_OS_CUSTOMIZATION_CUSTOM_FIELD = "Quali_wait_for_os_customization"
+
     # region consts
     ChildEntity = "childEntity"
     VM = "vmFolder"
