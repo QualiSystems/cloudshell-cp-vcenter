@@ -95,16 +95,22 @@ class VirtualMachinePowerManagementCommand(object):
                 task=task, logger=logger, action_name="Power On"
             )
 
-            logger.info("Checking for the VM OS customization events...")
-            event = self.event_manager.wait_for_vm_os_customization_start_event(
-                si=si, vm=vm, logger=logger, event_start_time=start_time
-            )
-
-            if event:
-                logger.info("Waiting for the VM OS Customization event to be proceeded")
-                self.event_manager.wait_for_vm_os_customization_end_event(
+            if self.pv_service.need_to_wait_for_os_customization(vm):
+                logger.info("Checking for the VM OS customization events...")
+                event = self.event_manager.wait_for_vm_os_customization_start_event(
                     si=si, vm=vm, logger=logger, event_start_time=start_time
                 )
-                # todo: do we need to raise an exception in case of timeout ?
+
+                if event:
+                    logger.info("Waiting for the VM OS Customization event to be proceeded")
+                    self.event_manager.wait_for_vm_os_customization_end_event(
+                        si=si, vm=vm, logger=logger, event_start_time=start_time
+                    )
+
+                self.pv_service.unset_vm_custom_field(
+                    si=si,
+                    vm=vm,
+                    custom_field=self.pv_service.WAIT_FOR_OS_CUSTOMIZATION_CUSTOM_FIELD
+                )
 
         return task_result

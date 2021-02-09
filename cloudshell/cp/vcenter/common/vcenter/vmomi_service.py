@@ -26,6 +26,7 @@ class VCenterAuthError(Exception):
 class pyVmomiService:
     MAX_NUMBER_OF_VM_DISKS = 16
     SCSI_CONTROLLER_UNIT_NUMBER = 7
+    WAIT_FOR_OS_CUSTOMIZATION_CUSTOM_FIELD = "QUALI_WAIT_FOR_OS_CUSTOMIZATION"
     # region consts
     ChildEntity = "childEntity"
     VM = "vmFolder"
@@ -385,6 +386,51 @@ class pyVmomiService:
             if not type_filter or isinstance(item, type_filter)
         ]
 
+    def get_or_create_custom_field(self, si, field_name, mo_type=vim.VirtualMachine):
+        """
+
+        :param si:
+        :param field_name:
+        :param mo_type:
+        :return:
+        """
+        try:
+            return next(filter(lambda field: field.name == field_name, si.content.customFieldsManager.field))
+        except StopIteration:
+            return si.content.customFieldsManager.AddCustomFieldDef(name=field_name, moType=mo_type)
+
+    def set_vm_custom_field(self, si, vm, custom_field, custom_field_value):
+        """
+
+        :param si:
+        :param vm:
+        :param custom_field:
+        :param custom_field_value:
+        :return:
+        """
+        si.content.customFieldsManager.SetField(entity=vm, key=custom_field.key, value=custom_field_value)
+
+    def unset_vm_custom_field(self, si, vm, custom_field):
+        """
+
+        :param si:
+        :param vm:
+        :param custom_field:
+        :return:
+        """
+        si.content.customFieldsManager.SetField(entity=vm, key=custom_field.key, value="")
+
+    def need_to_wait_for_os_customization(self, vm):
+        """
+
+        :param vm:
+        :return:
+        """
+        return bool(next(
+            filter(lambda field: field.value == self.WAIT_FOR_OS_CUSTOMIZATION_CUSTOM_FIELD, vm.customValue),
+            False
+        ))
+
     class CloneVmParameters:
         """
         This is clone_vm method params object
@@ -522,6 +568,12 @@ class pyVmomiService:
 
         if customization_spec:
             clone_spec.customization = customization_spec.spec
+            wait_for_os_customization_custom_field = self.get_or_create_custom_field(
+                si=clone_params.si,
+                field_name=self.WAIT_FOR_OS_CUSTOMIZATION_CUSTOM_FIELD
+            )
+        else:
+            wait_for_os_customization_custom_field = None
 
         placement.datastore = self._get_datastore(clone_params)
 
@@ -555,6 +607,14 @@ class pyVmomiService:
             logger.error("error deploying: {0}".format(e))
             raise Exception(
                 "Error has occurred while deploying, please look at the log for more info."
+            )
+
+        if wait_for_os_customization_custom_field:
+            self.set_vm_custom_field(
+                si=clone_params.si,
+                vm=vm,
+                custom_field=wait_for_os_customization_custom_field,
+                custom_field_value=self.WAIT_FOR_OS_CUSTOMIZATION_CUSTOM_FIELD,
             )
 
         result.vm = vm
