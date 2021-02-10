@@ -110,7 +110,8 @@ class VirtualMachinePowerManagementCommand(object):
                     )
 
                     wait_for_os_customization_field = self.pv_service.get_or_create_custom_field(
-                        si=si, field_name=self.pv_service.WAIT_FOR_OS_CUSTOMIZATION_CUSTOM_FIELD
+                        si=si,
+                        field_name=self.pv_service.WAIT_FOR_OS_CUSTOMIZATION_CUSTOM_FIELD,
                     )
 
                     self.pv_service.unset_vm_custom_field(

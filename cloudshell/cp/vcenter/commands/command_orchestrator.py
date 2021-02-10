@@ -5,6 +5,7 @@ import jsonpickle
 from cloudshell.cp.core.models import DeployApp, DeployAppResult, SaveApp, SaveAppResult
 from pyVim.connect import Disconnect, SmartConnect
 
+from cloudshell.cp.vcenter.commands.cluster_usage import GetClusterUsageCommand
 from cloudshell.cp.vcenter.commands.connect_dvswitch import VirtualSwitchConnectCommand
 from cloudshell.cp.vcenter.commands.connect_orchestrator import (
     ConnectionCommandOrchestrator,
@@ -122,6 +123,7 @@ class CommandOrchestrator(object):
 
         self.vm_loader = VMLoader(pv_service)
 
+        self.cluster_usage_command = GetClusterUsageCommand(pv_service)
         ip_manager = VMIPManager()
         vm_details_provider = VmDetailsProvider(
             pyvmomi_service=pv_service, ip_manager=ip_manager
@@ -578,6 +580,12 @@ class CommandOrchestrator(object):
     def get_vm_uuid_by_name(self, context, vm_name):
         res = self.command_wrapper.execute_command_with_connection(
             context, self.vm_loader.load_vm_uuid_by_name, vm_name
+        )
+        return set_command_result(result=res, unpicklable=False)
+
+    def get_cluster_usage(self, context, datastore_name):
+        res = self.command_wrapper.execute_command_with_connection(
+            context, self.cluster_usage_command.get_cluster_usage, datastore_name
         )
         return set_command_result(result=res, unpicklable=False)
 
