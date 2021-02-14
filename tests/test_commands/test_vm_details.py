@@ -64,7 +64,7 @@ class TestVmDetailsCommand(TestCase):
             pass
         self.assertEqual(vm_details.appName, "App1")
         self.assertEqual(vm_details.errorMessage, "")
-        self.assertEqual(len(vm_details.vmInstanceData), 6)
+        self.assertEqual(len(vm_details.vmInstanceData), 7)
 
         self.assertEqual(len(vm_details.vmNetworkData), 1)
         nic = vm_details.vmNetworkData[0]

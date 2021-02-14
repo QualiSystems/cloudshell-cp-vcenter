@@ -59,6 +59,9 @@ class TestCommandOrchestrator(TestCase):
             "VCenter VM Snapshot": "sds",
             "VCenter Template": "dsds",
             "Behavior during save": "Powered Off",
+            "CPU": "",
+            "RAM": "",
+            "HHD": "",
         }
 
         self.resource = create_autospec(ResourceInfo)

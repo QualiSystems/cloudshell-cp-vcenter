@@ -193,6 +193,9 @@ class TestVirtualMachineDeployer(TestCase):
                     "refresh_ip_timeout": "10",
                     "auto_power_off": "True",
                     "auto_delete": "True",
+                    "cpu": "",
+                    "ram": "",
+                    "hhd": "",
                 },
             }
         )
