@@ -28,6 +28,7 @@ from cloudshell.cp.vcenter.commands.restore_snapshot import SnapshotRestoreComma
 from cloudshell.cp.vcenter.commands.retrieve_snapshots import RetrieveSnapshotsCommand
 from cloudshell.cp.vcenter.commands.save_sandbox import SaveAppCommand
 from cloudshell.cp.vcenter.commands.save_snapshot import SaveSnapshotCommand
+from cloudshell.cp.vcenter.commands.vm_console import GetVMConsoleCommand
 from cloudshell.cp.vcenter.commands.vm_details import VmDetailsCommand
 from cloudshell.cp.vcenter.common.cloud_shell.resource_remover import (
     CloudshellResourceRemover,
@@ -124,6 +125,9 @@ class CommandOrchestrator(object):
         self.vm_loader = VMLoader(pv_service)
 
         self.cluster_usage_command = GetClusterUsageCommand(pv_service)
+
+        self.vm_console_command = GetVMConsoleCommand(pv_service)
+
         ip_manager = VMIPManager()
         vm_details_provider = VmDetailsProvider(
             pyvmomi_service=pv_service, ip_manager=ip_manager
@@ -586,6 +590,17 @@ class CommandOrchestrator(object):
     def get_cluster_usage(self, context, datastore_name):
         res = self.command_wrapper.execute_command_with_connection(
             context, self.cluster_usage_command.get_cluster_usage, datastore_name
+        )
+        return set_command_result(result=res, unpicklable=False)
+
+    def get_vm_web_console(self, context):
+        resource_details = self._parse_remote_model(context)
+
+        res = self.command_wrapper.execute_command_with_connection(
+            context,
+            self.vm_console_command.get_vm_web_console,
+            resource_details.vm_uuid,
+            context.resource.address,
         )
         return set_command_result(result=res, unpicklable=False)
 
