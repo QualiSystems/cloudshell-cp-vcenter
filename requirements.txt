@@ -11,3 +11,4 @@ cloudshell-cp-core>=1.1.0,<1.2.0
 cloudshell-logging>=1.0.0,<1.1.0
 cryptography>=2.5,<3.3
 pyOpenSSL<20.0.0
+packaging>=20.9
