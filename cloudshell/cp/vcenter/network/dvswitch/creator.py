@@ -17,6 +17,21 @@ class DvPortGroupCreator(object):
         self.synchronous_task_waiter = synchronous_task_waiter
         self._lock = Lock()
 
+    def _get_dvswitch_portgroup(
+        self, si, dv_switch_path, dv_switch_name, dv_port_name, logger
+    ):
+        try:
+            return self.pyvmomi_service.find_dvswitch_portgroup(
+                si,
+                "{0}/{1}".format(dv_switch_path, dv_switch_name),
+                dv_port_name,
+            )
+        except KeyError:
+            logger.debug(
+                "Failed to find DV port group for {}".format(dv_port_name),
+                exc_info=True,
+            )
+
     def get_or_create_network(
         self,
         si,
@@ -38,35 +53,52 @@ class DvPortGroupCreator(object):
 
             # if we didn't found the network on the vm
             if network is None:
-                # try to get it from the vcenter
-                try:
-                    network = self.pyvmomi_service.find_portgroup(
-                        si,
-                        "{0}/{1}".format(dv_switch_path, dv_switch_name),
-                        dv_port_name,
-                    )
-                except KeyError:
-                    logger.debug(
-                        "Failed to find port group for {}".format(dv_port_name),
-                        exc_info=True,
-                    )
-                    network = None
+                is_dvswitch = self.pyvmomi_service.is_dvswitch(
+                    si=si,
+                    path=dv_switch_path,
+                    name=dv_switch_name,
+                    host=vm.runtime.host,
+                )
 
-            # if we still couldn't get the network ---> create it(can't find it, play god!)
-            if network is None:
-                self._create_dv_port_group(
-                    dv_port_name,
-                    dv_switch_name,
-                    dv_switch_path,
-                    si,
-                    vlan_spec,
-                    vlan_id,
-                    logger,
-                    promiscuous_mode,
-                )
-                network = self.pyvmomi_service.find_network_by_name(
-                    si, dv_switch_path, dv_port_name
-                )
+                if is_dvswitch:
+                    network = self._get_dvswitch_portgroup(
+                        si=si,
+                        dv_switch_path=dv_switch_path,
+                        dv_switch_name=dv_switch_name,
+                        dv_port_name=dv_port_name,
+                        logger=logger,
+                    )
+                else:
+                    network = self.pyvmomi_service.find_network_by_name(
+                        si=si, path=dv_switch_path, name=dv_port_name
+                    )
+
+                # if we still couldn't get the network ---> create it(can't find it, play god!)
+                if network is None:
+                    if is_dvswitch:
+                        self._create_dv_port_group(
+                            dv_port_name,
+                            dv_switch_name,
+                            dv_switch_path,
+                            si,
+                            vlan_spec,
+                            vlan_id,
+                            logger,
+                            promiscuous_mode,
+                        )
+                    else:
+                        self._create_port_group(
+                            dv_port_name,
+                            dv_switch_name,
+                            vlan_id,
+                            logger,
+                            promiscuous_mode,
+                            vm.runtime.host,
+                        )
+
+                    network = self.pyvmomi_service.find_network_by_name(
+                        si, dv_switch_path, dv_port_name
+                    )
 
             if not network:
                 raise ValueError(
@@ -80,6 +112,28 @@ class DvPortGroupCreator(object):
             if error:
                 raise error
             return network
+
+    def _create_port_group(
+        self,
+        port_name,
+        vswitch_name,
+        vlan_id,
+        logger,
+        promiscuous_mode,
+        host,
+    ):
+        portgroup_spec = vim.host.PortGroup.Specification()
+        portgroup_spec.vswitchName = vswitch_name
+        portgroup_spec.name = port_name
+        portgroup_spec.vlanId = int(vlan_id)
+        network_policy = vim.host.NetworkPolicy()
+        network_policy.security = vim.host.NetworkPolicy.SecurityPolicy()
+        network_policy.security.allowPromiscuous = promiscuous_mode.lower() == "true"
+        network_policy.security.macChanges = False
+        network_policy.security.forgedTransmits = True
+        portgroup_spec.policy = network_policy
+
+        host.configManager.networkSystem.AddPortGroup(portgroup_spec)
 
     def _create_dv_port_group(
         self,
@@ -95,12 +149,6 @@ class DvPortGroupCreator(object):
         dv_switch = self.pyvmomi_service.get_folder(
             si, "{0}/{1}".format(dv_switch_path, dv_switch_name)
         )
-        if not dv_switch:
-            raise ValueError(
-                "DV Switch {0} not found in path {1}".format(
-                    dv_switch_name, dv_switch_path
-                )
-            )
 
         task = DvPortGroupCreator.dv_port_group_create_task(
             dv_port_name, dv_switch, spec, vlan_id, logger, promiscuous_mode
