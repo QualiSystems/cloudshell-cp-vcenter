@@ -184,7 +184,37 @@ class pyVmomiService:
         """
         return self.find_obj_by_path(si, path, name, self.Datastore)
 
-    def find_portgroup(self, si, dv_switch_path, name):
+    def get_vswitch(self, host, vswitch_name):
+        """
+
+        :param host:
+        :param vswitch_name:
+        :return:
+        """
+        for vswitch in host.config.network.vswitch:
+            if vswitch.name == vswitch_name:
+                return vswitch
+
+    def is_dvswitch(self, si, path, name, host):
+        """
+
+        :return:
+        """
+        dv_switch = self.get_folder(si, "{0}/{1}".format(path, name))
+
+        if dv_switch:
+            return True
+
+        switch = self.get_vswitch(host=host, vswitch_name=name)
+
+        if switch:
+            return False
+
+        raise ValueError(
+            "vSwitch/Distributed vSwitch {0} not found in path {1}".format(path, name)
+        )
+
+    def find_dvswitch_portgroup(self, si, dv_switch_path, name):
         """
         Returns the portgroup on the dvSwitch
         :param name: str
