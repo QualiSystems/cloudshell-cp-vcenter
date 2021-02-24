@@ -67,7 +67,9 @@ class GetVMConsoleCommand:
         vc_pem = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, vc_cert)
         thumbprint = vc_pem.digest("sha1")
 
-        if version.parse(si.content.about.version) >= version.parse(self.VCENTER_V7_VERSION):
+        if version.parse(si.content.about.version) >= version.parse(
+            self.VCENTER_V7_VERSION
+        ):
             return self.VM_WEB_CONSOLE_LINK_V7_TPL.format(
                 vcenter_ip=vcenter_ip,
                 vm_moid=vm._moId,
