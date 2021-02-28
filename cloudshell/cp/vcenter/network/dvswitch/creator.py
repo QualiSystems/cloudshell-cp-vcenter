@@ -1,10 +1,15 @@
 # -*- coding: utf-8 -*-
+import time
+from datetime import datetime, timedelta
 from threading import Lock
 
 from pyVmomi import vim
 
 
 class DvPortGroupCreator(object):
+    CREATE_PORT_GROUP_TIMEOUT = 60 * 5
+    CREATE_PORT_GROUP_WAIT_TIME = 2
+
     def __init__(self, pyvmomi_service, synchronous_task_waiter):
         """
 
@@ -50,6 +55,8 @@ class DvPortGroupCreator(object):
         try:
             # check if the network is attached to the vm and gets it, the function doesn't goes to the vcenter
             network = self.pyvmomi_service.get_network_by_name_from_vm(vm, dv_port_name)
+            if network:
+                logger.info(f"Found network '{dv_port_name}'on the VM")
 
             # if we didn't found the network on the vm
             if network is None:
@@ -61,6 +68,9 @@ class DvPortGroupCreator(object):
                 )
 
                 if is_dvswitch:
+                    logger.info(
+                        f"Getting DvSwitch '{dv_switch_name}' Port Group {dv_port_name} ...'"
+                    )
                     network = self._get_dvswitch_portgroup(
                         si=si,
                         dv_switch_path=dv_switch_path,
@@ -69,6 +79,9 @@ class DvPortGroupCreator(object):
                         logger=logger,
                     )
                 else:
+                    logger.info(
+                        f"Getting vSwitch '{dv_switch_name}' Port Group {dv_port_name} ...'"
+                    )
                     network = self.pyvmomi_service.find_network_by_name(
                         si=si, path=dv_switch_path, name=dv_port_name
                     )
@@ -76,6 +89,9 @@ class DvPortGroupCreator(object):
                 # if we still couldn't get the network ---> create it(can't find it, play god!)
                 if network is None:
                     if is_dvswitch:
+                        logger.info(
+                            f"Creating DvSwitch '{dv_switch_name}' Port Group {dv_port_name} ...'"
+                        )
                         self._create_dv_port_group(
                             dv_port_name,
                             dv_switch_name,
@@ -87,6 +103,9 @@ class DvPortGroupCreator(object):
                             promiscuous_mode,
                         )
                     else:
+                        logger.info(
+                            f"Creating vSwitch '{dv_switch_name}' Port Group {dv_port_name} ...'"
+                        )
                         self._create_port_group(
                             dv_port_name,
                             dv_switch_name,
@@ -96,9 +115,13 @@ class DvPortGroupCreator(object):
                             vm.runtime.host,
                         )
 
-                    network = self.pyvmomi_service.find_network_by_name(
-                        si, dv_switch_path, dv_port_name
+                    network = self._wait_for_network(
+                        si=si,
+                        switch_path=dv_switch_path,
+                        port_name=dv_port_name,
+                        logger=logger,
                     )
+                    logger.info(f"Found Port Group Network '{network}' ...'")
 
             if not network:
                 raise ValueError(
@@ -112,6 +135,34 @@ class DvPortGroupCreator(object):
             if error:
                 raise error
             return network
+
+    def _wait_for_network(
+        self, si, switch_path, port_name, logger, wait_time=None, timeout=None
+    ):
+        wait_time = wait_time or self.CREATE_PORT_GROUP_WAIT_TIME
+        timeout = timeout or self.CREATE_PORT_GROUP_TIMEOUT
+        timeout_time = datetime.now() + timedelta(seconds=timeout)
+        logger.info(f"Waiting for the Port Group Network '{port_name}' ...")
+
+        network = self.pyvmomi_service.find_network_by_name(
+            si=si, path=switch_path, name=port_name
+        )
+
+        while not network:
+            logger.info(f"Waiting for network creation to complete...")
+
+            time.sleep(wait_time)
+
+            network = self.pyvmomi_service.find_network_by_name(
+                si=si, path=switch_path, name=port_name
+            )
+
+            if datetime.now() > timeout_time:
+                raise ValueError(
+                    f"Failed to find created port group network '{port_name}'"
+                )
+
+        return network
 
     def _create_port_group(
         self,
