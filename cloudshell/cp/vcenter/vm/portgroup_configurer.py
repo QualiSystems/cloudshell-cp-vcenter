@@ -244,7 +244,5 @@ class VirtualMachinePortGroupConfigurer(object):
 
     @staticmethod
     def destroy_port_group_task(network):
-        if network_is_portgroup(network):
-            task = DvPortGroupCreator.dv_port_group_destroy_task(network)
-            return task
-        return None
+        task = DvPortGroupCreator.dv_port_group_destroy_task(network)
+        return task
