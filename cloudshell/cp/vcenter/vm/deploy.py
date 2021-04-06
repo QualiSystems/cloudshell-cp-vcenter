@@ -7,6 +7,7 @@ from cloudshell.cp.vcenter.common.cloud_shell.conn_details_retriever import (
     ResourceConnectionDetailsRetriever,
 )
 from cloudshell.cp.vcenter.common.vcenter.vm_location import VMLocation
+from cloudshell.cp.vcenter.constants import VM_CUSTOMIZATION_SPEC_CUSTOM_PARAM
 from cloudshell.cp.vcenter.models.vCenterCloneVMFromVMResourceModel import (
     vCenterCloneVMFromVMResourceModel,
 )
@@ -56,7 +57,9 @@ class VirtualMachineDeployer(object):
         self,
         si,
         logger,
+        session,
         data_holder,
+        app_resource_model,
         vcenter_data_model,
         reservation_id,
         cancellation_context,
@@ -79,9 +82,11 @@ class VirtualMachineDeployer(object):
         return self._deploy_a_clone(
             si=si,
             logger=logger,
+            session=session,
             app_name=data_holder.app_name,
             template_name=template_resource_model.vcenter_vm,
             deploy_params=template_resource_model,
+            app_resource_model=app_resource_model,
             vcenter_data_model=vcenter_data_model,
             reservation_id=reservation_id,
             cancellation_context=cancellation_context,
@@ -92,7 +97,9 @@ class VirtualMachineDeployer(object):
         self,
         si,
         logger,
+        session,
         data_holder,
+        app_resource_model,
         vcenter_data_model,
         reservation_id,
         cancellation_context,
@@ -113,9 +120,11 @@ class VirtualMachineDeployer(object):
         return self._deploy_a_clone(
             si,
             logger,
+            session,
             data_holder.app_name,
             template_resource_model.vcenter_vm,
             template_resource_model,
+            app_resource_model,
             vcenter_data_model,
             reservation_id,
             cancellation_context,
@@ -125,7 +134,9 @@ class VirtualMachineDeployer(object):
         self,
         si,
         logger,
+        session,
         data_holder,
+        app_resource_model,
         vcenter_data_model,
         reservation_id,
         cancellation_context,
@@ -144,9 +155,11 @@ class VirtualMachineDeployer(object):
         return self._deploy_a_clone(
             si,
             logger,
+            session,
             data_holder.app_name,
             template_resource_model.vcenter_template,
             template_resource_model,
+            app_resource_model,
             vcenter_data_model,
             reservation_id,
             cancellation_context,
@@ -156,9 +169,11 @@ class VirtualMachineDeployer(object):
         self,
         si,
         logger,
+        session,
         app_name,
         template_name,
         deploy_params,
+        app_resource_model,
         vcenter_data_model,
         reservation_id,
         cancellation_context,
@@ -178,6 +193,12 @@ class VirtualMachineDeployer(object):
             [deploy_params.default_datacenter, template_name]
         )
 
+        password = (
+            session.DecryptPassword(app_resource_model.password).Value
+            if app_resource_model.password
+            else None
+        )
+
         params = self.pv_service.CloneVmParameters(
             si=si,
             template_name=template_name,
@@ -189,6 +210,9 @@ class VirtualMachineDeployer(object):
             power_on=False,
             snapshot=snapshot,
             customization_spec=deploy_params.customization_spec,
+            computer_name=deploy_params.computer_name,
+            password=password,
+            private_ip=deploy_params.private_ip,
             cpu=deploy_params.cpu,
             ram=deploy_params.ram,
             hdd=deploy_params.hdd,
@@ -208,6 +232,12 @@ class VirtualMachineDeployer(object):
         # remove a new created vm due to cancellation
         if cancellation_context.is_cancelled:
             self.pv_service.destroy_vm(vm=clone_vm_result.vm, logger=logger)
+
+            if clone_vm_result.customization_spec:
+                self.pv_service.delete_customization_spec(
+                    si=si, name=clone_vm_result.customization_spec
+                )
+
             raise Exception("Action 'Clone VM' was cancelled.")
 
         vm_details_data = self._safely_get_vm_details(
@@ -223,6 +253,7 @@ class VirtualMachineDeployer(object):
                 "refresh_ip_timeout": deploy_params.refresh_ip_timeout,
                 "auto_power_off": convert_to_bool(deploy_params.auto_power_off),
                 "auto_delete": convert_to_bool(deploy_params.auto_delete),
+                VM_CUSTOMIZATION_SPEC_CUSTOM_PARAM: clone_vm_result.customization_spec,
             },
         )
 

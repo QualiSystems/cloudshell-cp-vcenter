@@ -51,6 +51,7 @@ from cloudshell.cp.vcenter.common.vcenter.ovf_service import OvfImageDeployerSer
 from cloudshell.cp.vcenter.common.vcenter.task_waiter import SynchronousTaskWaiter
 from cloudshell.cp.vcenter.common.vcenter.vmomi_service import pyVmomiService
 from cloudshell.cp.vcenter.common.wrappers.command_wrapper import CommandWrapper
+from cloudshell.cp.vcenter.models.app_resource_model import AppResourceModel
 from cloudshell.cp.vcenter.models.DeployDataHolder import DeployDataHolder
 from cloudshell.cp.vcenter.models.DeployFromImageDetails import DeployFromImageDetails
 from cloudshell.cp.vcenter.models.DeployFromTemplateDetails import (
@@ -322,10 +323,15 @@ class CommandOrchestrator(object):
             deploy_from_template_model, deploy_action.actionParams.appName
         )
 
+        app_resource_model = AppResourceModel.from_dict(
+            deploy_action.actionParams.appResource.attributes
+        )
+
         deploy_result_action = self.command_wrapper.execute_command_with_connection(
             context,
             self.deploy_command.execute_deploy_from_template,
             data_holder,
+            app_resource_model,
             cancellation_context,
             self.folder_manager,
         )
@@ -350,10 +356,15 @@ class CommandOrchestrator(object):
             deploy_from_vm_model, deploy_action.actionParams.appName
         )
 
+        app_resource_model = AppResourceModel.from_dict(
+            deploy_action.actionParams.appResource.attributes
+        )
+
         deploy_result_action = self.command_wrapper.execute_command_with_connection(
             context,
             self.deploy_command.execute_deploy_clone_from_vm,
             data_holder,
+            app_resource_model,
             cancellation_context,
             self.folder_manager,
         )
@@ -380,6 +391,10 @@ class CommandOrchestrator(object):
             linked_clone_from_vm_model, deploy_action.actionParams.appName
         )
 
+        app_resource_model = AppResourceModel.from_dict(
+            deploy_action.actionParams.appResource.attributes
+        )
+
         if not linked_clone_from_vm_model.vcenter_vm_snapshot:
             raise ValueError(
                 "Please insert snapshot to deploy an app from a linked clone"
@@ -389,6 +404,7 @@ class CommandOrchestrator(object):
             context,
             self.deploy_command.execute_deploy_from_linked_clone,
             data_holder,
+            app_resource_model,
             cancellation_context,
             self.folder_manager,
         )
@@ -481,8 +497,7 @@ class CommandOrchestrator(object):
         res = self.command_wrapper.execute_command_with_connection(
             context,
             self.destroy_virtual_machine_command.DeleteInstance,
-            resource_details.vm_uuid,
-            resource_details.fullname,
+            resource_details,
         )
         return set_command_result(result=res, unpicklable=False)
 

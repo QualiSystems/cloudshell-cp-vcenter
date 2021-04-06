@@ -2,6 +2,7 @@
 from cloudshell.cp.vcenter.common.utilites.common_utils import (
     get_error_message_from_exception,
 )
+from cloudshell.cp.vcenter.constants import VM_CUSTOMIZATION_SPEC_CUSTOM_PARAM
 
 
 class DestroyVirtualMachineCommand(object):
@@ -16,6 +17,12 @@ class DestroyVirtualMachineCommand(object):
         self.pv_service = pv_service
         self.resource_remover = resource_remover
         self.disconnector = disconnector
+
+    @staticmethod
+    def _get_custom_param(params, name):
+        for param in params:
+            if param.name == name:
+                return param.value
 
     # obsolete
     def destroy(
@@ -56,24 +63,37 @@ class DestroyVirtualMachineCommand(object):
         )
         return result
 
-    def DeleteInstance(self, si, logger, session, vcenter_data_model, vm_uuid, vm_name):
+    def DeleteInstance(self, si, logger, session, vcenter_data_model, resource_model):
         """
         :param logger:
         :param CloudShellAPISession session:
-        :param str vm_name: This is the resource name
+        :param resource_model:
         :return:
         """
         # find vm
-        vm = self.pv_service.find_by_uuid(si, vm_uuid)
+        vm = self.pv_service.find_by_uuid(si, resource_model.vm_uuid)
         if vm is not None:
             # destroy vm
             result = self.pv_service.destroy_vm(vm=vm, logger=logger)
         else:
             resource___format = (
-                "Could not find the VM {0},will remove the resource.".format(vm_name)
+                "Could not find the VM {0},will remove the resource.".format(
+                    resource_model.fullname
+                )
             )
             logger.info(resource___format)
             result = resource___format
+
+        if resource_model.vm_custom_params:
+            pass
+
+        vm_customization_spec = self._get_custom_param(
+            params=resource_model.vm_custom_params,
+            name=VM_CUSTOMIZATION_SPEC_CUSTOM_PARAM,
+        )
+
+        if vm_customization_spec:
+            self.pv_service.delete_customization_spec(si=si, name=vm_customization_spec)
 
         return result
 

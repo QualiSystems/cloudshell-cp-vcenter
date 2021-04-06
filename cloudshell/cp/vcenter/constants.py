@@ -1,0 +1,1 @@
+VM_CUSTOMIZATION_SPEC_CUSTOM_PARAM = "vm_customization_spec"

@@ -1,7 +1,7 @@
 ﻿import re
-import time
 
 import requests
+from netaddr import IPNetwork
 from pyVmomi import vim
 
 from cloudshell.cp.vcenter.common.utilites.common_utils import str2bool
@@ -27,6 +27,10 @@ class pyVmomiService:
     MAX_NUMBER_OF_VM_DISKS = 16
     SCSI_CONTROLLER_UNIT_NUMBER = 7
     WAIT_FOR_OS_CUSTOMIZATION_CUSTOM_FIELD = "Quali_wait_for_os_customization"
+    WINDOWS_CUSTOMIZATION_SPEC_TYPE = "Windows"
+    LINUX_CUSTOMIZATION_SPEC_TYPE = "Linux"
+    WINDOWS_CUSTOMIZATION_SPEC_ORG = "Quali"
+    WINDOWS_CUSTOMIZATION_SPEC_NAME = "Quali"
 
     # region consts
     ChildEntity = "childEntity"
@@ -496,6 +500,9 @@ class pyVmomiService:
             power_on=True,
             snapshot="",
             customization_spec="",
+            computer_name="",
+            password="",
+            private_ip="",
             cpu="",
             ram="",
             hdd="",
@@ -512,10 +519,12 @@ class pyVmomiService:
             :param power_on:            bool: turn on the cloned vm
             :param snapshot:            str: the name of the snapshot to clone from
             :param customization_spec:  str: the name of the customization specification
+            :param computer_name:       str: host name that will be added to the VM
+            :param password:            str: password that will be added to the Windows VM
+            :param private_ip:          str: static IP that will be added to the VM
             :param cpu:                 str: the amount of CPUs
             :param ram:                 str: the amount of RAM
             :param hdd:                 str: the amount of disks
-
             """
             self.si = si
             self.template_name = template_name
@@ -527,6 +536,9 @@ class pyVmomiService:
             self.power_on = str2bool(power_on)
             self.snapshot = snapshot
             self.customization_spec = customization_spec
+            self.computer_name = computer_name
+            self.password = password
+            self.private_ip = private_ip
             self.cpu = cpu
             self.ram = ram
             self.hdd = hdd
@@ -585,7 +597,9 @@ class pyVmomiService:
 
         resource_pool, host = self.get_resource_pool(datacenter.name, clone_params)
 
-        customization_spec = self._get_customization_spec(clone_params)
+        customization_spec, created_new_spec = self._prepare_customization_spec(
+            clone_params=clone_params, vm_template=template
+        )
 
         if not resource_pool and not host:
             raise ValueError(
@@ -665,7 +679,11 @@ class pyVmomiService:
                 custom_field_value=self.WAIT_FOR_OS_CUSTOMIZATION_CUSTOM_FIELD,
             )
 
+        result.customization_spec = (
+            customization_spec.info.name if created_new_spec else None
+        )
         result.vm = vm
+
         return result
 
     def _get_device_unit_number_generator(self, vm):
@@ -1117,14 +1135,184 @@ class pyVmomiService:
         # ok, now we're adding the vm name; btw, if there is no folder, that's cool, just return vm.name
         return VMLocation.combine([folder_name, vm.name]) if folder_name else vm.name
 
-    def _get_customization_spec(self, clone_params):
-        if clone_params.customization_spec:
-            return (
-                clone_params.si.content.customizationSpecManager.GetCustomizationSpec(
+    def _get_customization_spec_os_type(self, vm):
+        if "windows" in vm.config.guestId.lower():
+            return self.WINDOWS_CUSTOMIZATION_SPEC_TYPE
+        elif "other" in vm.config.guestId.lower():
+            raise Exception(
+                f"Customization specification is not supported for the OS '{vm.config.guestId}'"
+            )
+
+        return self.LINUX_CUSTOMIZATION_SPEC_TYPE
+
+    def _create_windows_customization_spec(self, name, password=None):
+        password = (
+            vim.vm.customization.Password(value=password, plainText=True)
+            if password
+            else None
+        )
+
+        customization_spec = vim.CustomizationSpecItem(
+            info=vim.CustomizationSpecInfo(
+                type=self.WINDOWS_CUSTOMIZATION_SPEC_TYPE,
+                name=name,
+            ),
+            spec=vim.vm.customization.Specification(
+                identity=vim.vm.customization.Sysprep(
+                    guiUnattended=vim.vm.customization.GuiUnattended(password=password),
+                    userData=vim.vm.customization.UserData(
+                        computerName=vim.vm.customization.VirtualMachineNameGenerator(),
+                        fullName=self.WINDOWS_CUSTOMIZATION_SPEC_NAME,
+                        orgName=self.WINDOWS_CUSTOMIZATION_SPEC_ORG,
+                    ),
+                    identification=vim.vm.customization.Identification(),
+                ),
+                globalIPSettings=vim.vm.customization.GlobalIPSettings(),
+                nicSettingMap=[],
+                options=vim.vm.customization.WinOptions(
+                    changeSID=True,
+                ),
+            ),
+        )
+
+        customization_spec.spec.nicSettingMap.append(
+            vim.vm.customization.AdapterMapping(
+                adapter=vim.vm.customization.IPSettings(
+                    ip=vim.vm.customization.DhcpIpGenerator()
+                )
+            )
+        )
+
+        return customization_spec
+
+    def _create_linux_customization_spec(self, name):
+        customization_spec = vim.CustomizationSpecItem(
+            info=vim.CustomizationSpecInfo(
+                type=self.LINUX_CUSTOMIZATION_SPEC_TYPE,
+                name=name,
+            ),
+            spec=vim.vm.customization.Specification(
+                identity=vim.vm.customization.LinuxPrep(
+                    hostName=vim.vm.customization.VirtualMachineNameGenerator(),
+                ),
+                globalIPSettings=vim.vm.customization.GlobalIPSettings(),
+                nicSettingMap=[],
+                options=vim.vm.customization.LinuxOptions(),
+            ),
+        )
+
+        customization_spec.spec.nicSettingMap.append(
+            vim.vm.customization.AdapterMapping(
+                adapter=vim.vm.customization.IPSettings(
+                    ip=vim.vm.customization.DhcpIpGenerator()
+                )
+            )
+        )
+
+        return customization_spec
+
+    def delete_customization_spec(self, si, name):
+        si.content.customizationSpecManager.DeleteCustomizationSpec(name=name)
+
+    def _get_vm_vnics(self, vm):
+        return [
+            device
+            for device in vm.config.hardware.device
+            if isinstance(device, vim.vm.device.VirtualEthernetCard)
+        ]
+
+    def _set_customization_spec_params(
+        self, customization_spec, clone_params, vm_template
+    ):
+        if clone_params.computer_name:
+            if customization_spec.info.type == self.WINDOWS_CUSTOMIZATION_SPEC_TYPE:
+                customization_spec.spec.identity.userData.computerName = (
+                    vim.vm.customization.FixedName(name=clone_params.computer_name)
+                )
+            else:
+                customization_spec.spec.identity.hostName = (
+                    vim.vm.customization.FixedName(name=clone_params.computer_name)
+                )
+
+        if clone_params.private_ip:
+            vm_vnics = self._get_vm_vnics(vm_template)
+            # customization spec IP configurations should be equal to the VM interfaces
+            while len(customization_spec.spec.nicSettingMap) < len(vm_vnics):
+                customization_spec.spec.nicSettingMap.append(
+                    vim.vm.customization.AdapterMapping(
+                        adapter=vim.vm.customization.IPSettings(
+                            ip=vim.vm.customization.DhcpIpGenerator()
+                        )
+                    )
+                )
+
+            private_ip = IPNetwork(clone_params.private_ip)
+            network_adapter = customization_spec.spec.nicSettingMap[0].adapter
+
+            network_adapter.ip = vim.vm.customization.FixedIp(
+                ipAddress=str(private_ip.ip)
+            )
+            network_adapter.subnetMask = str(private_ip.netmask)
+
+    def _prepare_customization_spec(self, clone_params, vm_template):
+        si = clone_params.si
+        created_new = False
+        customization_spec = None
+        need_to_add_vm_spec = any([clone_params.computer_name, clone_params.private_ip])
+
+        if need_to_add_vm_spec and clone_params.customization_spec:
+            si.content.customizationSpecManager.DuplicateCustomizationSpec(
+                name=clone_params.customization_spec, newName=clone_params.vm_name
+            )
+
+            customization_spec = (
+                si.content.customizationSpecManager.GetCustomizationSpec(
+                    name=clone_params.vm_name
+                )
+            )
+
+            self._set_customization_spec_params(
+                customization_spec=customization_spec,
+                clone_params=clone_params,
+                vm_template=vm_template,
+            )
+
+            si.content.customizationSpecManager.OverwriteCustomizationSpec(
+                customization_spec
+            )
+            created_new = True
+
+        elif need_to_add_vm_spec:
+            os_type = self._get_customization_spec_os_type(vm_template)
+
+            if os_type == self.WINDOWS_CUSTOMIZATION_SPEC_TYPE:
+                customization_spec = self._create_windows_customization_spec(
+                    name=clone_params.vm_name, password=clone_params.password
+                )
+            else:
+                customization_spec = self._create_linux_customization_spec(
+                    name=clone_params.vm_name
+                )
+
+            self._set_customization_spec_params(
+                customization_spec=customization_spec,
+                clone_params=clone_params,
+                vm_template=vm_template,
+            )
+
+            si.content.customizationSpecManager.CreateCustomizationSpec(
+                customization_spec
+            )
+            created_new = True
+
+        elif clone_params.customization_spec:
+            customization_spec = (
+                si.content.customizationSpecManager.GetCustomizationSpec(
                     name=clone_params.customization_spec
                 )
             )
-        return None
+
+        return customization_spec, created_new
 
 
 def vm_has_no_vnics(vm):
