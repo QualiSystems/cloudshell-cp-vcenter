@@ -1,6 +1,6 @@
 import unittest
 
-from mock import Mock, create_autospec
+from mock import MagicMock, Mock, create_autospec
 from pyVmomi import vim
 
 from cloudshell.cp.vcenter.commands.DeleteInstance import DestroyVirtualMachineCommand
@@ -106,6 +106,8 @@ class TestDestroyVirtualMachineCommand(unittest.TestCase):
         resource_name = "this/is the name of the template"
         uuid = "uuid"
         vm = Mock()
+        resource_model = MagicMock()
+        resource_model.vm_uuid = uuid
 
         pv_service.destory_mv = Mock(return_value=True)
         disconnector.remove_interfaces_from_vm = Mock(return_value=True)
@@ -129,8 +131,7 @@ class TestDestroyVirtualMachineCommand(unittest.TestCase):
             logger=Mock(),
             session=session,
             vcenter_data_model=vcenter_data_model,
-            vm_uuid=uuid,
-            vm_name=resource_name,
+            resource_model=resource_model,
         )
 
         # assert

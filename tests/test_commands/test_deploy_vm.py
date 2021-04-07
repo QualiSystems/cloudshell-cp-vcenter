@@ -39,6 +39,8 @@ class TestDeployFromTemplateCommand(unittest.TestCase):
 
         resource_context = Mock()
         logger = Mock()
+        session = Mock()
+        app_resource_model = Mock()
         vcenter_data_model = Mock()
         vcenter_data_model.default_datacenter = "QualiSB"
         vcenter_data_model.vm_location = "TargetFolder"
@@ -49,7 +51,9 @@ class TestDeployFromTemplateCommand(unittest.TestCase):
         result = deploy_command.execute_deploy_from_template(
             si=si,
             logger=logger,
+            session=session,
             deployment_params=deploy_params,
+            app_resource_model=app_resource_model,
             vcenter_data_model=vcenter_data_model,
             reservation_id=reservation_id,
             cancellation_context=cancellation_context,
@@ -61,7 +65,9 @@ class TestDeployFromTemplateCommand(unittest.TestCase):
         deployer.deploy_from_template.assert_called_once_with(
             si,
             logger,
+            session,
             deploy_params,
+            app_resource_model,
             vcenter_data_model,
             reservation_id,
             cancellation_context,
@@ -129,6 +135,8 @@ class TestDeployFromTemplateCommand(unittest.TestCase):
 
         reservation_id = Mock()
         logger = Mock()
+        session = Mock()
+        app_resource_model = Mock()
 
         vcenter_data_model = Mock()
         vcenter_data_model.default_datacenter = "QualiSB"
@@ -149,7 +157,9 @@ class TestDeployFromTemplateCommand(unittest.TestCase):
         result = deploy_command.execute_deploy_clone_from_vm(
             si=si,
             logger=logger,
+            session=session,
             vcenter_data_model=vcenter_data_model,
+            app_resource_model=app_resource_model,
             deployment_params=deploy_params,
             reservation_id=reservation_id,
             cancellation_context=cancellation_context,
@@ -161,7 +171,9 @@ class TestDeployFromTemplateCommand(unittest.TestCase):
         deployer.deploy_clone_from_vm.assert_called_once_with(
             si,
             logger,
+            session,
             deploy_params,
+            app_resource_model,
             vcenter_data_model,
             reservation_id,
             cancellation_context,
@@ -197,13 +209,17 @@ class TestDeployFromTemplateCommand(unittest.TestCase):
         vcenter_data_model.vm_location = "TargetFolder"
         reservation_id = Mock()
         cancellation_context = object()
+        session = Mock()
+        app_resource_model = Mock()
 
         # act
         result = deploy_command.execute_deploy_from_linked_clone(
             si=si,
             logger=logger,
+            session=session,
             deployment_params=deploy_params,
             vcenter_data_model=vcenter_data_model,
+            app_resource_model=app_resource_model,
             reservation_id=reservation_id,
             cancellation_context=cancellation_context,
             folder_manager=Mock(),
@@ -214,7 +230,9 @@ class TestDeployFromTemplateCommand(unittest.TestCase):
         deployer.deploy_from_linked_clone.assert_called_once_with(
             si,
             logger,
+            session,
             deploy_params,
+            app_resource_model,
             vcenter_data_model,
             reservation_id,
             cancellation_context,

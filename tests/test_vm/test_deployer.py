@@ -70,7 +70,9 @@ class TestVirtualMachineDeployer(TestCase):
             si=self.si,
             data_holder=deploy_from_template_details,
             vcenter_data_model=resource_context,
+            app_resource_model=Mock(),
             logger=Mock(),
+            session=Mock(),
             reservation_id=Mock(),
             cancellation_context=cancellation_context,
         )
@@ -95,8 +97,10 @@ class TestVirtualMachineDeployer(TestCase):
         res = self.deployer.deploy_clone_from_vm(
             si=self.si,
             data_holder=deploy_from_template_details,
+            app_resource_model=Mock(),
             vcenter_data_model=resource_context,
             logger=Mock(),
+            session=Mock(),
             reservation_id=reservation_id,
             cancellation_context=cancellation_context,
         )
@@ -120,8 +124,10 @@ class TestVirtualMachineDeployer(TestCase):
         res = self.deployer.deploy_from_linked_clone(
             si=self.si,
             data_holder=deploy_from_template_details,
+            app_resource_model=Mock(),
             vcenter_data_model=resource_context,
             logger=Mock(),
+            session=Mock(),
             reservation_id=Mock(),
             cancellation_context=cancellation_context,
         )
@@ -167,7 +173,9 @@ class TestVirtualMachineDeployer(TestCase):
             self.deployer.deploy_from_template,
             self.si,
             Mock(),
+            Mock(),
             deploy_from_template_details,
+            Mock(),
             vcenter_data_model,
             Mock(),
             Mock(),

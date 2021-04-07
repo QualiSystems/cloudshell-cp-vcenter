@@ -54,6 +54,8 @@ class TestCommandOrchestrator(TestCase):
             "Refresh IP Timeout": "600",
             "Auto Delete": "True",
             "Customization Spec": "",
+            "Computer Name": "",
+            "Private IP": "",
             "Autoload": "True",
             "VCenter VM": "sds",
             "VCenter VM Snapshot": "sds",
