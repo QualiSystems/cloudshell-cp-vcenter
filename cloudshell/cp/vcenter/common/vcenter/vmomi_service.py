@@ -28,9 +28,11 @@ class pyVmomiService:
     SCSI_CONTROLLER_UNIT_NUMBER = 7
     WAIT_FOR_OS_CUSTOMIZATION_CUSTOM_FIELD = "Quali_wait_for_os_customization"
     WINDOWS_CUSTOMIZATION_SPEC_TYPE = "Windows"
-    LINUX_CUSTOMIZATION_SPEC_TYPE = "Linux"
     WINDOWS_CUSTOMIZATION_SPEC_ORG = "Quali"
     WINDOWS_CUSTOMIZATION_SPEC_NAME = "Quali"
+    WINDOWS_CUSTOMIZATION_SPEC_WORKGROUP = "WORKGROUP"
+    LINUX_CUSTOMIZATION_SPEC_TYPE = "Linux"
+    LINUX_CUSTOMIZATION_SPEC_TIMEZONE = "US/Pacific"
 
     # region consts
     ChildEntity = "childEntity"
@@ -1165,7 +1167,9 @@ class pyVmomiService:
                         fullName=self.WINDOWS_CUSTOMIZATION_SPEC_NAME,
                         orgName=self.WINDOWS_CUSTOMIZATION_SPEC_ORG,
                     ),
-                    identification=vim.vm.customization.Identification(),
+                    identification=vim.vm.customization.Identification(
+                        joinWorkgroup=self.WINDOWS_CUSTOMIZATION_SPEC_WORKGROUP
+                    ),
                 ),
                 globalIPSettings=vim.vm.customization.GlobalIPSettings(),
                 nicSettingMap=[],
@@ -1194,6 +1198,8 @@ class pyVmomiService:
             spec=vim.vm.customization.Specification(
                 identity=vim.vm.customization.LinuxPrep(
                     hostName=vim.vm.customization.VirtualMachineNameGenerator(),
+                    timeZone=self.LINUX_CUSTOMIZATION_SPEC_TIMEZONE,
+                    hwClockUTC=True,
                 ),
                 globalIPSettings=vim.vm.customization.GlobalIPSettings(),
                 nicSettingMap=[],
