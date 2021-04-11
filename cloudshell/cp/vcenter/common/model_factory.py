@@ -102,7 +102,7 @@ class ResourceModelParser:
             )
 
         if hasattr(instance, "computer_name"):
-            if not re.match("^[A-Za-z0-9-]+$", instance.computer_name):
+            if not re.match("^[A-Za-z0-9-]*$", instance.computer_name):
                 raise Exception(
                     f"Invalid 'Computer Name' attribute '{instance.computer_name}'."
                     f" It can contain letters, numbers and hyphens (-), but no spaces or periods (.)"
