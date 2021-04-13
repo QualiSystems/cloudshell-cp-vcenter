@@ -667,13 +667,13 @@ class CommandOrchestrator(object):
         )
         return set_command_result(result=res, unpicklable=False)
 
-    def reconfigure_vm(self, context, cpu, ram, hhd):
+    def reconfigure_vm(self, context, cpu, ram, hdd):
         """Reconfigure CPU/RAM/disks on the VM
 
         :param context:
         :param cpu:
         :param ram:
-        :param hhd:
+        :param hdd:
         :return:
         """
         resource_details = self._parse_remote_model(context)
@@ -683,7 +683,7 @@ class CommandOrchestrator(object):
             resource_details.vm_uuid,
             cpu,
             ram,
-            hhd,
+            hdd,
         )
         return set_command_result(result=res, unpicklable=False)
 

@@ -498,7 +498,7 @@ class pyVmomiService:
             customization_spec="",
             cpu="",
             ram="",
-            hhd="",
+            hdd="",
         ):
             """
             Constructor of CloneVmParameters
@@ -514,7 +514,7 @@ class pyVmomiService:
             :param customization_spec:  str: the name of the customization specification
             :param cpu:                 str: the amount of CPUs
             :param ram:                 str: the amount of RAM
-            :param hhd:               str: the amount of disks
+            :param hdd:                 str: the amount of disks
 
             """
             self.si = si
@@ -529,7 +529,7 @@ class pyVmomiService:
             self.customization_spec = customization_spec
             self.cpu = cpu
             self.ram = ram
-            self.hhd = hhd
+            self.hdd = hdd
 
     class CloneVmResult:
         """
@@ -603,7 +603,7 @@ class pyVmomiService:
             vm=template,
             cpu=clone_params.cpu,
             ram=clone_params.ram,
-            hhd=clone_params.hhd,
+            hdd=clone_params.hdd,
         )
 
         clone_spec = self.vim.vm.CloneSpec()
@@ -685,17 +685,17 @@ class pyVmomiService:
             f"Unable to create a new disk device. {self.MAX_NUMBER_OF_VM_DISKS} disks limit has been exceeded"
         )
 
-    def reconfigure_vm(self, vm, cpu, ram, hhd, logger):
+    def reconfigure_vm(self, vm, cpu, ram, hdd, logger):
         """
 
         :param vm:
         :param cpu:
         :param ram:
-        :param hhd:
+        :param hdd:
         :param logger:
         :return:
         """
-        config_spec = self._prepare_vm_config_spec(vm=vm, cpu=cpu, ram=ram, hhd=hhd)
+        config_spec = self._prepare_vm_config_spec(vm=vm, cpu=cpu, ram=ram, hdd=hdd)
 
         task = vm.ReconfigVM_Task(spec=config_spec)
 
@@ -725,13 +725,13 @@ class pyVmomiService:
 
         return controller_key
 
-    def _prepare_vm_config_spec(self, vm, cpu, ram, hhd):
+    def _prepare_vm_config_spec(self, vm, cpu, ram, hdd):
         """Prepare VM Config Spec.
 
         :param vm:
         :param cpu:
         :param ram:
-        :param hhd:
+        :param hdd:
         :return:
         """
         config_spec = vim.vm.ConfigSpec()
@@ -744,11 +744,11 @@ class pyVmomiService:
         if ram:
             config_spec.memoryMB = int(ram * 1024)
 
-        if hhd:
+        if hdd:
             disks = {}
 
             for disk_data in [
-                disk_data for disk_data in hhd.split(";") if ":" in disk_data
+                disk_data for disk_data in hdd.split(";") if ":" in disk_data
             ]:
                 disk_name, disk_size = disk_data.split(":")
                 disks[int(re.search(r"\d+", disk_name).group())] = float(disk_size)

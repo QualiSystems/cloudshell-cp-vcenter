@@ -191,7 +191,7 @@ class VirtualMachineDeployer(object):
             customization_spec=deploy_params.customization_spec,
             cpu=deploy_params.cpu,
             ram=deploy_params.ram,
-            hhd=deploy_params.hhd,
+            hdd=deploy_params.hdd,
         )
 
         if cancellation_context.is_cancelled:
@@ -271,13 +271,13 @@ class VirtualMachineDeployer(object):
                     self.pv_service.destroy_vm(vm=vm, logger=logger)
                     raise Exception("Action 'Deploy from image' was cancelled.")
 
-                if any([image_params.cpu, image_params.ram, image_params.hhd]):
+                if any([image_params.cpu, image_params.ram, image_params.hdd]):
                     try:
                         self.pv_service.reconfigure_vm(
                             vm=vm,
                             cpu=image_params.cpu,
                             ram=image_params.ram,
-                            hhd=image_params.hhd,
+                            hdd=image_params.hdd,
                             logger=logger,
                         )
                     except Exception as e:
@@ -367,7 +367,7 @@ class VirtualMachineDeployer(object):
         image_params.vcenter_name = data_holder.vcenter_name
         image_params.cpu = data_holder.cpu
         image_params.ram = data_holder.ram
-        image_params.hhd = data_holder.hhd
+        image_params.hdd = data_holder.hdd
 
         return image_params
 

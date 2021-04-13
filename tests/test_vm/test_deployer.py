@@ -195,7 +195,7 @@ class TestVirtualMachineDeployer(TestCase):
                     "auto_delete": "True",
                     "cpu": "",
                     "ram": "",
-                    "hhd": "",
+                    "hdd": "",
                 },
             }
         )

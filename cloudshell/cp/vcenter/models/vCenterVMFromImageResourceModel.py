@@ -18,4 +18,4 @@ class vCenterVMFromImageResourceModel(object):
         self.behavior_during_save = ""
         self.cpu = ""
         self.ram = ""
-        self.hhd = ""
+        self.hdd = ""

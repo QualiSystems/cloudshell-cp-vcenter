@@ -16,4 +16,4 @@ class vCenterVMFromTemplateResourceModel(object):
         self.customization_spec = ""
         self.cpu = ""
         self.ram = ""
-        self.hhd = ""
+        self.hdd = ""

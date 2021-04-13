@@ -26,7 +26,7 @@ class ReconfigureVMCommand:
         vm_uuid,
         cpu,
         ram,
-        hhd,
+        hdd,
     ):
         """
 
@@ -51,5 +51,5 @@ class ReconfigureVMCommand:
             )
 
         return self.pyvmomi_service.reconfigure_vm(
-            vm=vm, cpu=cpu, ram=ram, hhd=hhd, logger=logger
+            vm=vm, cpu=cpu, ram=ram, hdd=hdd, logger=logger
         )

@@ -61,7 +61,7 @@ class TestCommandOrchestrator(TestCase):
             "Behavior during save": "Powered Off",
             "CPU": "",
             "RAM": "",
-            "HHD": "",
+            "HDD": "",
         }
 
         self.resource = create_autospec(ResourceInfo)
