@@ -210,7 +210,7 @@ class VirtualMachineDeployer(object):
             power_on=False,
             snapshot=snapshot,
             customization_spec=deploy_params.customization_spec,
-            computer_name=deploy_params.computer_name,
+            hostname=deploy_params.hostname,
             password=password,
             private_ip=deploy_params.private_ip,
             cpu=deploy_params.cpu,

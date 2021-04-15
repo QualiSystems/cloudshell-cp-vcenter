@@ -14,7 +14,7 @@ class vCenterCloneVMFromVMResourceModel(object):
         self.refresh_ip_timeout = 0
         self.behavior_during_save = ""
         self.customization_spec = ""
-        self.computer_name = ""
+        self.hostname = ""
         self.private_ip = ""
         self.cpu = ""
         self.ram = ""

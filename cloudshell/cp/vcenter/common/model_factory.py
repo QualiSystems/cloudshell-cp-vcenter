@@ -101,10 +101,10 @@ class ResourceModelParser:
                 instance.vcenter_vm_snapshot
             )
 
-        if hasattr(instance, "computer_name"):
-            if not re.match("^[A-Za-z0-9-]*$", instance.computer_name):
+        if hasattr(instance, "hostname"):
+            if not re.match("^[A-Za-z0-9-]*$", instance.hostname):
                 raise Exception(
-                    f"Invalid 'Computer Name' attribute '{instance.computer_name}'."
+                    f"Invalid 'Hostname' attribute '{instance.hostname}'."
                     f" It can contain letters, numbers and hyphens (-), but no spaces or periods (.)"
                 )
 

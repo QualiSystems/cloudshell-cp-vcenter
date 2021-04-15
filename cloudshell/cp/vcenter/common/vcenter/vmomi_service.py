@@ -502,7 +502,7 @@ class pyVmomiService:
             power_on=True,
             snapshot="",
             customization_spec="",
-            computer_name="",
+            hostname="",
             password="",
             private_ip="",
             cpu="",
@@ -521,7 +521,7 @@ class pyVmomiService:
             :param power_on:            bool: turn on the cloned vm
             :param snapshot:            str: the name of the snapshot to clone from
             :param customization_spec:  str: the name of the customization specification
-            :param computer_name:       str: host name that will be added to the VM
+            :param hostname:            str: host name that will be added to the VM
             :param password:            str: password that will be added to the Windows VM
             :param private_ip:          str: static IP that will be added to the VM
             :param cpu:                 str: the amount of CPUs
@@ -538,7 +538,7 @@ class pyVmomiService:
             self.power_on = str2bool(power_on)
             self.snapshot = snapshot
             self.customization_spec = customization_spec
-            self.computer_name = computer_name
+            self.hostname = hostname
             self.password = password
             self.private_ip = private_ip
             self.cpu = cpu
@@ -1230,14 +1230,14 @@ class pyVmomiService:
     def _set_customization_spec_params(
         self, customization_spec, clone_params, vm_template
     ):
-        if clone_params.computer_name:
+        if clone_params.hostname:
             if customization_spec.info.type == self.WINDOWS_CUSTOMIZATION_SPEC_TYPE:
                 customization_spec.spec.identity.userData.computerName = (
-                    vim.vm.customization.FixedName(name=clone_params.computer_name)
+                    vim.vm.customization.FixedName(name=clone_params.hostname)
                 )
             else:
                 customization_spec.spec.identity.hostName = (
-                    vim.vm.customization.FixedName(name=clone_params.computer_name)
+                    vim.vm.customization.FixedName(name=clone_params.hostname)
                 )
 
         if clone_params.private_ip:
@@ -1264,7 +1264,7 @@ class pyVmomiService:
         si = clone_params.si
         created_new = False
         customization_spec = None
-        need_to_add_vm_spec = any([clone_params.computer_name, clone_params.private_ip])
+        need_to_add_vm_spec = any([clone_params.hostname, clone_params.private_ip])
 
         if need_to_add_vm_spec and clone_params.customization_spec:
             si.content.customizationSpecManager.DuplicateCustomizationSpec(
