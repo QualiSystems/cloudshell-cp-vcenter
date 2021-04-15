@@ -1,6 +1,6 @@
 import traceback
 
-from cloudshell.cp.core.models import DeployAppResult, VmDetailsProperty
+from cloudshell.cp.core.models import Attribute, DeployAppResult, VmDetailsProperty
 from cloudshell.cp.core.utils import convert_to_bool
 
 from cloudshell.cp.vcenter.common.cloud_shell.conn_details_retriever import (
@@ -244,10 +244,19 @@ class VirtualMachineDeployer(object):
             clone_vm_result.vm, vm_name, vcenter_data_model, deploy_params, logger
         )
 
+        deployed_app_attrs = []
+
+        if clone_vm_result.user is not None:
+            deployed_app_attrs.append(Attribute("User", clone_vm_result.user))
+
+        if clone_vm_result.password is not None:
+            deployed_app_attrs.append(Attribute("Password", clone_vm_result.password))
+
         return DeployAppResult(
             vmName=vm_name,
             vmUuid=clone_vm_result.vm.summary.config.uuid,
             vmDetailsData=vm_details_data,
+            deployedAppAttributes=deployed_app_attrs,
             deployedAppAdditionalData={
                 "ip_regex": deploy_params.ip_regex,
                 "refresh_ip_timeout": deploy_params.refresh_ip_timeout,

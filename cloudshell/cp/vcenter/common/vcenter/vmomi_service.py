@@ -31,6 +31,7 @@ class pyVmomiService:
     WINDOWS_CUSTOMIZATION_SPEC_ORG = "Quali"
     WINDOWS_CUSTOMIZATION_SPEC_NAME = "Quali"
     WINDOWS_CUSTOMIZATION_SPEC_WORKGROUP = "WORKGROUP"
+    WINDOWS_CUSTOMIZATION_SPEC_DEFAULT_USER = "Administrator"
     LINUX_CUSTOMIZATION_SPEC_TYPE = "Linux"
     LINUX_CUSTOMIZATION_SPEC_TIMEZONE = "US/Pacific"
 
@@ -684,7 +685,22 @@ class pyVmomiService:
         result.customization_spec = (
             customization_spec.info.name if created_new_spec else None
         )
+
         result.vm = vm
+
+        if all(
+            [
+                clone_params.password,
+                customization_spec
+                and customization_spec.info.type
+                == self.WINDOWS_CUSTOMIZATION_SPEC_TYPE,
+            ]
+        ):
+            result.user = self.WINDOWS_CUSTOMIZATION_SPEC_DEFAULT_USER
+            result.password = clone_params.password
+        else:
+            result.user = None
+            result.password = None
 
         return result
 
