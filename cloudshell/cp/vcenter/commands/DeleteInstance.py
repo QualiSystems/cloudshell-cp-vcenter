@@ -84,9 +84,6 @@ class DestroyVirtualMachineCommand(object):
             logger.info(resource___format)
             result = resource___format
 
-        if resource_model.vm_custom_params:
-            pass
-
         vm_customization_spec = self._get_custom_param(
             params=resource_model.vm_custom_params,
             name=VM_CUSTOMIZATION_SPEC_CUSTOM_PARAM,
