@@ -5,6 +5,8 @@ from threading import Lock
 
 from pyVmomi import vim
 
+from cloudshell.cp.vcenter.exceptions.task_waiter import TaskFaultException
+
 
 class DvPortGroupCreator(object):
     CREATE_PORT_GROUP_TIMEOUT = 60 * 5
@@ -52,6 +54,7 @@ class DvPortGroupCreator(object):
         network = None
         error = None
         self._lock.acquire()
+
         try:
             # check if the network is attached to the vm and gets it, the function doesn't goes to the vcenter
             network = self.pyvmomi_service.get_network_by_name_from_vm(vm, dv_port_name)
@@ -92,28 +95,35 @@ class DvPortGroupCreator(object):
                         logger.info(
                             f"Creating DvSwitch '{dv_switch_name}' Port Group {dv_port_name} ...'"
                         )
-                        self._create_dv_port_group(
-                            dv_port_name,
-                            dv_switch_name,
-                            dv_switch_path,
-                            si,
-                            vlan_spec,
-                            vlan_id,
-                            logger,
-                            promiscuous_mode,
-                        )
+                        try:
+                            self._create_dv_port_group(
+                                dv_port_name,
+                                dv_switch_name,
+                                dv_switch_path,
+                                si,
+                                vlan_spec,
+                                vlan_id,
+                                logger,
+                                promiscuous_mode,
+                            )
+                        except TaskFaultException as e:
+                            if "already exists" not in str(e):
+                                raise
                     else:
                         logger.info(
                             f"Creating vSwitch '{dv_switch_name}' Port Group {dv_port_name} ...'"
                         )
-                        self._create_port_group(
-                            dv_port_name,
-                            dv_switch_name,
-                            vlan_id,
-                            logger,
-                            promiscuous_mode,
-                            vm.runtime.host,
-                        )
+                        try:
+                            self._create_port_group(
+                                dv_port_name,
+                                dv_switch_name,
+                                vlan_id,
+                                logger,
+                                promiscuous_mode,
+                                vm.runtime.host,
+                            )
+                        except vim.fault.AlreadyExists:
+                            pass
 
                     network = self._wait_for_network(
                         si=si,
@@ -122,18 +132,20 @@ class DvPortGroupCreator(object):
                         logger=logger,
                     )
                     logger.info(f"Found Port Group Network '{network}' ...'")
-
-            if not network:
-                raise ValueError(
-                    "Could not get or create vlan named: {0}".format(dv_port_name)
-                )
         except ValueError as e:
             logger.debug("Failed to find network", exc_info=True)
             error = e
         finally:
             self._lock.release()
+
             if error:
                 raise error
+
+            if not network:
+                raise ValueError(
+                    "Could not get or create vlan named: {0}".format(dv_port_name)
+                )
+
             return network
 
     def _wait_for_network(
