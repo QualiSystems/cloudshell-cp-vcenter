@@ -12,13 +12,13 @@ class GetVMConsoleCommand:
     HTTPS_PORT = 443
     VCENTER_FQDN_KEY = "VirtualCenter.FQDN"
 
-    VCENTER_V7_VERSION = "7.0.0"
+    VCENTER_NEW_CONSOLE_LINK_VERSION = "6.7.0"
 
-    VM_WEB_CONSOLE_LINK_V6_TPL = (
+    VM_WEB_CONSOLE_OLD_LINK_TPL = (
         "https://{vcenter_ip}:{console_port}/vsphere-client/webconsole.html?vmId={vm_moid}&vmName={vm_name}&"
         "serverGuid={server_guid}&host={vcenter_host}:443&sessionTicket={session_ticket}&thumbprint={thumbprint}"
     )
-    VM_WEB_CONSOLE_LINK_V7_TPL = (
+    VM_WEB_CONSOLE_NEW_LINK_TPL = (
         "https://{vcenter_ip}/ui/webconsole.html?vmId={vm_moid}&vmName={vm_name}&"
         "serverGuid={server_guid}&host={vcenter_host}:443&sessionTicket={session_ticket}&thumbprint={thumbprint}"
     )
@@ -68,9 +68,9 @@ class GetVMConsoleCommand:
         thumbprint = vc_pem.digest("sha1")
 
         if version.parse(si.content.about.version) >= version.parse(
-            self.VCENTER_V7_VERSION
+            self.VCENTER_NEW_CONSOLE_LINK_VERSION
         ):
-            return self.VM_WEB_CONSOLE_LINK_V7_TPL.format(
+            return self.VM_WEB_CONSOLE_NEW_LINK_TPL.format(
                 vcenter_ip=vcenter_ip,
                 vm_moid=vm._moId,
                 vm_name=quote(vm.name),
@@ -81,7 +81,7 @@ class GetVMConsoleCommand:
                 thumbprint=quote(thumbprint.decode()),
             )
         else:
-            return self.VM_WEB_CONSOLE_LINK_V6_TPL.format(
+            return self.VM_WEB_CONSOLE_OLD_LINK_TPL.format(
                 vcenter_ip=vcenter_ip,
                 console_port=self.CONSOLE_PORT,
                 vm_moid=vm._moId,
