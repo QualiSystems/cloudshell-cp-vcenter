@@ -5,6 +5,7 @@ import jsonpickle
 from cloudshell.cp.core.models import DeployApp, DeployAppResult, SaveApp, SaveAppResult
 from pyVim.connect import Disconnect, SmartConnect
 
+from cloudshell.cp.vcenter import constants
 from cloudshell.cp.vcenter.commands.cluster_usage import GetClusterUsageCommand
 from cloudshell.cp.vcenter.commands.connect_dvswitch import VirtualSwitchConnectCommand
 from cloudshell.cp.vcenter.commands.connect_orchestrator import (
@@ -123,6 +124,13 @@ class CommandOrchestrator(object):
         resource_remover = CloudshellResourceRemover()
         ovf_service = OvfImageDeployerService(self.resource_model_parser)
 
+        self.deployment_path_map = {
+            constants.VM_FROM_VM_DEPLOYMENT_PATH: vCenterCloneVMFromVMResourceModel,
+            constants.VM_FROM_TEMPLATE_DEPLOYMENT_PATH: vCenterVMFromTemplateResourceModel,
+            constants.VM_FROM_LINKED_CLONE_DEPLOYMENT_PATH: VCenterDeployVMFromLinkedCloneResourceModel,
+            constants.VM_FROM_IMAGE_DEPLOYMENT_PATH: vCenterVMFromImageResourceModel,
+        }
+
         self.vm_loader = VMLoader(pv_service)
 
         self.cluster_usage_command = GetClusterUsageCommand(pv_service)
@@ -195,6 +203,7 @@ class CommandOrchestrator(object):
         # Destroy VM Command
         self.destroy_virtual_machine_command = DestroyVirtualMachineCommand(
             pv_service=pv_service,
+            folder_manager=self.folder_manager,
             resource_remover=resource_remover,
             disconnector=self.virtual_switch_disconnect_command,
         )
@@ -576,14 +585,37 @@ class CommandOrchestrator(object):
             )
         resource = context.remote_endpoints[0]
 
-        dictionary = jsonpickle.decode(resource.app_context.deployed_app_json)
-        holder = DeployDataHolder(dictionary)
+        deployed_app = jsonpickle.decode(resource.app_context.deployed_app_json)
+        app_request = jsonpickle.decode(resource.app_context.app_request_json)
+
+        holder = DeployDataHolder(deployed_app)
         app_resource_detail = GenericDeployedAppResourceModel()
         app_resource_detail.vm_uuid = holder.vmdetails.uid
         app_resource_detail.cloud_provider = context.resource.fullname
         app_resource_detail.fullname = resource.fullname
+        app_resource_detail.deployment_path = app_request["deploymentService"]["model"]
+
+        if app_resource_detail.deployment_path not in self.deployment_path_map:
+            raise Exception(
+                f"Invalid deployment path '{app_resource_detail.deployment_path}'. "
+                f"Possible values are: {self.deployment_path_map.keys()}"
+            )
+
+        app_resource_detail.app_request_model = (
+            self.resource_model_parser.convert_to_resource_model(
+                attributes={
+                    attribute["name"]: attribute["value"]
+                    for attribute in app_request["deploymentService"]["attributes"]
+                },
+                resource_model_type=self.deployment_path_map[
+                    app_resource_detail.deployment_path
+                ],
+            )
+        )
+
         if hasattr(holder.vmdetails, "vmCustomParams"):
             app_resource_detail.vm_custom_params = holder.vmdetails.vmCustomParams
+
         return app_resource_detail
 
     def power_on_not_roemote(self, context, vm_uuid, resource_fullname):

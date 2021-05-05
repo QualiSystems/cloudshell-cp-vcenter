@@ -1,20 +1,23 @@
 ﻿from cloudshell.api.cloudshell_api import CloudShellAPISession
+
+from cloudshell.cp.vcenter import constants
 from cloudshell.cp.vcenter.common.utilites.common_utils import (
     get_error_message_from_exception,
 )
-from cloudshell.cp.vcenter.constants import VM_CUSTOMIZATION_SPEC_CUSTOM_PARAM
+from cloudshell.cp.vcenter.common.vcenter.vm_location import VMLocation
 
 
 class DestroyVirtualMachineCommand(object):
     """ Command to Destroy a VM """
 
-    def __init__(self, pv_service, resource_remover, disconnector):
+    def __init__(self, pv_service, folder_manager, resource_remover, disconnector):
         """
         :param pv_service:   pv_service Instance
         :type pv_service:  cloudshell.cp.vcenter.common.vcenter.vmomi_service.pyVmomiService
         :param resource_remover: CloudshellResourceRemover
         """
         self.pv_service = pv_service
+        self.folder_manager = folder_manager
         self.resource_remover = resource_remover
         self.disconnector = disconnector
 
@@ -63,15 +66,28 @@ class DestroyVirtualMachineCommand(object):
         )
         return result
 
-    def DeleteInstance(self, si, logger, session, vcenter_data_model, resource_model):
+    def DeleteInstance(
+        self,
+        si,
+        logger,
+        session,
+        vcenter_data_model,
+        reservation_id,
+        resource_model,
+    ):
         """
+
+        :param si:
         :param logger:
-        :param CloudShellAPISession session:
+        :param session:
+        :param vcenter_data_model:
+        :param reservation_id:
         :param resource_model:
         :return:
         """
         # find vm
         vm = self.pv_service.find_by_uuid(si, resource_model.vm_uuid)
+
         if vm is not None:
             # destroy vm
             result = self.pv_service.destroy_vm(vm=vm, logger=logger)
@@ -86,11 +102,28 @@ class DestroyVirtualMachineCommand(object):
 
         vm_customization_spec = self._get_custom_param(
             params=resource_model.vm_custom_params,
-            name=VM_CUSTOMIZATION_SPEC_CUSTOM_PARAM,
+            name=constants.VM_CUSTOMIZATION_SPEC_CUSTOM_PARAM,
         )
 
         if vm_customization_spec:
             self.pv_service.delete_customization_spec(si=si, name=vm_customization_spec)
+
+        vm_folder_path = VMLocation.combine(
+            [
+                resource_model.app_request_model.vm_location
+                or vcenter_data_model.vm_location,
+                constants.DEPLOYED_APPS_FOLDER,
+                reservation_id,
+            ]
+        )
+
+        self.folder_manager.delete_folder_if_empty(
+            si=si,
+            folder_full_path=VMLocation.combine(
+                [vcenter_data_model.default_datacenter, vm_folder_path]
+            ),
+            logger=logger,
+        )
 
         return result
 

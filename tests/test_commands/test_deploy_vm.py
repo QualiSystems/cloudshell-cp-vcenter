@@ -44,7 +44,7 @@ class TestDeployFromTemplateCommand(unittest.TestCase):
         vcenter_data_model = Mock()
         vcenter_data_model.default_datacenter = "QualiSB"
         vcenter_data_model.vm_location = "TargetFolder"
-        reservation_id = Mock()
+        reservation_id = "4228128c-fb7e-9b0e-60b8-c3fabd3c624e"
         cancellation_context = object()
 
         # act
@@ -86,7 +86,7 @@ class TestDeployFromTemplateCommand(unittest.TestCase):
         vcenter_data_model = Mock()
         vcenter_data_model.default_datacenter = "QualiSB"
         logger = Mock()
-        reservation_id = Mock()
+        reservation_id = "4228128c-fb7e-9b0e-60b8-c3fabd3c624e"
 
         deploy_command = DeployCommand(deployer)
         cancellation_context = object()
@@ -133,7 +133,7 @@ class TestDeployFromTemplateCommand(unittest.TestCase):
         template_model.vm_folder = "temp folder"
         deployer.deploy_from_template = Mock(return_value=deploy_res)
 
-        reservation_id = Mock()
+        reservation_id = "4228128c-fb7e-9b0e-60b8-c3fabd3c624e"
         logger = Mock()
         session = Mock()
         app_resource_model = Mock()
@@ -207,7 +207,7 @@ class TestDeployFromTemplateCommand(unittest.TestCase):
         vcenter_data_model = Mock()
         vcenter_data_model.default_datacenter = "QualiSB"
         vcenter_data_model.vm_location = "TargetFolder"
-        reservation_id = Mock()
+        reservation_id = "4228128c-fb7e-9b0e-60b8-c3fabd3c624e"
         cancellation_context = object()
         session = Mock()
         app_resource_model = Mock()

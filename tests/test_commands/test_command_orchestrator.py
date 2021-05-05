@@ -1,3 +1,4 @@
+import json
 from unittest import TestCase
 
 import jsonpickle
@@ -242,8 +243,21 @@ class TestCommandOrchestrator(TestCase):
             endpoint = create_autospec(ResourceContextDetails)
             endpoint.fullname = "vm_111"
             endpoint.app_context = create_autospec(AppContext)
-            endpoint.app_context.deployed_app_json = (
-                '{"vmdetails": {"uid": "vm_uuid1"}}'
+            endpoint.app_context.deployed_app_json = json.dumps(
+                {"vmdetails": {"uid": "vm_uuid1"}}
+            )
+            endpoint.app_context.app_request_json = json.dumps(
+                {
+                    "deploymentService": {
+                        "model": "VMware vCenter Cloud Provider 2G.vCenter VM From Linked Clone 2G",
+                        "attributes": list(
+                            map(
+                                lambda items: {"name": items[0], "value": items[1]},
+                                self.deploy_action.actionParams.deployment.attributes.items(),
+                            )
+                        ),
+                    }
+                }
             )
             remote_command_context.remote_endpoints = [endpoint]
 
@@ -279,16 +293,30 @@ class TestCommandOrchestrator(TestCase):
         # Arrange
         with patch(SAVE_SNAPSHOT) as save_snapshot_mock:
             save_snapshot_mock.return_value = '"new_snapshot"'
-
+            deploy_attributes = []
             remote_command_context = create_autospec(ResourceRemoteCommandContext)
             remote_command_context.resource = create_autospec(ResourceContextDetails)
             remote_command_context.resource.fullname = "vcenter"
             endpoint = create_autospec(ResourceContextDetails)
             endpoint.fullname = "vm_111"
             endpoint.app_context = create_autospec(AppContext)
-            endpoint.app_context.deployed_app_json = (
-                '{"vmdetails": {"uid": "vm_uuid1"}}'
+            endpoint.app_context.deployed_app_json = json.dumps(
+                {"vmdetails": {"uid": "vm_uuid1"}}
             )
+            endpoint.app_context.app_request_json = json.dumps(
+                {
+                    "deploymentService": {
+                        "model": "VMware vCenter Cloud Provider 2G.vCenter VM From Linked Clone 2G",
+                        "attributes": list(
+                            map(
+                                lambda items: {"name": items[0], "value": items[1]},
+                                self.deploy_action.actionParams.deployment.attributes.items(),
+                            )
+                        ),
+                    }
+                }
+            )
+
             remote_command_context.remote_endpoints = [endpoint]
 
             # Act

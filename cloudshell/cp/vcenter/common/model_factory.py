@@ -246,6 +246,8 @@ class ResourceModelParser:
             attribute_name = attribute
         elif hasattr(attribute, "Name"):
             attribute_name = attribute.Name
+        elif hasattr(attribute, "name"):
+            attribute_name = attribute.name
         else:
             raise Exception(
                 "Attribute type {0} is not supported".format(str(type(attribute)))

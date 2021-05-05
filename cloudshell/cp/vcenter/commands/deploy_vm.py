@@ -3,11 +3,10 @@
 from os.path import normpath
 
 from cloudshell.cp.vcenter.common.vcenter.vm_location import VMLocation
+from cloudshell.cp.vcenter.constants import DEPLOYED_APPS_FOLDER
 from cloudshell.cp.vcenter.models.DeployFromTemplateDetails import (
     DeployFromTemplateDetails,
 )
-
-DEPLOYED_APPS = "Deployed Apps"
 
 
 class DeployCommand(object):
@@ -43,7 +42,12 @@ class DeployCommand(object):
         :return:
         """
         self._prepare_deployed_apps_folder(
-            deployment_params, si, logger, folder_manager, vcenter_data_model
+            deployment_params,
+            si,
+            logger,
+            folder_manager,
+            vcenter_data_model,
+            reservation_id,
         )
 
         deploy_result = self.deployer.deploy_from_linked_clone(
@@ -81,7 +85,12 @@ class DeployCommand(object):
         :return:
         """
         self._prepare_deployed_apps_folder(
-            deployment_params, si, logger, folder_manager, vcenter_data_model
+            deployment_params,
+            si,
+            logger,
+            folder_manager,
+            vcenter_data_model,
+            reservation_id,
         )
         deploy_result = self.deployer.deploy_clone_from_vm(
             si,
@@ -96,33 +105,77 @@ class DeployCommand(object):
         return deploy_result
 
     def _prepare_deployed_apps_folder(
-        self, data_holder, si, logger, folder_manager, vcenter_resource_model
+        self,
+        data_holder,
+        si,
+        logger,
+        folder_manager,
+        vcenter_resource_model,
+        reservation_id,
     ):
         if isinstance(data_holder, DeployFromImageDetails):
             self._update_deploy_from_image_vm_location(
-                data_holder, folder_manager, logger, si, vcenter_resource_model
+                data_holder,
+                folder_manager,
+                logger,
+                si,
+                vcenter_resource_model,
+                reservation_id,
             )
         else:
             self._update_deploy_from_template_vm_location(
-                data_holder, folder_manager, logger, si, vcenter_resource_model
+                data_holder,
+                folder_manager,
+                logger,
+                si,
+                vcenter_resource_model,
+                reservation_id,
             )
 
     def _update_deploy_from_template_vm_location(
-        self, data_holder, folder_manager, logger, si, vcenter_resource_model
+        self,
+        data_holder,
+        folder_manager,
+        logger,
+        si,
+        vcenter_resource_model,
+        reservation_id,
     ):
         vm_location = (
             data_holder.template_resource_model.vm_location
             or vcenter_resource_model.vm_location
         )
-        folder_path = VMLocation.combine(
-            [vcenter_resource_model.default_datacenter, vm_location]
-        )
+
         folder_manager.get_or_create_vcenter_folder(
-            si, logger, folder_path, DEPLOYED_APPS
+            si=si,
+            logger=logger,
+            path=VMLocation.combine(
+                [vcenter_resource_model.default_datacenter, vm_location]
+            ),
+            folder_name=DEPLOYED_APPS_FOLDER,
         )
+
+        folder_manager.get_or_create_vcenter_folder(
+            si=si,
+            logger=logger,
+            path=VMLocation.combine(
+                [
+                    vcenter_resource_model.default_datacenter,
+                    vm_location,
+                    DEPLOYED_APPS_FOLDER,
+                ]
+            ),
+            folder_name=reservation_id,
+        )
+
         data_holder.template_resource_model.vm_location = VMLocation.combine(
-            [vm_location, DEPLOYED_APPS]
+            [
+                vm_location,
+                DEPLOYED_APPS_FOLDER,
+                reservation_id,
+            ]
         )
+
         logger.info(
             "VM will be deployed to {0}".format(
                 data_holder.template_resource_model.vm_location
@@ -130,20 +183,48 @@ class DeployCommand(object):
         )
 
     def _update_deploy_from_image_vm_location(
-        self, data_holder, folder_manager, logger, si, vcenter_resource_model
+        self,
+        data_holder,
+        folder_manager,
+        logger,
+        si,
+        vcenter_resource_model,
+        reservation_id,
     ):
         vm_location = (
             data_holder.image_params.vm_location or vcenter_resource_model.vm_location
         )
-        folder_path = VMLocation.combine(
-            [vcenter_resource_model.default_datacenter, vm_location]
-        )
+
         folder_manager.get_or_create_vcenter_folder(
-            si, logger, folder_path, DEPLOYED_APPS
+            si=si,
+            logger=logger,
+            path=VMLocation.combine(
+                [vcenter_resource_model.default_datacenter, vm_location]
+            ),
+            folder_name=DEPLOYED_APPS_FOLDER,
         )
+
+        folder_manager.get_or_create_vcenter_folder(
+            si=si,
+            logger=logger,
+            path=VMLocation.combine(
+                [
+                    vcenter_resource_model.default_datacenter,
+                    vm_location,
+                    DEPLOYED_APPS_FOLDER,
+                ]
+            ),
+            folder_name=reservation_id,
+        )
+
         data_holder.image_params.vm_location = VMLocation.combine(
-            [vm_location, DEPLOYED_APPS]
+            [
+                vm_location,
+                DEPLOYED_APPS_FOLDER,
+                reservation_id,
+            ]
         )
+
         logger.info(
             "VM will be deployed to {0}".format(data_holder.image_params.vm_location)
         )
@@ -170,7 +251,12 @@ class DeployCommand(object):
         :return:
         """
         self._prepare_deployed_apps_folder(
-            deployment_params, si, logger, folder_manager, vcenter_data_model
+            deployment_params,
+            si,
+            logger,
+            folder_manager,
+            vcenter_data_model,
+            reservation_id,
         )
 
         deploy_result = self.deployer.deploy_from_template(
@@ -210,7 +296,12 @@ class DeployCommand(object):
         :return:
         """
         self._prepare_deployed_apps_folder(
-            deployment_params, si, logger, folder_manager, vcenter_data_model
+            deployment_params,
+            si,
+            logger,
+            folder_manager,
+            vcenter_data_model,
+            reservation_id,
         )
 
         deploy_result = self.deployer.deploy_from_image(

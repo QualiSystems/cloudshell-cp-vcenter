@@ -13,6 +13,28 @@ class FolderManager(object):
         self.locks_lock = Lock()
         self.task_waiter = task_waiter
 
+    def delete_folder_if_empty(self, si, folder_full_path, logger):
+        logger.info(f"Trying to remove folder '{folder_full_path}' if it's empty ...")
+        folder = self.pv_service.get_folder(si, folder_full_path)
+
+        if not folder:
+            logger.warning(f"Could not find folder '{folder_full_path}' to delete")
+            return
+
+        if folder_full_path not in list(self.locks.keys()):
+            with self.locks_lock:
+                if folder_full_path not in list(self.locks.keys()):
+                    self.locks[folder_full_path] = Lock()
+
+        with self.locks[folder_full_path]:
+            if not folder.childEntity:
+                result = self.delete_folder(folder, logger)
+                logger.info(f"Remove result for folder '{folder_full_path}':\n{result}")
+            else:
+                logger.info(
+                    f"Skip folder '{folder_full_path}' deletion. It contains objects: {folder.childEntity}"
+                )
+
     def delete_folder_with_vm_power_off(self, si, logger, folder_full_path):
         logger.info(
             "Trying to remove {0} and all child folders and vms".format(

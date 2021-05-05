@@ -10,6 +10,7 @@ class TestDestroyVirtualMachineCommand(unittest.TestCase):
     def test_destroyVirtualMachineCommand(self):
         # arrange
         pv_service = Mock()
+        folder_manager = Mock()
         resource_remover = Mock()
         disconnector = Mock()
         si = create_autospec(spec=vim.ServiceInstance)
@@ -30,7 +31,7 @@ class TestDestroyVirtualMachineCommand(unittest.TestCase):
         session.GetReservationDetails = Mock(return_value=reservation_details)
         vcenter_data_model = Mock()
         destroyer = DestroyVirtualMachineCommand(
-            pv_service, resource_remover, disconnector
+            pv_service, folder_manager, resource_remover, disconnector
         )
 
         # act
@@ -56,6 +57,7 @@ class TestDestroyVirtualMachineCommand(unittest.TestCase):
     ):
         # arrange
         pv_service = Mock()
+        folder_manager = Mock()
         resource_remover = Mock()
         disconnector = Mock()
         si = create_autospec(spec=vim.ServiceInstance)
@@ -76,7 +78,7 @@ class TestDestroyVirtualMachineCommand(unittest.TestCase):
         session.GetReservationDetails = Mock(return_value=reservation_details)
         vcenter_data_model = Mock()
         destroyer = DestroyVirtualMachineCommand(
-            pv_service, resource_remover, disconnector
+            pv_service, folder_manager, resource_remover, disconnector
         )
 
         # act
@@ -100,14 +102,17 @@ class TestDestroyVirtualMachineCommand(unittest.TestCase):
     def test_destroyVirtualMachineOnlyCommand(self):
         # arrange
         pv_service = Mock()
+        folder_manager = Mock()
         resource_remover = Mock()
         disconnector = Mock()
         si = create_autospec(spec=vim.ServiceInstance)
-        resource_name = "this/is the name of the template"
-        uuid = "uuid"
         vm = Mock()
+
         resource_model = MagicMock()
-        resource_model.vm_uuid = uuid
+        resource_model.vm_uuid = "uuid"
+        resource_model.fullname = "this/is the name of the template"
+        resource_model.app_request_model.vm_location = "vm folder"
+        reservation_id = "9e5b7004-e62e-4a8d-be1a-96bd1e58cb13"
 
         pv_service.destory_mv = Mock(return_value=True)
         disconnector.remove_interfaces_from_vm = Mock(return_value=True)
@@ -121,8 +126,10 @@ class TestDestroyVirtualMachineCommand(unittest.TestCase):
         session = Mock()
         session.GetReservationDetails = Mock(return_value=reservation_details)
         vcenter_data_model = Mock()
+        vcenter_data_model.default_datacenter = "Default Datacenter"
+
         destroyer = DestroyVirtualMachineCommand(
-            pv_service, resource_remover, disconnector
+            pv_service, folder_manager, resource_remover, disconnector
         )
 
         # act
@@ -131,6 +138,7 @@ class TestDestroyVirtualMachineCommand(unittest.TestCase):
             logger=Mock(),
             session=session,
             vcenter_data_model=vcenter_data_model,
+            reservation_id=reservation_id,
             resource_model=resource_model,
         )
 
@@ -138,4 +146,4 @@ class TestDestroyVirtualMachineCommand(unittest.TestCase):
         self.assertTrue(res)
         self.assertTrue(pv_service.destory_mv.called_with(vm))
         self.assertTrue(disconnector.remove_interfaces_from_vm.called_with(si, vm))
-        self.assertTrue(pv_service.find_by_uuid.called_with(si, uuid))
+        self.assertTrue(pv_service.find_by_uuid.called_with(si, resource_model.vm_uuid))
