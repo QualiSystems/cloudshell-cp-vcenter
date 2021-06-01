@@ -404,7 +404,7 @@ class VirtualMachineDeployer(object):
         image_params.datacenter = data_holder.default_datacenter
         image_params.image_url = data_holder.vcenter_image
         image_params.power_on = False
-        image_params.vcenter_name = data_holder.vcenter_name
+        image_params.vcenter_name = data_holder._vcenter_name
         image_params.cpu = data_holder.cpu
         image_params.ram = data_holder.ram
         image_params.hdd = data_holder.hdd
