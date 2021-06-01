@@ -163,7 +163,7 @@ class ResourceModelParser:
         :param instance: class instance
         :return: list
         """
-        return [prop for prop in dir(instance) if not prop.startswith("__")]
+        return [prop for prop in dir(instance) if not prop.startswith("_")]
 
     @staticmethod
     def create_resource_model_instance(resource_instance):

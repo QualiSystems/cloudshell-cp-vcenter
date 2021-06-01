@@ -433,13 +433,11 @@ class CommandOrchestrator(object):
         :param DeployApp deploy_action:
         :return str deploy results
         """
-        deploy_action.actionParams.deployment.attributes[
-            "vCenter Name"
-        ] = context.resource.name
         deploy_from_image_model = self.resource_model_parser.convert_to_resource_model(
             attributes=deploy_action.actionParams.deployment.attributes,
             resource_model_type=vCenterVMFromImageResourceModel,
         )
+        deploy_from_image_model._vcenter_name = context.resource.name
         data_holder = DeployFromImageDetails(
             deploy_from_image_model, deploy_action.actionParams.appName
         )

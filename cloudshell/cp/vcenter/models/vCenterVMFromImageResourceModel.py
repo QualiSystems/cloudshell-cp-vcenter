@@ -1,6 +1,6 @@
 class vCenterVMFromImageResourceModel(object):
     def __init__(self):
-        self.vcenter_name = ""
+        self._vcenter_name = ""
         self.vcenter_image = ""
         self.vcenter_image_arguments = ""
         self.vm_cluster = ""
