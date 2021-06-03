@@ -199,7 +199,7 @@ class TestVirtualMachineDeployer(TestCase):
                     "default_datacenter": "QualiSB",
                     "vm_location": "vm_location",
                     "auto_power_on": "False",
-                    "vcenter_name": "vCenter",
+                    "_vcenter_name": "vCenter",
                     "vcenter_image_arguments": "--compress=9,--schemaValidate,--etc",
                     "ip_regex": "",
                     "refresh_ip_timeout": "10",
