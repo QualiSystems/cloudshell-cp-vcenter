@@ -1268,13 +1268,25 @@ class pyVmomiService:
                     )
                 )
 
-            private_ip = IPNetwork(clone_params.private_ip)
-            network_adapter = customization_spec.spec.nicSettingMap[0].adapter
+            if ":" in clone_params.private_ip:
+                private_ip, gateway = clone_params.private_ip.split(":")
+            else:
+                private_ip, gateway = clone_params.private_ip, None
 
+            private_ip = IPNetwork(private_ip)
+
+            if gateway is None:
+                # presume Gateway is the .1 of the same subnet as the IP
+                ip_octets = str(private_ip.ip).split(".")
+                ip_octets[-1] = "1"
+                gateway = ".".join(ip_octets)
+
+            network_adapter = customization_spec.spec.nicSettingMap[0].adapter
             network_adapter.ip = vim.vm.customization.FixedIp(
                 ipAddress=str(private_ip.ip)
             )
             network_adapter.subnetMask = str(private_ip.netmask)
+            network_adapter.gateway = gateway
 
     def _prepare_customization_spec(self, clone_params, vm_template):
         si = clone_params.si
