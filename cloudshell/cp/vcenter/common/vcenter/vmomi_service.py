@@ -721,6 +721,22 @@ class pyVmomiService:
             f"Unable to create a new disk device. {self.MAX_NUMBER_OF_VM_DISKS} disks limit has been exceeded"
         )
 
+    def _get_disk_device_key_generator(self, vm):
+        """Get generator for the next available disk key number."""
+        all_devices_keys = [device.key for device in vm.config.hardware.device]
+        last_disk_key = max(
+            [
+                device.key
+                for device in vm.config.hardware.device
+                if isinstance(device, vim.vm.device.VirtualDisk)
+            ]
+        )
+
+        while True:
+            last_disk_key += 1
+            if last_disk_key not in all_devices_keys:
+                yield last_disk_key
+
     def reconfigure_vm(self, vm, cpu, ram, hdd, logger):
         """
 
@@ -797,6 +813,7 @@ class pyVmomiService:
 
             last_disk_number = max(existing_disks.keys()) if existing_disks else 0
             unit_number_generator = self._get_device_unit_number_generator(vm=vm)
+            device_key_generator = self._get_disk_device_key_generator(vm=vm)
 
             for disk_number, disk_size in sorted(disks.items()):
                 disk_size_kb = int(disk_size * 2 ** 20)
@@ -829,6 +846,7 @@ class pyVmomiService:
 
                     last_disk_number += 1
                     new_disk = vim.vm.device.VirtualDisk()
+                    new_disk.key = next(device_key_generator)
                     new_disk.controllerKey = self._get_device_controller_key(vm)
                     new_disk.backing = vim.vm.device.VirtualDisk.FlatVer2BackingInfo()
                     new_disk.backing.diskMode = "persistent"
