@@ -116,6 +116,10 @@ class CommandOrchestrator(object):
             disconnect=Disconnect,
             task_waiter=synchronous_task_waiter,
         )
+        self.folder_manager = FolderManager(
+            pv_service=pv_service, task_waiter=synchronous_task_waiter
+        )
+
         self.resource_model_parser = ResourceModelParser()
         port_group_name_generator = DvPortGroupNameGenerator()
 
@@ -149,6 +153,7 @@ class CommandOrchestrator(object):
             ovf_service=ovf_service,
             resource_model_parser=self.resource_model_parser,
             vm_details_provider=vm_details_provider,
+            folder_manager=self.folder_manager,
         )
 
         dv_port_group_creator = DvPortGroupCreator(
@@ -195,10 +200,6 @@ class CommandOrchestrator(object):
             connector=virtual_switch_connect_command,
             disconnector=self.virtual_switch_disconnect_command,
             resource_model_parser=self.resource_model_parser,
-        )
-
-        self.folder_manager = FolderManager(
-            pv_service=pv_service, task_waiter=synchronous_task_waiter
         )
 
         # Destroy VM Command

@@ -32,6 +32,7 @@ class VirtualMachineDeployer(object):
         ovf_service,
         resource_model_parser,
         vm_details_provider,
+        folder_manager,
     ):
         """
 
@@ -43,9 +44,11 @@ class VirtualMachineDeployer(object):
         :type resource_model_parser: ResourceModelParser
         :param vm_details_provider:
         :type vm_details_provider: cloudshell.cp.vcenter.vm.vm_details_provider.VmDetailsProvider
+        :param folder_manager:
         :return:
         """
         self.pv_service = pv_service
+        self.folder_manager = folder_manager
         self.name_generator = name_generator
         self.ovf_service = (
             ovf_service  # type common.vcenter.ovf_service.OvfImageDeployerService
@@ -221,17 +224,32 @@ class VirtualMachineDeployer(object):
         if cancellation_context.is_cancelled:
             raise Exception("Action 'Clone VM' was cancelled.")
 
-        clone_vm_result = self.pv_service.clone_vm(
-            clone_params=params,
-            logger=logger,
-            cancellation_context=cancellation_context,
-        )
+        try:
+            clone_vm_result = self.pv_service.clone_vm(
+                clone_params=params,
+                logger=logger,
+                cancellation_context=cancellation_context,
+            )
+        except Exception:
+            self.folder_manager.delete_folder_if_empty(
+                si=si,
+                folder_full_path=params.vm_folder,
+                logger=logger,
+            )
+            raise
+
         if clone_vm_result.error:
             raise Exception(clone_vm_result.error)
 
         # remove a new created vm due to cancellation
         if cancellation_context.is_cancelled:
             self.pv_service.destroy_vm(vm=clone_vm_result.vm, logger=logger)
+
+            self.folder_manager.delete_folder_if_empty(
+                si=si,
+                folder_full_path=params.vm_folder,
+                logger=logger,
+            )
 
             if clone_vm_result.customization_spec:
                 self.pv_service.delete_customization_spec(
@@ -294,70 +312,99 @@ class VirtualMachineDeployer(object):
             data_holder.image_params, connection_details, vm_name
         )
 
+        vm_path = f"{image_params.datacenter}/{image_params.vm_folder}"
+
         if cancellation_context.is_cancelled:
+            self.folder_manager.delete_folder_if_empty(
+                si=si,
+                folder_full_path=vm_path,
+                logger=logger,
+            )
             raise Exception("Action 'Deploy from image' was cancelled.")
 
-        res = self.ovf_service.deploy_image(vcenter_data_model, image_params, logger)
-        if res:
-            vm_path = (
-                image_params.datacenter + "/" + image_params.vm_folder
-                if hasattr(image_params, "vm_folder") and image_params.vm_folder
-                else ""
+        try:
+            self.ovf_service.deploy_image(vcenter_data_model, image_params, logger)
+        except Exception:
+            self.folder_manager.delete_folder_if_empty(
+                si=si,
+                folder_full_path=vm_path,
+                logger=logger,
             )
-            vm = self.pv_service.find_vm_by_name(si, vm_path, vm_name)
-            if vm:
-                # remove a new created vm due to cancellation
+            raise
+
+        vm = self.pv_service.find_vm_by_name(si, vm_path, vm_name)
+
+        if vm:
+            # remove a new created vm due to cancellation
+            if cancellation_context.is_cancelled:
+                self.pv_service.destroy_vm(vm=vm, logger=logger)
+
+                self.folder_manager.delete_folder_if_empty(
+                    si=si,
+                    folder_full_path=vm_path,
+                    logger=logger,
+                )
+
+                raise Exception("Action 'Deploy from image' was cancelled.")
+
+            if any([image_params.cpu, image_params.ram, image_params.hdd]):
+                try:
+                    self.pv_service.reconfigure_vm(
+                        vm=vm,
+                        cpu=image_params.cpu,
+                        ram=image_params.ram,
+                        hdd=image_params.hdd,
+                        logger=logger,
+                    )
+                except Exception as e:
+                    logger.error("error reconfiguring deployed VM: {0}".format(e))
+                    raise Exception(
+                        "Error has occurred while reconfiguring deployed VM, please look at the log for more info."
+                    )
+
                 if cancellation_context.is_cancelled:
                     self.pv_service.destroy_vm(vm=vm, logger=logger)
-                    raise Exception("Action 'Deploy from image' was cancelled.")
 
-                if any([image_params.cpu, image_params.ram, image_params.hdd]):
-                    try:
-                        self.pv_service.reconfigure_vm(
-                            vm=vm,
-                            cpu=image_params.cpu,
-                            ram=image_params.ram,
-                            hdd=image_params.hdd,
+                    if vm_path:
+                        self.folder_manager.delete_folder_if_empty(
+                            si=si,
+                            folder_full_path=vm_path,
                             logger=logger,
                         )
-                    except Exception as e:
-                        logger.error("error reconfiguring deployed VM: {0}".format(e))
-                        raise Exception(
-                            "Error has occurred while reconfiguring deployed VM, please look at the log for more info."
-                        )
 
-                    if cancellation_context.is_cancelled:
-                        self.pv_service.destroy_vm(vm=vm, logger=logger)
-                        raise Exception("Action 'Deploy from image' was cancelled.")
+                    raise Exception("Action 'Deploy from image' was cancelled.")
 
-                vm_details_data = self._safely_get_vm_details(
-                    vm, vm_name, vcenter_data_model, data_holder.image_params, logger
-                )
-
-                additional_data = {
-                    "ip_regex": data_holder.image_params.ip_regex,
-                    "refresh_ip_timeout": data_holder.image_params.refresh_ip_timeout,
-                    "auto_power_off": convert_to_bool(
-                        data_holder.image_params.auto_power_off
-                    ),
-                    "auto_delete": convert_to_bool(
-                        data_holder.image_params.auto_delete
-                    ),
-                }
-
-                return DeployAppResult(
-                    vmName=vm_name,
-                    vmUuid=vm.config.uuid,
-                    vmDetailsData=vm_details_data,
-                    deployedAppAdditionalData=additional_data,
-                )
-
-            raise Exception(
-                "the deployed vm from image({0}/{1}) could not be found".format(
-                    vm_path, vm_name
-                )
+            vm_details_data = self._safely_get_vm_details(
+                vm, vm_name, vcenter_data_model, data_holder.image_params, logger
             )
-        raise Exception("failed deploying image")
+
+            additional_data = {
+                "ip_regex": data_holder.image_params.ip_regex,
+                "refresh_ip_timeout": data_holder.image_params.refresh_ip_timeout,
+                "auto_power_off": convert_to_bool(
+                    data_holder.image_params.auto_power_off
+                ),
+                "auto_delete": convert_to_bool(data_holder.image_params.auto_delete),
+            }
+
+            return DeployAppResult(
+                vmName=vm_name,
+                vmUuid=vm.config.uuid,
+                vmDetailsData=vm_details_data,
+                deployedAppAdditionalData=additional_data,
+            )
+
+        self.folder_manager.delete_folder_if_empty(
+            si=si,
+            folder_full_path=vm_path,
+            logger=logger,
+        )
+
+        raise Exception(
+            "the deployed vm from image({0}/{1}) could not be found".format(
+                vm_path, vm_name
+            )
+        )
 
     def _safely_get_vm_details(self, vm, vm_name, vcenter_model, deploy_model, logger):
         data = None
@@ -392,10 +439,9 @@ class VirtualMachineDeployer(object):
             and data_holder.vcenter_image_arguments
         ):
             image_params.user_arguments = data_holder.vcenter_image_arguments
-        if hasattr(data_holder, "vm_location") and data_holder.vm_location:
-            image_params.vm_folder = data_holder.vm_location.replace(
-                data_holder.default_datacenter + "/", ""
-            )
+        image_params.vm_folder = data_holder.vm_location.replace(
+            data_holder.default_datacenter + "/", ""
+        )
         image_params.cluster = data_holder.vm_cluster
         image_params.resource_pool = data_holder.vm_resource_pool
         image_params.connectivity = host_info
