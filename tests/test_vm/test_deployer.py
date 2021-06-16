@@ -50,12 +50,14 @@ class TestVirtualMachineDeployer(TestCase):
         self.pv_service.find_vm_by_name = MagicMock(return_value=self.vm)
         self.model_parser = ResourceModelParser()
         self.vm_details_provider = MagicMock()
+        self.folder_manager = MagicMock()
         self.deployer = VirtualMachineDeployer(
             pv_service=self.pv_service,
             name_generator=self.name_gen,
             ovf_service=self.image_deployer,
             resource_model_parser=self.model_parser,
             vm_details_provider=self.vm_details_provider,
+            folder_manager=self.folder_manager,
         )
 
     def test_vm_deployer(self):
