@@ -61,7 +61,9 @@ class TestDvPortGroupConfigurer(TestCase):
         self.synchronous_task_waiter.wait_for_task = MagicMock(return_value="TASK OK")
         self.si = MagicMock()
 
-        mapping = {"vnic 1": (MagicMock(spec=vim.Network), None)}
+        mapping = {
+            "vnic 1": MagicMock(network=MagicMock(spec=vim.Network), vnic_name="vnic 1")
+        }
         self.vnic_service = MagicMock()
         self.vnic_to_network_mapper = MagicMock()
         self.vnic_to_network_mapper.map_request_to_vnics = MagicMock(
@@ -105,7 +107,9 @@ class TestDvPortGroupConfigurer(TestCase):
         self.assertFalse(mapping[0].connect)
 
     def test_connect_vnic_to_networks(self):
-        mapping = [ConnectRequest("vnic 1", (MagicMock(spec=vim.Network), None))]
+        mapping = [
+            ConnectRequest("vnic 1", (MagicMock(spec=vim.Network), None), "Access", 2)
+        ]
         res = self.configurer.connect_vnic_to_networks(
             self.vm, mapping, MagicMock(spec=vim.Network), [], logger=MagicMock()
         )

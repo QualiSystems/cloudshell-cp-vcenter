@@ -30,6 +30,8 @@ class TestCommandResult(TestCase):
             network_key="DD",
             requested_vnic="EE",
             vnic_name="FF",
+            mode="Access",
+            vlan_id=2,
         )
         output_result = set_command_result(result=connection_result, unpicklable=True)
         result = get_result_from_command_output(output_result)
@@ -49,6 +51,8 @@ class TestCommandResult(TestCase):
             network_key="DD",
             requested_vnic="EE",
             vnic_name="FF",
+            mode="Access",
+            vlan_id=2,
         )
         output_result = set_command_result(
             result=[connection_result], unpicklable=False

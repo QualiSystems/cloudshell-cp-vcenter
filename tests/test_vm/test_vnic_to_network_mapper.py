@@ -25,8 +25,8 @@ class TestVnicToNetworkMapper(TestCase):
         network2.name = "aa"
         network1 = MagicMock(spec=vim.Network)
         network1.name = "bb"
-        request1 = ConnectRequest("net 2", "aa")
-        request2 = ConnectRequest(None, "ab")
+        request1 = ConnectRequest("net 2", "aa", "Access", 2)
+        request2 = ConnectRequest(None, "ab", "Access", 2)
         requests = [request1, request2]
         mapper = VnicToNetworkMapper(DvPortGroupNameGenerator())
         mappig = mapper.map_request_to_vnics(requests, vnics, [], network1, [])

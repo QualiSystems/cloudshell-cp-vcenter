@@ -221,6 +221,8 @@ class TestCommandOrchestrator(TestCase):
                         "dvSwitch", vlan_id, mode
                     ),
                     network_key="aa",
+                    mode="Access",
+                    vlan_id=vlan_id,
                 )
                 res.append(r)
         self.connector.connect_to_networks = MagicMock(return_value=res)

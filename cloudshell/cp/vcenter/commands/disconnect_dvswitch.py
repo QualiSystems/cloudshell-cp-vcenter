@@ -70,6 +70,7 @@ class VirtualSwitchToMachineDisconnectCommand(object):
         )
 
         res = self.port_group_configurer.update_vnic_by_mapping(vm, mappings, logger)
+
         self.port_group_configurer.erase_network_by_mapping(
             networks_to_remove, vcenter_data_model.reserved_networks, logger
         )
