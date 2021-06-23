@@ -208,22 +208,30 @@ class ConnectionCommandOrchestrator(object):
                 for action in actions:
                     vnic_name = self._get_vnic_name(action)
                     vnic_names = self._split_names(vnic_name)
+                    port_group_name = self._get_port_group_name(action)
+
                     for name in vnic_names:
                         vnic_to_network = self._create_map(
-                            action.connectionParams.vlanId, mode, name
+                            vlan_id=action.connectionParams.vlanId,
+                            mode=mode,
+                            vnic_name=name,
+                            port_group_name=port_group_name,
                         )
                         set_mappings.append(vnic_to_network)
 
         # this line makes sure that the vNICS with names are first
         return sorted(set_mappings, key=lambda x: x.vnic_name or "", reverse=True)
 
-    def _create_map(self, vlan_id, mode, vnic_name):
+    def _create_map(self, vlan_id, mode, vnic_name, port_group_name):
         vnic_to_network = VmNetworkMapping()
         vnic_to_network.vnic_name = self._validate_vnic_name(vnic_name)
         vnic_to_network.dv_switch_path = self.dv_switch_path
         vnic_to_network.dv_switch_name = self.dv_switch_name
         vnic_to_network.vlan_id = vlan_id
         vnic_to_network.vlan_spec = mode
+        vnic_to_network.mode = mode
+        vnic_to_network.port_group_name = port_group_name
+
         return vnic_to_network
 
     def _run_async_connection_actions(self, si, mappings, pool, logger):
@@ -272,10 +280,12 @@ class ConnectionCommandOrchestrator(object):
             connection_res_map = self._prepare_connection_results_for_extraction(
                 connection_results
             )
+
             act_by_mode_by_vlan = self._group_action_by_vlan_id(set_vlan_actions)
             act_by_mode_by_vlan_by_nic = self._group_actions_by_vlan_by_vnic(
                 act_by_mode_by_vlan
             )
+
             results += self._get_set_vlan_result_suc(
                 act_by_mode_by_vlan_by_nic, connection_res_map
             )
@@ -289,21 +299,17 @@ class ConnectionCommandOrchestrator(object):
                     error_result = self._create_error_action_res(action, e)
                     results.append(error_result)
             results = self._consolidate_duplicate_results(results)
+
         return results
 
     def _prepare_connection_results_for_extraction(self, connection_results):
-        connection_res_map = dict()
+        connection_res_map = {}
         for connection_result in connection_results:
-            vlan_spec = connection_result.network_name.split("_")
-            mode = vlan_spec[len(vlan_spec) - 1]
-            id = vlan_spec[len(vlan_spec) - 2]
-            if mode not in connection_res_map:
-                connection_res_map[mode] = dict()
-            if id not in connection_res_map[mode]:
-                connection_res_map[mode][id] = dict()
+            mode_resp_map = connection_res_map.setdefault(connection_result.mode, {})
+            vlan_resp_map = mode_resp_map.setdefault(str(connection_result.vlan_id), {})
 
             self._add_safely_to_dict(
-                dictionary=connection_res_map[mode][id],
+                dictionary=vlan_resp_map,
                 key=connection_result.requested_vnic,
                 value=connection_result,
             )
@@ -473,6 +479,17 @@ class ConnectionCommandOrchestrator(object):
         if vnic_name_values:
             return vnic_name_values[0]
         return None
+
+    @staticmethod
+    def _get_port_group_name(action):
+        return next(
+            (
+                attr.attributeValue
+                for attr in action.connectionParams.vlanServiceAttributes
+                if attr.attributeName == "Port Group Name"
+            ),
+            None,
+        )
 
     @staticmethod
     def _get_async_results(async_results, pool):

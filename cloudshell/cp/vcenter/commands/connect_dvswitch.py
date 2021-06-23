@@ -92,6 +92,8 @@ class VirtualSwitchConnectCommand:
                 network_key=updated_mapping.network.key
                 if hasattr(updated_mapping.network, "key")
                 else None,
+                mode=updated_mapping.mode,
+                vlan_id=updated_mapping.vlan_id,
             )
             connection_results.append(connection_result)
 

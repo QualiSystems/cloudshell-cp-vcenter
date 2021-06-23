@@ -9,12 +9,16 @@ from cloudshell.cp.vcenter.network.network_specifications import network_is_port
 
 
 class VNicDeviceMapper(object):
-    def __init__(self, vnic, requested_vnic, network, connect, mac):
+    def __init__(
+        self, vnic, requested_vnic, network, connect, mac, mode=None, vlan_id=None
+    ):
         self.vnic = vnic
         self.requested_vnic = requested_vnic
         self.network = network
         self.connect = connect
         self.vnic_mac = mac
+        self.mode = mode
+        self.vlan_id = vlan_id
 
 
 class VirtualMachinePortGroupConfigurer(object):
@@ -46,20 +50,23 @@ class VirtualMachinePortGroupConfigurer(object):
         self, vm, mapping, default_network, reserved_networks, logger
     ):
         try:
-
             vnic_mapping = self.vnic_service.map_vnics(vm)
             vnic_to_network_mapping = self.vnic_to_network_mapper.map_request_to_vnics(
                 mapping, vnic_mapping, vm.network, default_network, reserved_networks
             )
 
             update_mapping = []
-            for vnic_name, map in list(vnic_to_network_mapping.items()):
+            for vnic_name, request in list(vnic_to_network_mapping.items()):
                 vnic = vnic_mapping[vnic_name]
-                requseted_vnic = map[1]
-                network = map[0]
                 update_mapping.append(
                     VNicDeviceMapper(
-                        vnic, requseted_vnic, network, True, vnic.macAddress
+                        vnic=vnic,
+                        requested_vnic=request.vnic_name,
+                        network=request.network,
+                        connect=True,
+                        mac=vnic.macAddress,
+                        mode=request.mode,
+                        vlan_id=request.vlan_id,
                     )
                 )
 
@@ -99,7 +106,7 @@ class VirtualMachinePortGroupConfigurer(object):
                             )
                             and not network.vm
                         ):
-
+                            logger.info(f"Destroying Port Group '{network.name}'...")
                             task = self.destroy_port_group_task(network)
                             if task:
                                 self.synchronous_task_waiter.wait_for_task(

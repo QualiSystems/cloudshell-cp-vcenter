@@ -14,4 +14,4 @@ class DvPortGroupNameGenerator(object):
 
     @staticmethod
     def is_generated_name(name):
-        return str(name).startswith(QS_NAME_PREFIX)
+        return str(name).startswith(f"{QS_NAME_PREFIX}_")

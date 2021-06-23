@@ -42,6 +42,8 @@ class TestVirtualSwitchToMachineDisconnectCommand(TestCase):
         vnic_device_mapper.network.name = "the network"
         vnic_device_mapper.network.key = "keyyyyyey"
         vnic_device_mapper.requested_vnic = "requested"
+        vnic_device_mapper.mode = "Access"
+        vnic_device_mapper.vlan_id = 2
 
         self.dv_connector = MagicMock()
         self.dv_connector.connect_by_mapping = MagicMock(
@@ -73,6 +75,8 @@ class TestVirtualSwitchToMachineDisconnectCommand(TestCase):
         mapping.vlan_spec = "trunc"
         mapping.dv_port_name = "port_name"
         mapping.network = MagicMock()
+        mapping.mode = "Access"
+        mapping.vlan_id = 2
         logger = MagicMock()
 
         # act

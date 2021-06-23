@@ -39,6 +39,24 @@ class DvPortGroupCreator(object):
                 exc_info=True,
             )
 
+    def get_network(
+        self,
+        si,
+        dv_port_name,
+        dv_switch_name,
+        dv_switch_path,
+    ):
+        network = self.pyvmomi_service.find_network_by_name(
+            si=si, path=dv_switch_path, name=dv_port_name
+        )
+
+        if network is None:
+            raise Exception(
+                f"Unable to find Port Group '{dv_port_name}' under the vSwitch/DvSwitch '{dv_switch_name}'"
+            )
+
+        return network
+
     def get_or_create_network(
         self,
         si,

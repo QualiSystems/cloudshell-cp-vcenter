@@ -33,13 +33,13 @@ class VnicToNetworkMapper(object):
                             request.vnic_name, net_at_requsted_vnic
                         )
                     )
-                mapping[request.vnic_name] = (request.network, request.vnic_name)
+                mapping[request.vnic_name] = request
                 vnics_to_network_mapping.pop(request.vnic_name)
             else:
                 vnic_name = self._find_available_vnic(
                     vnics_to_network_mapping, default_network
                 )
-                mapping[vnic_name] = (request.network, request.vnic_name)
+                mapping[vnic_name] = request
                 vnics_to_network_mapping.pop(vnic_name)
 
         return mapping

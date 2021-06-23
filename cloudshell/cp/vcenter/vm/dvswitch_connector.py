@@ -6,6 +6,8 @@ class VmNetworkMapping(object):
         self.dv_switch_path = ""
         self.vlan_id = ""
         self.vlan_spec = ""
+        self.mode = ""
+        self.port_group_name = ""
 
 
 class VmNetworkRemoveMapping(object):
@@ -15,7 +17,7 @@ class VmNetworkRemoveMapping(object):
 
 
 class ConnectRequest(object):
-    def __init__(self, vnic_name, network):
+    def __init__(self, vnic_name, network, mode, vlan_id):
         """
         model for the reconfigure request
         :param vnic_name: str
@@ -23,6 +25,8 @@ class ConnectRequest(object):
         """
         self.vnic_name = vnic_name
         self.network = network
+        self.mode = mode
+        self.vlan_id = vlan_id
 
 
 class VirtualSwitchToMachineConnector(object):
@@ -67,19 +71,34 @@ class VirtualSwitchToMachineConnector(object):
         )
 
         for network_map in mapping:
-            network = self.dv_port_group_creator.get_or_create_network(
-                si,
-                vm,
-                network_map.dv_port_name,
-                network_map.dv_switch_name,
-                network_map.dv_switch_path,
-                network_map.vlan_id,
-                network_map.vlan_spec,
-                logger,
-                promiscuous_mode,
-            )
+            if network_map.port_group_name:
+                network = self.dv_port_group_creator.get_network(
+                    si,
+                    network_map.port_group_name,
+                    network_map.dv_switch_name,
+                    network_map.dv_switch_path,
+                )
+            else:
+                network = self.dv_port_group_creator.get_or_create_network(
+                    si,
+                    vm,
+                    network_map.dv_port_name,
+                    network_map.dv_switch_name,
+                    network_map.dv_switch_path,
+                    network_map.vlan_id,
+                    network_map.vlan_spec,
+                    logger,
+                    promiscuous_mode,
+                )
 
-            request_mapping.append(ConnectRequest(network_map.vnic_name, network))
+            request_mapping.append(
+                ConnectRequest(
+                    vnic_name=network_map.vnic_name,
+                    network=network,
+                    mode=network_map.mode,
+                    vlan_id=network_map.vlan_id,
+                )
+            )
 
         logger.debug(str(request_mapping))
         return self.virtual_machine_port_group_configurer.connect_vnic_to_networks(
