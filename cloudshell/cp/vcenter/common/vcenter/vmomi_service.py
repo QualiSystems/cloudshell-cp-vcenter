@@ -757,9 +757,8 @@ class pyVmomiService:
             )
         except TaskFaultException as err:
             logger.error("Error during VM Reconfiguration: {}".format(err))
-            raise ReconfigureVMException(
-                "Error during VM Reconfiguration. See logs for more details."
-            )
+
+            raise ReconfigureVMException(f"Error during VM Reconfiguration. {err}")
 
     def _get_device_controller_key(self, vm):
         """Get SCSI Controller device key for the new VM disk creation.
@@ -792,7 +791,9 @@ class pyVmomiService:
         :param hdd:
         :return:
         """
-        config_spec = vim.vm.ConfigSpec()
+        config_spec = vim.vm.ConfigSpec(
+            cpuHotAddEnabled=True, cpuHotRemoveEnabled=True, memoryHotAddEnabled=True
+        )
         cpu = int(cpu) if cpu else 0
         ram = float(ram) if ram else 0.0
 
