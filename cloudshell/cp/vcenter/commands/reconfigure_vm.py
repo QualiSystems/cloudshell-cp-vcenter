@@ -45,11 +45,6 @@ class ReconfigureVMCommand:
                 f"Unable to find virtual machine with uuid {vm_uuid}"
             )
 
-        if vm.summary.runtime.powerState == vim.VirtualMachine.PowerState.poweredOn:
-            raise ReconfigureVMException(
-                "Unable to reconfigure virtual machine while it is powered on. Turn off machine first"
-            )
-
         return self.pyvmomi_service.reconfigure_vm(
             vm=vm, cpu=cpu, ram=ram, hdd=hdd, logger=logger
         )

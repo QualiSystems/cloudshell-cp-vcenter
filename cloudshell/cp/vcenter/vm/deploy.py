@@ -11,6 +11,7 @@ from cloudshell.cp.vcenter.common.cloud_shell.conn_details_retriever import (
 )
 from cloudshell.cp.vcenter.common.vcenter.vm_location import VMLocation
 from cloudshell.cp.vcenter.constants import VM_CUSTOMIZATION_SPEC_CUSTOM_PARAM
+from cloudshell.cp.vcenter.exceptions.reconfigure_vm import ReconfigureVMException
 from cloudshell.cp.vcenter.models.vCenterCloneVMFromVMResourceModel import (
     vCenterCloneVMFromVMResourceModel,
 )
@@ -394,32 +395,33 @@ class VirtualMachineDeployer(object):
 
                 raise Exception("Action 'Deploy from image' was cancelled.")
 
-            if any([image_params.cpu, image_params.ram, image_params.hdd]):
-                try:
-                    self.pv_service.reconfigure_vm(
-                        vm=vm,
-                        cpu=image_params.cpu,
-                        ram=image_params.ram,
-                        hdd=image_params.hdd,
+            try:
+                self.pv_service.reconfigure_vm(
+                    vm=vm,
+                    cpu=image_params.cpu,
+                    ram=image_params.ram,
+                    hdd=image_params.hdd,
+                    logger=logger,
+                )
+            except ReconfigureVMException:
+                raise
+            except Exception as e:
+                logger.error("error reconfiguring deployed VM: {0}".format(e))
+                raise Exception(
+                    "Error has occurred while reconfiguring deployed VM, please look at the log for more info."
+                )
+
+            if cancellation_context.is_cancelled:
+                self.pv_service.destroy_vm(vm=vm, logger=logger)
+
+                if vm_path:
+                    self.folder_manager.delete_folder_if_empty(
+                        si=si,
+                        folder_full_path=vm_path,
                         logger=logger,
                     )
-                except Exception as e:
-                    logger.error("error reconfiguring deployed VM: {0}".format(e))
-                    raise Exception(
-                        "Error has occurred while reconfiguring deployed VM, please look at the log for more info."
-                    )
 
-                if cancellation_context.is_cancelled:
-                    self.pv_service.destroy_vm(vm=vm, logger=logger)
-
-                    if vm_path:
-                        self.folder_manager.delete_folder_if_empty(
-                            si=si,
-                            folder_full_path=vm_path,
-                            logger=logger,
-                        )
-
-                    raise Exception("Action 'Deploy from image' was cancelled.")
+                raise Exception("Action 'Deploy from image' was cancelled.")
 
             vm_details_data = self._safely_get_vm_details(
                 vm, vm_name, vcenter_data_model, data_holder.image_params, logger
