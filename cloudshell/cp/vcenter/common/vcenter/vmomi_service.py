@@ -1276,9 +1276,16 @@ class pyVmomiService:
                     vim.vm.customization.FixedName(name=clone_params.hostname)
                 )
             else:
-                customization_spec.spec.identity.hostName = (
-                    vim.vm.customization.FixedName(name=clone_params.hostname)
-                )
+                if "." in clone_params.hostname:  # check if hostname is in FQDN format
+                    hostname, domain = clone_params.hostname.split(".", 1)
+                    customization_spec.spec.identity.hostName = (
+                        vim.vm.customization.FixedName(name=hostname)
+                    )
+                    customization_spec.spec.identity.domain = domain
+                else:
+                    customization_spec.spec.identity.hostName = (
+                        vim.vm.customization.FixedName(name=clone_params.hostname)
+                    )
 
         if clone_params.private_ip:
             vm_vnics = self._get_vm_vnics(vm_template)
