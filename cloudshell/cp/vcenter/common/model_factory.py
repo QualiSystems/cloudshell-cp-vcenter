@@ -101,13 +101,6 @@ class ResourceModelParser:
                 instance.vcenter_vm_snapshot
             )
 
-        if hasattr(instance, "hostname"):
-            if not re.match("^[A-Za-z0-9-]*$", instance.hostname):
-                raise Exception(
-                    f"Invalid 'Hostname' attribute '{instance.hostname}'."
-                    f" It can contain letters, numbers and hyphens (-), but no spaces or periods (.)"
-                )
-
         return instance
 
     def get_attribute_value(self, attrib, resource_instance):
