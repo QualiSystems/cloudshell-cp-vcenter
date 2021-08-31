@@ -662,6 +662,9 @@ class pyVmomiService:
                 cancellation_context=cancellation_context,
             )
         except TaskFaultException:
+            for vm in dest_folder.childEntity:
+                if vm.name == clone_params.vm_name:
+                    self.destroy_vm(vm=vm, logger=logger)
             raise
         except vim.fault.NoPermission as error:
             logger.error("vcenter returned - no permission: {0}".format(error))
