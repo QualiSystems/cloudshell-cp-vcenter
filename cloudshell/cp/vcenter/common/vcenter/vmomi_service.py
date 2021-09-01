@@ -1,4 +1,5 @@
 ﻿import re
+import typing
 
 import requests
 from netaddr import IPNetwork
@@ -45,7 +46,14 @@ class pyVmomiService:
     Cluster = "cluster"
     # endregion
 
-    def __init__(self, connect, disconnect, task_waiter, vim_import=None):
+    def __init__(
+        self,
+        connect,
+        disconnect,
+        task_waiter,
+        port_group_name_generator,
+        vim_import=None,
+    ):
         """
         :param SynchronousTaskWaiter task_waiter:
         :return:
@@ -53,6 +61,7 @@ class pyVmomiService:
         self.pyvmomi_connect = connect
         self.pyvmomi_disconnect = disconnect
         self.task_waiter = task_waiter
+        self.port_group_name_generator = port_group_name_generator
         if vim_import is None:
             from pyVmomi import vim
 
@@ -1383,15 +1392,69 @@ class pyVmomiService:
 
         return customization_spec, created_new
 
-
-def vm_has_no_vnics(vm):
-    # Is there any network device on vm
-    return next(
-        (
-            False
+    def get_available_vnics(self, vm, reserved_networks):
+        """Get VM vNICs that can be used for the new connections."""
+        return [
+            device
             for device in vm.config.hardware.device
             if isinstance(device, vim.vm.device.VirtualEthernetCard)
             and hasattr(device, "macAddress")
-        ),
-        True,
-    )
+            and not self.port_group_name_generator.is_generated_name(
+                device.deviceInfo.summary
+            )
+            and device.deviceInfo.summary not in reserved_networks
+        ]
+
+    def prepare_new_vnic_type(self, vm) -> vim.vm.device.VirtualEthernetCard:
+        """Prepare vNIC type for the new VM interfaces."""
+        vnics = [
+            device
+            for device in vm.config.hardware.device
+            if isinstance(device, vim.vm.device.VirtualEthernetCard)
+            and hasattr(device, "macAddress")
+        ]
+        if vnics:
+            return type(vnics[-1])
+
+        return vim.vm.device.VirtualVmxnet3
+
+    def prepare_vnic_spec(
+        self, network, vnic_type: vim.vm.device.VirtualEthernetCard
+    ) -> vim.vm.device.VirtualDeviceSpec:
+        """Prepare new vNIC Specification for the connection."""
+        nic_spec = vim.vm.device.VirtualDeviceSpec()
+        nic_spec.operation = vim.vm.device.VirtualDeviceSpec.Operation.add
+
+        nic_spec.device = vnic_type()
+        nic_spec.device.deviceInfo = vim.Description()
+        nic_spec.device.deviceInfo.summary = ""
+        nic_spec.device.backing = vim.vm.device.VirtualEthernetCard.NetworkBackingInfo()
+        nic_spec.device.backing.useAutoDetect = False
+        nic_spec.device.backing.deviceName = network.name
+        nic_spec.device.backing.network = network
+        nic_spec.device.connectable = vim.vm.device.VirtualDevice.ConnectInfo()
+        nic_spec.device.connectable.startConnected = True
+        nic_spec.device.connectable.allowGuestControl = True
+        nic_spec.device.connectable.connected = False
+        nic_spec.device.connectable.status = "untried"
+        nic_spec.device.wakeOnLanEnabled = True
+        nic_spec.device.addressType = "assigned"
+
+        return nic_spec
+
+    def add_vnics_to_vm(
+        self, vm, vnics: typing.List[vim.vm.device.VirtualDeviceSpec], logger
+    ):
+        spec = vim.vm.ConfigSpec()
+        spec.deviceChange = vnics
+        task = vm.ReconfigVM_Task(spec=spec)
+
+        try:
+            self.task_waiter.wait_for_task(
+                task=task, logger=logger, action_name="Add vNICs to the VM"
+            )
+        except TaskFaultException as err:
+            logger.error("Error during adding vNICs to the VM: {}".format(err))
+            raise ReconfigureVMException(
+                "Error during adding vNICs to the VM. See logs for the details."
+            )

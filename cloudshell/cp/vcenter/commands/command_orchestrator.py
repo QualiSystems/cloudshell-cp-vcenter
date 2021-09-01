@@ -111,17 +111,19 @@ class CommandOrchestrator(object):
         """
         synchronous_task_waiter = SynchronousTaskWaiter()
         cancellation_service = CommandCancellationService()
+        port_group_name_generator = DvPortGroupNameGenerator()
+
         pv_service = pyVmomiService(
             connect=SmartConnect,
             disconnect=Disconnect,
             task_waiter=synchronous_task_waiter,
+            port_group_name_generator=port_group_name_generator,
         )
         self.folder_manager = FolderManager(
             pv_service=pv_service, task_waiter=synchronous_task_waiter
         )
 
         self.resource_model_parser = ResourceModelParser()
-        port_group_name_generator = DvPortGroupNameGenerator()
 
         vnic_to_network_mapper = VnicToNetworkMapper(
             quali_name_generator=port_group_name_generator
