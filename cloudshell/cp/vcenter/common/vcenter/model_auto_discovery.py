@@ -21,6 +21,9 @@ from cloudshell.cp.vcenter.models.QualiDriverModels import (
 from cloudshell.cp.vcenter.models.VCenterConnectionDetails import (
     VCenterConnectionDetails,
 )
+from cloudshell.cp.vcenter.network.dvswitch.name_generator import (
+    DvPortGroupNameGenerator,
+)
 
 SHELL_NAME = "VMware vCenter Cloud Provider 2G"
 
@@ -61,7 +64,10 @@ class VCenterAutoModelDiscovery(object):
         self.dc = None
         self.parser = ResourceModelParser()
         self.pv_service = pyVmomiService(
-            SmartConnect, Disconnect, SynchronousTaskWaiter()
+            SmartConnect,
+            Disconnect,
+            SynchronousTaskWaiter(),
+            DvPortGroupNameGenerator(),
         )
         self.context_based_logger_factory = ContextBasedLoggerFactory()
 
