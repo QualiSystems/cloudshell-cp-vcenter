@@ -8,7 +8,9 @@ from cloudshell.cp.vcenter.common.vcenter.vmomi_service import pyVmomiService
 
 def get_uuid(virtual_machine_name):
     credentials = TestCredentials()
-    py_vmomi_service = pyVmomiService(SmartConnect, Disconnect)
+    py_vmomi_service = pyVmomiService(
+        SmartConnect, Disconnect, MagicMock(), MagicMock()
+    )
     si = py_vmomi_service.connect(
         credentials.host, credentials.username, credentials.password, credentials.port
     )
