@@ -20,7 +20,7 @@ class TestNetwork(TestCase):
         vm = MagicMock()
         vm.ReconfigVM_Task = lambda x: isinstance(x, vim.vm.ConfigSpec)
 
-        api_wrapper = pyVmomiService(MagicMock, MagicMock(), MagicMock())
+        api_wrapper = pyVmomiService(MagicMock, MagicMock(), MagicMock(), MagicMock())
         res = api_wrapper.vm_reconfig_task(vm, [])
         self.assertTrue(res)
 

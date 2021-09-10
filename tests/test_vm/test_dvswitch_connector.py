@@ -67,7 +67,9 @@ class TestVirtualSwitchToMachineConnector(TestCase):
                 credentials.host, credentials.username, credentials.password
             )
         )
-        py_vmomi_service = pyVmomiService(SmartConnect, Disconnect)
+        py_vmomi_service = pyVmomiService(
+            SmartConnect, Disconnect, MagicMock(), MagicMock()
+        )
         synchronous_task_waiter = SynchronousTaskWaiter()
         dv_port_group_creator = DvPortGroupCreator(
             py_vmomi_service, synchronous_task_waiter
