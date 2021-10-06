@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "Linux Customization Spec",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "computer_name": {
+      "type": "string"
+    },
+    "domain_name": {
+      "type": "string"
+    },
+    "timezone": {
+      "type": "string"
+    },
+    "networks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "use_dhcp": {
+            "type": "boolean"
+          },
+          "ipv4_address": {
+            "type": "string"
+          },
+          "subnet_mask": {
+            "type": "string"
+          },
+          "default_gateway": {
+            "type": "string"
+          },
+          "alternate_gateway": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "dns_settings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "primary_dns_server": {
+          "type": "string"
+        },
+        "secondary_dns_server": {
+          "type": "string"
+        },
+        "tertiary_dns_server": {
+          "type": "string"
+        },
+        "dns_search_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

@@ -89,6 +89,7 @@ class DestroyVirtualMachineCommand(object):
         vm = self.pv_service.find_by_uuid(si, resource_model.vm_uuid)
 
         if vm is not None:
+            self.pv_service.delete_customization_spec(si=si, name=vm.name)
             # destroy vm
             result = self.pv_service.destroy_vm(vm=vm, logger=logger)
         else:
@@ -99,14 +100,6 @@ class DestroyVirtualMachineCommand(object):
             )
             logger.info(resource___format)
             result = resource___format
-
-        vm_customization_spec = self._get_custom_param(
-            params=resource_model.vm_custom_params,
-            name=constants.VM_CUSTOMIZATION_SPEC_CUSTOM_PARAM,
-        )
-
-        if vm_customization_spec:
-            self.pv_service.delete_customization_spec(si=si, name=vm_customization_spec)
 
         vm_folder_path = VMLocation.combine(
             [

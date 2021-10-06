@@ -11,6 +11,12 @@ from cloudshell.cp.vcenter.common.vcenter.task_waiter import SynchronousTaskWait
 from cloudshell.cp.vcenter.common.vcenter.vm_location import VMLocation
 from cloudshell.cp.vcenter.exceptions.reconfigure_vm import ReconfigureVMException
 from cloudshell.cp.vcenter.exceptions.task_waiter import TaskFaultException
+from cloudshell.cp.vcenter.models.custom_spec import (
+    Empty,
+    LinuxCustomizationSpecParams,
+    Network,
+    WindowsCustomizationSpecParams,
+)
 
 
 class VCenterAuthError(Exception):
@@ -478,23 +484,6 @@ class pyVmomiService:
             entity=vm, key=custom_field.key, value=""
         )
 
-    def need_to_wait_for_os_customization(self, vm):
-        """
-
-        :param vm:
-        :return:
-        """
-        return bool(
-            next(
-                filter(
-                    lambda field: field.value
-                    == self.WAIT_FOR_OS_CUSTOMIZATION_CUSTOM_FIELD,
-                    vm.customValue,
-                ),
-                False,
-            )
-        )
-
     class CloneVmParameters:
         """
         This is clone_vm method params object
@@ -578,7 +567,6 @@ class pyVmomiService:
         :param CloneVmParameters clone_params:
         :param logger:
         """
-
         result = self.CloneVmResult()
 
         if not isinstance(clone_params.si, self.vim.ServiceInstance):
@@ -609,8 +597,59 @@ class pyVmomiService:
 
         resource_pool, host = self.get_resource_pool(datacenter.name, clone_params)
 
-        customization_spec, created_new_spec = self._prepare_customization_spec(
-            clone_params=clone_params, vm_template=template
+        if any([clone_params.hostname, clone_params.private_ip]):
+            if self.is_windows_os(template):
+                custom_spec_params = WindowsCustomizationSpecParams()
+
+                if clone_params.hostname:
+                    custom_spec_params.computer_name = clone_params.hostname
+
+                if custom_spec_params.password:
+                    custom_spec_params.password = clone_params.password
+            else:
+                custom_spec_params = LinuxCustomizationSpecParams()
+
+                if clone_params.hostname:
+                    if (
+                        "." in clone_params.hostname
+                    ):  # check if hostname is in FQDN format
+                        (
+                            custom_spec_params.computer_name,
+                            custom_spec_params.domain_name,
+                        ) = clone_params.hostname.split(".", 1)
+                    else:
+                        custom_spec_params.computer_name = clone_params.hostname
+
+            if clone_params.private_ip:
+                if ":" in clone_params.private_ip:
+                    private_ip, gateway = clone_params.private_ip.split(":")
+                else:
+                    private_ip, gateway = clone_params.private_ip, None
+
+                private_ip = IPNetwork(private_ip)
+
+                if gateway is None:
+                    # presume Gateway is the .1 of the same subnet as the IP
+                    ip_octets = str(private_ip.ip).split(".")
+                    ip_octets[-1] = "1"
+                    gateway = ".".join(ip_octets)
+
+                custom_spec_params.networks = [
+                    Network(
+                        ipv4_address=str(private_ip.ip),
+                        subnet_mask=str(private_ip.netmask),
+                        default_gateway=gateway,
+                    )
+                ]
+        else:
+            custom_spec_params = None
+
+        customization_spec = self.prepare_customization_spec(
+            si=clone_params.si,
+            vm=template,
+            vm_name=clone_params.vm_name,
+            custom_spec_name=clone_params.customization_spec,
+            custom_spec_params=custom_spec_params,
         )
 
         if not resource_pool and not host:
@@ -639,15 +678,6 @@ class pyVmomiService:
             clone_spec.snapshot = snapshot
             clone_spec.template = False
             placement.diskMoveType = "createNewChildDiskBacking"
-
-        if customization_spec:
-            clone_spec.customization = customization_spec.spec
-            wait_for_os_customization_custom_field = self.get_or_create_custom_field(
-                si=clone_params.si,
-                field_name=self.WAIT_FOR_OS_CUSTOMIZATION_CUSTOM_FIELD,
-            )
-        else:
-            wait_for_os_customization_custom_field = None
 
         placement.datastore = self._get_datastore(clone_params)
 
@@ -686,19 +716,10 @@ class pyVmomiService:
                 "Error has occurred while deploying, please look at the log for more info."
             )
 
-        if wait_for_os_customization_custom_field:
-            self.set_vm_custom_field(
-                si=clone_params.si,
-                vm=vm,
-                custom_field=wait_for_os_customization_custom_field,
-                custom_field_value=self.WAIT_FOR_OS_CUSTOMIZATION_CUSTOM_FIELD,
-            )
-
-        result.customization_spec = (
-            customization_spec.info.name if created_new_spec else None
-        )
-
         result.vm = vm
+        result.customization_spec = (
+            customization_spec.info.name if customization_spec else None
+        )
 
         if all(
             [
@@ -1200,13 +1221,13 @@ class pyVmomiService:
 
         return self.LINUX_CUSTOMIZATION_SPEC_TYPE
 
-    def _create_windows_customization_spec(self, name, password=None):
-        password = (
-            vim.vm.customization.Password(value=password, plainText=True)
-            if password
-            else None
+    def is_windows_os(self, vm):
+        return (
+            self._get_customization_spec_os_type(vm)
+            == self.WINDOWS_CUSTOMIZATION_SPEC_TYPE
         )
 
+    def _create_empty_windows_custom_spec(self, name: str):
         customization_spec = vim.CustomizationSpecItem(
             info=vim.CustomizationSpecInfo(
                 type=self.WINDOWS_CUSTOMIZATION_SPEC_TYPE,
@@ -1214,7 +1235,7 @@ class pyVmomiService:
             ),
             spec=vim.vm.customization.Specification(
                 identity=vim.vm.customization.Sysprep(
-                    guiUnattended=vim.vm.customization.GuiUnattended(password=password),
+                    guiUnattended=vim.vm.customization.GuiUnattended(),
                     userData=vim.vm.customization.UserData(
                         computerName=vim.vm.customization.VirtualMachineNameGenerator(),
                         fullName=self.WINDOWS_CUSTOMIZATION_SPEC_NAME,
@@ -1232,17 +1253,9 @@ class pyVmomiService:
             ),
         )
 
-        customization_spec.spec.nicSettingMap.append(
-            vim.vm.customization.AdapterMapping(
-                adapter=vim.vm.customization.IPSettings(
-                    ip=vim.vm.customization.DhcpIpGenerator()
-                )
-            )
-        )
-
         return customization_spec
 
-    def _create_linux_customization_spec(self, name):
+    def _create_empty_linux_custom_spec(self, name: str):
         customization_spec = vim.CustomizationSpecItem(
             info=vim.CustomizationSpecInfo(
                 type=self.LINUX_CUSTOMIZATION_SPEC_TYPE,
@@ -1260,18 +1273,19 @@ class pyVmomiService:
             ),
         )
 
-        customization_spec.spec.nicSettingMap.append(
-            vim.vm.customization.AdapterMapping(
-                adapter=vim.vm.customization.IPSettings(
-                    ip=vim.vm.customization.DhcpIpGenerator()
-                )
-            )
-        )
-
         return customization_spec
 
-    def delete_customization_spec(self, si, name):
-        si.content.customizationSpecManager.DeleteCustomizationSpec(name=name)
+    def get_customization_spec(self, si, name: str):
+        try:
+            return si.content.customizationSpecManager.GetCustomizationSpec(name=name)
+        except vim.fault.NotFound:
+            pass
+
+    def delete_customization_spec(self, si, name: str):
+        try:
+            si.content.customizationSpecManager.DeleteCustomizationSpec(name=name)
+        except vim.fault.NotFound:
+            pass
 
     def _get_vm_vnics(self, vm):
         return [
@@ -1280,31 +1294,22 @@ class pyVmomiService:
             if isinstance(device, vim.vm.device.VirtualEthernetCard)
         ]
 
-    def _set_customization_spec_params(
-        self, customization_spec, clone_params, vm_template
+    def _set_common_custom_spec_params(
+        self,
+        vm,
+        custom_spec,
+        custom_spec_params: typing.Union[
+            WindowsCustomizationSpecParams, LinuxCustomizationSpecParams
+        ],
     ):
-        if clone_params.hostname:
-            if customization_spec.info.type == self.WINDOWS_CUSTOMIZATION_SPEC_TYPE:
-                customization_spec.spec.identity.userData.computerName = (
-                    vim.vm.customization.FixedName(name=clone_params.hostname)
-                )
-            else:
-                if "." in clone_params.hostname:  # check if hostname is in FQDN format
-                    hostname, domain = clone_params.hostname.split(".", 1)
-                    customization_spec.spec.identity.hostName = (
-                        vim.vm.customization.FixedName(name=hostname)
-                    )
-                    customization_spec.spec.identity.domain = domain
-                else:
-                    customization_spec.spec.identity.hostName = (
-                        vim.vm.customization.FixedName(name=clone_params.hostname)
-                    )
-
-        if clone_params.private_ip:
-            vm_vnics = self._get_vm_vnics(vm_template)
-            # customization spec IP configurations should be equal to the VM interfaces
-            while len(customization_spec.spec.nicSettingMap) < len(vm_vnics):
-                customization_spec.spec.nicSettingMap.append(
+        if custom_spec_params.networks is not Empty:
+            custom_spec.spec.nicSettingMap = []
+            vm_vnics = self._get_vm_vnics(vm)
+            # customization spec IP configurations should be no less than VM interfaces count
+            while len(custom_spec.spec.nicSettingMap) < max(
+                map(len, [vm_vnics, custom_spec_params.networks])
+            ):
+                custom_spec.spec.nicSettingMap.append(
                     vim.vm.customization.AdapterMapping(
                         adapter=vim.vm.customization.IPSettings(
                             ip=vim.vm.customization.DhcpIpGenerator()
@@ -1312,85 +1317,216 @@ class pyVmomiService:
                     )
                 )
 
-            if ":" in clone_params.private_ip:
-                private_ip, gateway = clone_params.private_ip.split(":")
+            for network, nic_setting in zip(
+                custom_spec_params.networks, custom_spec.spec.nicSettingMap
+            ):
+                if network.use_dhcp is True:
+                    nic_setting.adapter = vim.vm.customization.IPSettings(
+                        ip=vim.vm.customization.DhcpIpGenerator()
+                    )
+                else:
+                    network_adapter = nic_setting.adapter
+
+                    if network.ipv4_address is not Empty:
+                        network_adapter.ip = vim.vm.customization.FixedIp(
+                            ipAddress=network.ipv4_address
+                        )
+
+                    if network.subnet_mask is not Empty:
+                        network_adapter.subnetMask = network.subnet_mask
+
+                    gateways = [
+                        gateway
+                        for gateway in (
+                            network.default_gateway,
+                            network.alternate_gateway,
+                        )
+                        if gateway is not Empty
+                    ]
+
+                    if gateways:
+                        network_adapter.gateway = gateways
+
+    def _set_linux_custom_spec_params(
+        self, vm, custom_spec, custom_spec_params: LinuxCustomizationSpecParams
+    ):
+        self._set_common_custom_spec_params(
+            vm=vm, custom_spec=custom_spec, custom_spec_params=custom_spec_params
+        )
+        if custom_spec_params.computer_name is not Empty:
+            custom_spec.spec.identity.hostName = vim.vm.customization.FixedName(
+                name=custom_spec_params.computer_name
+            )
+
+        if custom_spec_params.domain_name is not Empty:
+            custom_spec.spec.identity.domain = custom_spec_params.domain_name
+
+        if custom_spec_params.dns_settings.dns_search_paths is not Empty:
+            custom_spec.spec.globalIPSettings.dnsSuffixList = (
+                custom_spec_params.dns_settings.dns_search_paths
+            )
+
+        dns_servers = [
+            dns_server
+            for dns_server in (
+                custom_spec_params.dns_settings.primary_dns_server,
+                custom_spec_params.dns_settings.secondary_dns_server,
+                custom_spec_params.dns_settings.tertiary_dns_server,
+            )
+            if dns_server is not Empty
+        ]
+
+        if dns_servers:
+            custom_spec.spec.globalIPSettings.dnsServerList = dns_servers
+
+    def _set_windows_custom_spec_params(
+        self, vm, custom_spec, custom_spec_params: WindowsCustomizationSpecParams
+    ):
+        self._set_common_custom_spec_params(
+            vm=vm, custom_spec=custom_spec, custom_spec_params=custom_spec_params
+        )
+
+        if custom_spec_params.computer_name is not Empty:
+            custom_spec.spec.identity.userData.computerName = (
+                vim.vm.customization.FixedName(name=custom_spec_params.computer_name)
+            )
+
+        if custom_spec_params.password is not Empty:
+            custom_spec.spec.identity.guiUnattended.password = (
+                vim.vm.customization.Password(
+                    value=custom_spec_params.password, plainText=True
+                )
+            )
+
+        if custom_spec_params.auto_logon is not Empty:
+            custom_spec.spec.identity.guiUnattended.autoLogon = (
+                custom_spec_params.auto_logon
+            )
+
+            if custom_spec_params.auto_logon_count is not Empty:
+                custom_spec.spec.identity.guiUnattended.autoLogonCount = (
+                    custom_spec_params.auto_logon_count
+                )
+
+        if custom_spec_params.registration_info.owner_name is not Empty:
+            custom_spec.spec.identity.userData.fullName = (
+                custom_spec_params.registration_info.owner_name
+            )
+
+        if custom_spec_params.registration_info.owner_organization is not Empty:
+            custom_spec.spec.identity.userData.orgName = (
+                custom_spec_params.registration_info.owner_organization
+            )
+
+        if custom_spec_params.license.product_key is not Empty:
+            custom_spec.spec.identity.userData.productId = (
+                custom_spec_params.license.product_key
+            )
+
+        if custom_spec_params.license.include_server_license_info is not Empty:
+            custom_spec.spec.identity.licenseFilePrintData = (
+                vim.vm.customization.LicenseFilePrintData()
+            )
+
+            if custom_spec_params.license.server_license_mode is not Empty:
+                custom_spec.spec.identity.licenseFilePrintData.autoMode = (
+                    custom_spec_params.license.server_license_mode
+                )
+
+            if custom_spec_params.license.max_connections is not Empty:
+                custom_spec.spec.identity.licenseFilePrintData.autoUsers = (
+                    custom_spec_params.license.max_connections
+                )
+
+        if custom_spec_params.commands_to_run_once is not Empty:
+            custom_spec.spec.identity.guiRunOnce = vim.vm.customization.GuiRunOnce(
+                commandList=custom_spec_params.commands_to_run_once
+            )
+
+        if custom_spec_params.workgroup is not Empty:
+            custom_spec.spec.identity.identification.joinWorkgroup = (
+                custom_spec_params.workgroup
+            )
+            custom_spec.spec.identity.identification.joinDomain = None
+
+        if custom_spec_params.windows_server_domain.domain is not Empty:
+            custom_spec.spec.identity.identification.joinDomain = (
+                custom_spec_params.windows_server_domain.domain
+            )
+            custom_spec.spec.identity.identification.joinWorkgroup = None
+
+        if custom_spec_params.windows_server_domain.password is not Empty:
+            custom_spec.spec.identity.identification.domainAdminPassword = (
+                vim.vm.customization.Password(
+                    value=custom_spec_params.windows_server_domain.password,
+                    plainText=True,
+                )
+            )
+
+    def prepare_customization_spec(
+        self,
+        si,
+        vm,
+        vm_name: str,
+        custom_spec_name: typing.Optional[str] = None,
+        custom_spec_params: typing.Optional[
+            typing.Union[WindowsCustomizationSpecParams, LinuxCustomizationSpecParams]
+        ] = None,
+    ):
+        custom_spec = None
+
+        if not custom_spec_name and not (
+            custom_spec_params.is_empty() if custom_spec_params else True
+        ):
+            if isinstance(custom_spec_params, WindowsCustomizationSpecParams):
+                custom_spec = self._create_empty_windows_custom_spec(
+                    name=vm_name,
+                )
+                self._set_windows_custom_spec_params(
+                    vm=vm,
+                    custom_spec=custom_spec,
+                    custom_spec_params=custom_spec_params,
+                )
             else:
-                private_ip, gateway = clone_params.private_ip, None
+                custom_spec = self._create_empty_linux_custom_spec(name=vm_name)
 
-            private_ip = IPNetwork(private_ip)
-
-            if gateway is None:
-                # presume Gateway is the .1 of the same subnet as the IP
-                ip_octets = str(private_ip.ip).split(".")
-                ip_octets[-1] = "1"
-                gateway = ".".join(ip_octets)
-
-            network_adapter = customization_spec.spec.nicSettingMap[0].adapter
-            network_adapter.ip = vim.vm.customization.FixedIp(
-                ipAddress=str(private_ip.ip)
-            )
-            network_adapter.subnetMask = str(private_ip.netmask)
-            network_adapter.gateway = gateway
-
-    def _prepare_customization_spec(self, clone_params, vm_template):
-        si = clone_params.si
-        created_new = False
-        customization_spec = None
-        need_to_add_vm_spec = any([clone_params.hostname, clone_params.private_ip])
-
-        if need_to_add_vm_spec and clone_params.customization_spec:
-            si.content.customizationSpecManager.DuplicateCustomizationSpec(
-                name=clone_params.customization_spec, newName=clone_params.vm_name
-            )
-
-            customization_spec = (
-                si.content.customizationSpecManager.GetCustomizationSpec(
-                    name=clone_params.vm_name
-                )
-            )
-
-            self._set_customization_spec_params(
-                customization_spec=customization_spec,
-                clone_params=clone_params,
-                vm_template=vm_template,
-            )
-
-            si.content.customizationSpecManager.OverwriteCustomizationSpec(
-                customization_spec
-            )
-            created_new = True
-
-        elif need_to_add_vm_spec:
-            os_type = self._get_customization_spec_os_type(vm_template)
-
-            if os_type == self.WINDOWS_CUSTOMIZATION_SPEC_TYPE:
-                customization_spec = self._create_windows_customization_spec(
-                    name=clone_params.vm_name, password=clone_params.password
-                )
-            else:
-                customization_spec = self._create_linux_customization_spec(
-                    name=clone_params.vm_name
+                self._set_linux_custom_spec_params(
+                    vm=vm,
+                    custom_spec=custom_spec,
+                    custom_spec_params=custom_spec_params,
                 )
 
-            self._set_customization_spec_params(
-                customization_spec=customization_spec,
-                clone_params=clone_params,
-                vm_template=vm_template,
-            )
+            si.content.customizationSpecManager.CreateCustomizationSpec(custom_spec)
 
-            si.content.customizationSpecManager.CreateCustomizationSpec(
-                customization_spec
-            )
-            created_new = True
-
-        elif clone_params.customization_spec:
-            customization_spec = (
-                si.content.customizationSpecManager.GetCustomizationSpec(
-                    name=clone_params.customization_spec
+        elif custom_spec_name:
+            if custom_spec_name != vm_name:
+                si.content.customizationSpecManager.DuplicateCustomizationSpec(
+                    name=custom_spec_name, newName=vm_name
                 )
+
+            custom_spec = si.content.customizationSpecManager.GetCustomizationSpec(
+                name=vm_name
             )
 
-        return customization_spec, created_new
+            if custom_spec_params:
+                if isinstance(custom_spec_params, WindowsCustomizationSpecParams):
+                    self._set_windows_custom_spec_params(
+                        vm=vm,
+                        custom_spec=custom_spec,
+                        custom_spec_params=custom_spec_params,
+                    )
+                else:
+                    self._set_linux_custom_spec_params(
+                        vm=vm,
+                        custom_spec=custom_spec,
+                        custom_spec_params=custom_spec_params,
+                    )
+
+                si.content.customizationSpecManager.OverwriteCustomizationSpec(
+                    custom_spec
+                )
+
+        return custom_spec
 
     def get_available_vnics(self, vm, reserved_networks):
         """Get VM vNICs that can be used for the new connections."""

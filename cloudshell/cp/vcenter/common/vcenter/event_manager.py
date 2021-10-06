@@ -53,18 +53,6 @@ class EventManager:
         event_start_time=None,
         event_end_time=None,
     ):
-        """
-
-        :param si:
-        :param vm:
-        :param event_type_id_list:
-        :param timeout:
-        :param wait_time:
-        :param logger:
-        :param event_start_time:
-        :param event_end_time:
-        :return:
-        """
         timeout_time = datetime.now() + timedelta(seconds=timeout)
 
         while True:
@@ -113,7 +101,7 @@ class EventManager:
         timeout = timeout or self.VMOSCustomization.START_EVENT_TIMEOUT
         wait_time = wait_time or self.VMOSCustomization.START_EVENT_WAIT_TIME
 
-        return self._wait_for_event(
+        start_event = self._wait_for_event(
             si=si,
             vm=vm,
             logger=logger,
@@ -123,6 +111,11 @@ class EventManager:
             event_start_time=event_start_time,
             event_end_time=event_end_time,
         )
+
+        if start_event is None:
+            raise Exception(
+                "Unable to Apply Customization Spec for the VM. See logs for the details."
+            )
 
     def wait_for_vm_os_customization_end_event(
         self,
@@ -134,16 +127,6 @@ class EventManager:
         timeout=None,
         wait_time=None,
     ):
-        """
-
-        :param si:
-        :param vm:
-        :param event_start_time:
-        :param event_end_time:
-        :param timeout:
-        :param wait_time:
-        :return:
-        """
         timeout = timeout or self.VMOSCustomization.END_EVENT_TIMEOUT
         wait_time = wait_time or self.VMOSCustomization.END_EVENT_WAIT_TIME
 

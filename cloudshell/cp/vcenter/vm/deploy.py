@@ -10,7 +10,6 @@ from cloudshell.cp.vcenter.common.cloud_shell.conn_details_retriever import (
     ResourceConnectionDetailsRetriever,
 )
 from cloudshell.cp.vcenter.common.vcenter.vm_location import VMLocation
-from cloudshell.cp.vcenter.constants import VM_CUSTOMIZATION_SPEC_CUSTOM_PARAM
 from cloudshell.cp.vcenter.exceptions.reconfigure_vm import ReconfigureVMException
 from cloudshell.cp.vcenter.models.vCenterCloneVMFromVMResourceModel import (
     vCenterCloneVMFromVMResourceModel,
@@ -273,11 +272,13 @@ class VirtualMachineDeployer(object):
                 cancellation_context=cancellation_context,
             )
         except Exception:
+            self.pv_service.delete_customization_spec(si=si, name=vm_name)
             self.folder_manager.delete_folder_if_empty(
                 si=si,
                 folder_full_path=params.vm_folder,
                 logger=logger,
             )
+
             raise
 
         if clone_vm_result.error:
@@ -285,18 +286,13 @@ class VirtualMachineDeployer(object):
 
         # remove a new created vm due to cancellation
         if cancellation_context.is_cancelled:
+            self.pv_service.delete_customization_spec(si=si, name=vm_name)
             self.pv_service.destroy_vm(vm=clone_vm_result.vm, logger=logger)
-
             self.folder_manager.delete_folder_if_empty(
                 si=si,
                 folder_full_path=params.vm_folder,
                 logger=logger,
             )
-
-            if clone_vm_result.customization_spec:
-                self.pv_service.delete_customization_spec(
-                    si=si, name=clone_vm_result.customization_spec
-                )
 
             raise Exception("Action 'Clone VM' was cancelled.")
 
@@ -328,7 +324,6 @@ class VirtualMachineDeployer(object):
                 "refresh_ip_timeout": deploy_params.refresh_ip_timeout,
                 "auto_power_off": convert_to_bool(deploy_params.auto_power_off),
                 "auto_delete": convert_to_bool(deploy_params.auto_delete),
-                VM_CUSTOMIZATION_SPEC_CUSTOM_PARAM: clone_vm_result.customization_spec,
             },
         )
 

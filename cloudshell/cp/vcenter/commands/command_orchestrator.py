@@ -12,6 +12,7 @@ from cloudshell.cp.vcenter.commands.connect_dvswitch import VirtualSwitchConnect
 from cloudshell.cp.vcenter.commands.connect_orchestrator import (
     ConnectionCommandOrchestrator,
 )
+from cloudshell.cp.vcenter.commands.customize_guest_os import CustomizeGuestOSCommand
 from cloudshell.cp.vcenter.commands.delete_saved_sandbox import (
     DeleteSavedSandboxCommand,
 )
@@ -245,6 +246,11 @@ class CommandOrchestrator(object):
 
         # Reconfigure VM command
         self.reconfigure_vm_command = ReconfigureVMCommand(
+            pyvmomi_service=pv_service, task_waiter=synchronous_task_waiter
+        )
+
+        # Customize Guest OS command
+        self.customize_guest_os_command = CustomizeGuestOSCommand(
             pyvmomi_service=pv_service, task_waiter=synchronous_task_waiter
         )
 
@@ -735,6 +741,27 @@ class CommandOrchestrator(object):
             cpu,
             ram,
             hdd,
+        )
+        return set_command_result(result=res, unpicklable=False)
+
+    def customize_guest_os(
+        self, context, custom_spec_name, custom_spec_params, override_custom_spec
+    ):
+        """Create/Update Customization spec for the VM."""
+        resource_details = self._parse_remote_model(context)
+        override_custom_spec = override_custom_spec in (
+            True,
+            "true",
+            "True",
+            "yes",
+        )  # todo: move to utils
+        res = self.command_wrapper.execute_command_with_connection(
+            context,
+            self.customize_guest_os_command.customize_os,
+            resource_details.vm_uuid,
+            custom_spec_name,
+            custom_spec_params,
+            override_custom_spec,
         )
         return set_command_result(result=res, unpicklable=False)
 

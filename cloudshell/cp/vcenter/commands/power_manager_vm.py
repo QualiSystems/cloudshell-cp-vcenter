@@ -18,8 +18,8 @@ class VirtualMachinePowerManagementCommand(object):
     def power_off(
         self, si, logger, session, vcenter_data_model, vm_uuid, resource_fullname
     ):
-        """
-        Power off of a vm
+        """Power off of a vm.
+
         :param vcenter_data_model: vcenter model
         :param si: Service Instance
         :param logger:
@@ -29,8 +29,7 @@ class VirtualMachinePowerManagementCommand(object):
         :param resource_fullname: the full name of the deployed app resource
         :return:
         """
-
-        logger.info("retrieving vm by uuid: {0}".format(vm_uuid))
+        logger.info("Retrieving vm by uuid: {0}".format(vm_uuid))
         vm = self.pv_service.find_by_uuid(si, vm_uuid)
 
         if vm.summary.runtime.powerState == "poweredOff":
@@ -71,8 +70,8 @@ class VirtualMachinePowerManagementCommand(object):
         return task_result
 
     def power_on(self, si, logger, session, vm_uuid, resource_fullname):
-        """
-        power on the specified vm
+        """Power on the specified vm.
+
         :param si:
         :param logger:
         :param session:
@@ -80,44 +79,50 @@ class VirtualMachinePowerManagementCommand(object):
         :param resource_fullname: the full name of the deployed app resource
         :return:
         """
-        logger.info("retrieving vm by uuid: {0}".format(vm_uuid))
+        logger.info(f"Retrieving VM by uuid: {vm_uuid}")
         vm = self.pv_service.find_by_uuid(si, vm_uuid)
 
         if vm.summary.runtime.powerState == "poweredOn":
-            logger.info("vm already powered on")
-            task_result = "Already powered on"
+            logger.info("VM already powered on")
+            return "Already powered on"
         else:
-            logger.info("Powering on VM ...")
-            start_time = datetime.now()
+            logger.info("Checking if Customization Spec exists for the VM...")
+            custom_spec = self.pv_service.get_customization_spec(si=si, name=vm.name)
 
-            task = vm.PowerOn()
-            task_result = self.synchronous_task_waiter.wait_for_task(
-                task=task, logger=logger, action_name="Power On"
-            )
+            if custom_spec is None:
+                logger.info("No VM Customization Spec found, powering on the VM...")
+                task = vm.PowerOn()
+                return self.synchronous_task_waiter.wait_for_task(
+                    task=task, logger=logger, action_name="Power On"
+                )
+            else:
+                logger.info("Adding Customization Spec to the VM...")
+                task = vm.CustomizeVM_Task(custom_spec.spec)
+                self.synchronous_task_waiter.wait_for_task(
+                    task=task,
+                    logger=logger,
+                    action_name="Applying Customization Spec for the VM",
+                )
 
-            if self.pv_service.need_to_wait_for_os_customization(vm):
+                start_time = datetime.now()
+
+                task = vm.PowerOn()
+                task_result = self.synchronous_task_waiter.wait_for_task(
+                    task=task, logger=logger, action_name="Power On"
+                )
+
                 logger.info("Checking for the VM OS customization events...")
-                event = self.event_manager.wait_for_vm_os_customization_start_event(
+                self.event_manager.wait_for_vm_os_customization_start_event(
                     si=si, vm=vm, logger=logger, event_start_time=start_time
                 )
 
-                if event:
-                    logger.info(
-                        "Waiting for the VM OS Customization event to be proceeded"
-                    )
-                    self.event_manager.wait_for_vm_os_customization_end_event(
-                        si=si, vm=vm, logger=logger, event_start_time=start_time
-                    )
+                logger.info(
+                    "Waiting for the VM OS customization event to be proceeded..."
+                )
+                self.event_manager.wait_for_vm_os_customization_end_event(
+                    si=si, vm=vm, logger=logger, event_start_time=start_time
+                )
 
-                    wait_for_os_customization_field = self.pv_service.get_or_create_custom_field(
-                        si=si,
-                        field_name=self.pv_service.WAIT_FOR_OS_CUSTOMIZATION_CUSTOM_FIELD,
-                    )
+                self.pv_service.delete_customization_spec(si=si, name=vm.name)
 
-                    self.pv_service.unset_vm_custom_field(
-                        si=si,
-                        vm=vm,
-                        custom_field=wait_for_os_customization_field,
-                    )
-
-        return task_result
+                return task_result

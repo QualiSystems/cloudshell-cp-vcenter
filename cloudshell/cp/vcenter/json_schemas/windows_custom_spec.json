@@ -1,0 +1,102 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "title": "Windows Customization Spec",
+  "additionalProperties": false,
+  "type": "object",
+  "properties": {
+    "computer_name": {
+      "type": "string"
+    },
+    "auto_logon": {
+      "type": "boolean"
+    },
+    "workgroup": {
+      "type": "string"
+    },
+    "auto_logon_count": {
+      "type": "integer"
+    },
+    "password": {
+      "type": "string"
+    },
+    "timezone": {
+      "type": "string"
+    },
+    "networks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "use_dhcp": {
+            "type": "boolean"
+          },
+          "ipv4_address": {
+            "type": "string"
+          },
+          "subnet_mask": {
+            "type": "string"
+          },
+          "default_gateway": {
+            "type": "string"
+          },
+          "alternate_gateway": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "commands_to_run_once": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "registration_info": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "owner_name": {
+          "type": "string"
+        },
+        "owner_organization": {
+          "type": "string"
+        }
+      }
+    },
+    "license": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "product_key": {
+          "type": "string"
+        },
+        "include_server_license_info": {
+          "type": "boolean"
+        },
+        "server_license_mode": {
+          "type": "string",
+          "enum": ["perServer", "perSeat"]
+        },
+        "max_connections": {
+          "type": "integer"
+        }
+      }
+    },
+    "windows_server_domain": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "domain": {
+          "type": "string"
+        },
+        "username": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
