@@ -1,2 +1,0 @@
-class ReconfigureVMException(Exception):
-    pass

@@ -1,2 +1,0 @@
-class SnapshotAlreadyExistsException(Exception):
-    pass
