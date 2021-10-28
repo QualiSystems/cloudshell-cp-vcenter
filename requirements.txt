@@ -1,7 +1,7 @@
 cloudshell-automation-api>=9.0.0.0,<9.0.1.0
 cloudshell-shell-core>=5.0.3,<6.0.0
 cloudshell-shell-standards~=1.2
-cloudshell-cp-core~=2.2
+cloudshell-cp-core~=2.3
 cloudshell-logging>=1.0.0,<1.1.0
 cloudshell-shell-connectivity-flow~=3.0
 lxml==4.6.1

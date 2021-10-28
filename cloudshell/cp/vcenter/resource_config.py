@@ -1,4 +1,6 @@
-from typing import TYPE_CHECKING, List, Optional, Union
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from cloudshell.shell.standards.core.resource_config_entities import (
     GenericResourceConfig,
@@ -71,11 +73,11 @@ class VCenterResourceConfig(GenericResourceConfig):
     @classmethod
     def from_context(
         cls,
-        context: Union["ResourceCommandContext", "AutoLoadCommandContext"],
+        context: ResourceCommandContext | AutoLoadCommandContext,
         shell_name: str = SHELL_NAME,
-        api: Optional["CloudShellAPISession"] = None,
-        supported_os: Optional[List[str]] = None,
-    ) -> "VCenterResourceConfig":
+        api: CloudShellAPISession | None = None,
+        supported_os: list[str] | None = None,
+    ) -> VCenterResourceConfig:
         # noinspection PyTypeChecker
         # return type is VCenterResourceConfig not GenericResourceConfig
         return super().from_context(

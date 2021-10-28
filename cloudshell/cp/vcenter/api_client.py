@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from logging import Logger
 
 from pyVmomi import vim  # noqa
@@ -10,6 +12,10 @@ from cloudshell.cp.vcenter.exceptions import (
     LoginException,
     ObjectNotFoundException,
     VMWareToolsNotInstalled,
+)
+from cloudshell.cp.vcenter.handlers.custom_spec_handler import (
+    CustomSpecHandler,
+    get_custom_spec_from_vim_spec,
 )
 from cloudshell.cp.vcenter.utils.cached_property import cached_property
 from cloudshell.cp.vcenter.utils.client_helpers import get_si
@@ -103,6 +109,13 @@ class VCenterAPIClient:
             if cluster.name == name:
                 return cluster
         emsg = f"Cluster '{name}' not found in datacenter '{dc.name}'"
+        raise ObjectNotFoundException(emsg)
+
+    def get_resource_pool(self, name: str, dc):
+        for r_pool in self._get_items_from_view(dc.hostFolder, [vim.ResourcePool]):
+            if r_pool.name == name:
+                return r_pool
+        emsg = f"Resource pool '{name}' not found in datacenter '{dc.name}'"
         raise ObjectNotFoundException(emsg)
 
     def get_storage(self, path: str, dc):
@@ -252,8 +265,27 @@ class VCenterAPIClient:
         task = vm.ReconfigVM_Task(config_spec)
         self._default_task_waiter.wait_for_task(task)
 
-    def get_customization_spec(self, name: str):
-        return self._si.content.customizationSpecManager.GetCustomizationSpec(name)
+    def get_customization_spec(self, name: str) -> CustomSpecHandler:
+        spec = self._si.content.customizationSpecManager.GetCustomizationSpec(name)
+        custom_spec_handler = get_custom_spec_from_vim_spec(spec)
+        return custom_spec_handler
+
+    def duplicate_customization_spec(self, original_name: str, new_name: str):
+        self._si.content.customizationSpecManager.DuplicateCustomizationSpec(
+            name=original_name, newName=new_name
+        )
+
+    def get_customization_spec_copy(
+        self, spec_name: str, copy_name: str
+    ) -> CustomSpecHandler:
+        self.duplicate_customization_spec(spec_name, copy_name)
+        return self.get_customization_spec(copy_name)
+
+    def overwrite_customization_spec(self, spec: CustomSpecHandler):
+        self._si.content.customizationSpecManager.OverwriteCustomizationSpec(spec.spec)
+
+    def create_customization_spec(self, spec: CustomSpecHandler):
+        self._si.content.customizationSpecManager.CreateCustomizationSpec(spec.spec)
 
     def clone_vm(
         self,
@@ -265,6 +297,7 @@ class VCenterAPIClient:
         snapshot=None,
         customization_spec=None,
         task_waiter=None,
+        config_spec=None,
     ):
         """Clone VM from the given template."""
         clone_spec = vim.vm.CloneSpec(powerOn=False)
@@ -276,10 +309,11 @@ class VCenterAPIClient:
 
         if snapshot:
             clone_spec.snapshot = snapshot
+            clone_spec.template = False
             placement.diskMoveType = "createNewChildDiskBacking"
 
-        if customization_spec:
-            clone_spec.customization = customization_spec.spec
+        if config_spec:
+            clone_spec.config_spec = config_spec
 
         clone_spec.location = placement
 
@@ -289,33 +323,9 @@ class VCenterAPIClient:
         return task_waiter.wait_for_task(task)
 
     def destroy_vm(self, vm, task_waiter=None):
-        # todo: check if this work or we need to use commented code:
-
-        # def destroy_vm(self, vm, logger):
-        #     """
-        #     destroy the given vm
-        #     :param vm: virutal machine pyvmomi object
-        #     :param logger:
-        #     """
-        #
-        #     self.power_off_before_destroy(logger, vm)  # noqa
-        #
-        #     logger.info(("Destroying VM {0}".format(vm.name)))  # noqa
-        #
-        #     task = vm.Destroy_Task()  # noqa
-        #     return self.task_waiter.wait_for_task(task=task, logger=logger, action_name="Destroy VM")  # noqa
-        #
-        # def power_off_before_destroy(self, logger, vm):
-        #     if vm.runtime.powerState == 'poweredOn':
-        #         logger.info(("The current powerState is: {0}. Attempting to power off {1}"  # noqa
-        #                      .format(vm.runtime.powerState, vm.name)))
-        #         task = vm.PowerOffVM_Task()  # noqa
-        #         self.task_waiter.wait_for_task(task=task, logger=logger, action_name="Power Off Before Destroy")  # noqa
-
         task_waiter = task_waiter or self._default_task_waiter
         self.power_off_vm(vm, soft=True, task_waiter=task_waiter)
         task = vm.Destroy_Task()
-
         return task_waiter.wait_for_task(task)
 
     def get_vm_snapshot(self, snapshot_name, vm):
