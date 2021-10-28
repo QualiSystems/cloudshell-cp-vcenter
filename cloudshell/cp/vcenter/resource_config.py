@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from cloudshell.shell.core.driver_context import (
         AutoLoadCommandContext,
         ResourceCommandContext,
+        ResourceRemoteCommandContext,
     )
 
 
@@ -73,7 +74,9 @@ class VCenterResourceConfig(GenericResourceConfig):
     @classmethod
     def from_context(
         cls,
-        context: ResourceCommandContext | AutoLoadCommandContext,
+        context: ResourceCommandContext
+        | AutoLoadCommandContext
+        | ResourceRemoteCommandContext,  # noqa
         shell_name: str = SHELL_NAME,
         api: CloudShellAPISession | None = None,
         supported_os: list[str] | None = None,

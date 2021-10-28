@@ -1,6 +1,4 @@
-from __future__ import annotations
-
-from cloudshell.cp.core.request_actions.models import DeployApp
+from cloudshell.cp.core.request_actions.models import DeployedApp
 
 from cloudshell.cp.vcenter import constants
 from cloudshell.cp.vcenter.models.base_deployment_app import (
@@ -18,7 +16,7 @@ from cloudshell.cp.vcenter.models.base_deployment_app import (
 )
 
 
-class BaseVCenterDeployApp(DeployApp):
+class BaseVCenterDeployedApp(DeployedApp):
     ATTR_NAMES = VCenterDeploymentAppAttributeNames
 
     vm_cluster = ResourceAttrRODeploymentPath(ATTR_NAMES.vm_cluster)
@@ -41,14 +39,14 @@ class BaseVCenterDeployApp(DeployApp):
     hdd_specs = HddSpecsAttrRO(ATTR_NAMES.hdd_specs)
 
 
-class VMFromTemplateDeployApp(BaseVCenterDeployApp):
+class VMFromTemplateDeployApp(BaseVCenterDeployedApp):
     ATTR_NAMES = VCenterVMFromTemplateDeploymentAppAttributeNames
 
     DEPLOYMENT_PATH = constants.VM_FROM_TEMPLATE_DEPLOYMENT_PATH
     vcenter_template = ResourceAttrRODeploymentPath(ATTR_NAMES.vcenter_template)
 
 
-class VMFromImageDeployApp(BaseVCenterDeployApp):
+class VMFromImageDeployApp(BaseVCenterDeployedApp):
     ATTR_NAMES = VCenterVMFromImageDeploymentAppAttributeNames
 
     DEPLOYMENT_PATH = constants.VM_FROM_IMAGE_DEPLOYMENT_PATH
@@ -58,7 +56,7 @@ class VMFromImageDeployApp(BaseVCenterDeployApp):
     )
 
 
-class VMFromVMDeployApp(BaseVCenterDeployApp):
+class VMFromVMDeployApp(BaseVCenterDeployedApp):
     ATTR_NAMES = VCenterVMFromVMDeploymentAppAttributeNames
 
     DEPLOYMENT_PATH = constants.VM_FROM_VM_DEPLOYMENT_PATH
