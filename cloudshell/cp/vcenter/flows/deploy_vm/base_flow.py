@@ -218,7 +218,7 @@ class AbstractVCenterDeployVMFromTemplateFlow(AbstractVCenterDeployVMFlow):
             spec = create_custom_spec_from_spec_params(custom_spec_params, vm_name)
 
         if spec:
-            num_of_nics = len(get_vnics(vm_template))
+            num_of_nics = len(list(get_vnics(vm_template)))
             spec.set_custom_spec_params(custom_spec_params, num_of_nics)
 
             if deploy_app.customization_spec:

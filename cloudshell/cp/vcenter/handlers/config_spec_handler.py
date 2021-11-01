@@ -12,7 +12,7 @@ from cloudshell.cp.vcenter.utils.vm_helpers import (
     get_all_devices,
     get_device_key,
     get_virtual_disks,
-    is_virtual_scsi_controller,
+    get_virtual_scsi_controllers,
 )
 
 if TYPE_CHECKING:
@@ -167,7 +167,7 @@ class ConfigSpecHandler:
     @staticmethod
     def _get_device_controller_key(vm):
         try:
-            key = next(filter(is_virtual_scsi_controller, get_all_devices(vm)))
+            key = next(map(get_device_key, get_virtual_scsi_controllers(vm)))
         except StopIteration:
             raise UnableToFindScsiController()
         return key
