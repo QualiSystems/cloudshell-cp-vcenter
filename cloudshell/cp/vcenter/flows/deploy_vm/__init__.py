@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .base_flow import AbstractVCenterDeployVMFlow
 from .from_image import VCenterDeployVMFromImageFlow
 from .from_linked_clone import VCenterDeployVMFromLinkedCloneFlow
 from .from_template import VCenterDeployVMFromTemplateFlow
@@ -15,14 +16,7 @@ MAP_DEPLOY_APP_TO_FLOW = {
 }
 
 
-def get_deploy_flow(
-    request_action,
-) -> type[
-    VCenterDeployVMFromVMFlow
-    | VCenterDeployVMFromImageFlow
-    | VCenterDeployVMFromTemplateFlow
-    | VCenterDeployVMFromLinkedCloneFlow
-]:
+def get_deploy_flow(request_action) -> type[AbstractVCenterDeployVMFlow]:
     da = request_action.da
     return MAP_DEPLOY_APP_TO_FLOW[da]
 

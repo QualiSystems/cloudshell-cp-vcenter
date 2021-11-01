@@ -17,6 +17,7 @@ from cloudshell.cp.vcenter.handlers.custom_spec_handler import (
     CustomSpecHandler,
     get_custom_spec_from_vim_spec,
 )
+from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 from cloudshell.cp.vcenter.utils.cached_property import cached_property
 from cloudshell.cp.vcenter.utils.client_helpers import get_si
 from cloudshell.cp.vcenter.utils.task_waiter import VcenterTaskWaiter
@@ -34,6 +35,12 @@ class VCenterAPIClient:
         self._port = port
         self._logger = logger
         self._default_task_waiter = VcenterTaskWaiter(logger=logger)
+
+    @classmethod
+    def from_config(
+        cls, conf: VCenterResourceConfig, logger: Logger
+    ) -> VCenterAPIClient:
+        return cls(conf.address, conf.user, conf.password, logger)
 
     def _get_si(self):
         self._logger.info("Initializing vCenter API client SI...")

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 
 from cloudshell.shell.standards.core.resource_config_entities import (
     GenericResourceConfig,
@@ -24,6 +24,11 @@ if TYPE_CHECKING:
 class ResourceAttrROShellName(ResourceAttrRO):
     def __init__(self, name, namespace=ResourceAttrRO.NAMESPACE.SHELL_NAME):
         super().__init__(name, namespace)
+
+
+CONTEXT_TYPES = Union[
+    ResourceCommandContext, AutoLoadCommandContext, ResourceRemoteCommandContext
+]
 
 
 class VCenterAttributeNames:
@@ -74,9 +79,7 @@ class VCenterResourceConfig(GenericResourceConfig):
     @classmethod
     def from_context(
         cls,
-        context: ResourceCommandContext
-        | AutoLoadCommandContext
-        | ResourceRemoteCommandContext,  # noqa
+        context: CONTEXT_TYPES,
         shell_name: str = SHELL_NAME,
         api: CloudShellAPISession | None = None,
         supported_os: list[str] | None = None,
