@@ -39,14 +39,14 @@ class BaseVCenterDeployedApp(DeployedApp):
     hdd_specs = HddSpecsAttrRO(ATTR_NAMES.hdd_specs)
 
 
-class VMFromTemplateDeployApp(BaseVCenterDeployedApp):
+class VMFromTemplateDeployedApp(BaseVCenterDeployedApp):
     ATTR_NAMES = VCenterVMFromTemplateDeploymentAppAttributeNames
 
     DEPLOYMENT_PATH = constants.VM_FROM_TEMPLATE_DEPLOYMENT_PATH
     vcenter_template = ResourceAttrRODeploymentPath(ATTR_NAMES.vcenter_template)
 
 
-class VMFromImageDeployApp(BaseVCenterDeployedApp):
+class VMFromImageDeployedApp(BaseVCenterDeployedApp):
     ATTR_NAMES = VCenterVMFromImageDeploymentAppAttributeNames
 
     DEPLOYMENT_PATH = constants.VM_FROM_IMAGE_DEPLOYMENT_PATH
@@ -56,14 +56,14 @@ class VMFromImageDeployApp(BaseVCenterDeployedApp):
     )
 
 
-class VMFromVMDeployApp(BaseVCenterDeployedApp):
+class VMFromVMDeployedApp(BaseVCenterDeployedApp):
     ATTR_NAMES = VCenterVMFromVMDeploymentAppAttributeNames
 
     DEPLOYMENT_PATH = constants.VM_FROM_VM_DEPLOYMENT_PATH
     vcenter_vm = ResourceAttrRODeploymentPath(ATTR_NAMES.vcenter_vm)
 
 
-class VMFromLinkedCloneDeployApp(VMFromVMDeployApp):
+class VMFromLinkedCloneDeployedApp(VMFromVMDeployedApp):
     ATTR_NAMES = VCenterVMFromCloneDeployAppAttributeNames
 
     DEPLOYMENT_PATH = constants.VM_FROM_LINKED_CLONE_DEPLOYMENT_PATH

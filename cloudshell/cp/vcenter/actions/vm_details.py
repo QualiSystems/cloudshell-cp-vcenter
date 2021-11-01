@@ -11,6 +11,20 @@ from cloudshell.cp.core.request_actions.models import (
 
 from cloudshell.cp.vcenter.actions.vm import VMActions
 from cloudshell.cp.vcenter.actions.vm_network import VMNetworkActions
+from cloudshell.cp.vcenter.models.deploy_app import (
+    BaseVCenterDeployApp,
+    VMFromImageDeployApp,
+    VMFromLinkedCloneDeployApp,
+    VMFromTemplateDeployApp,
+    VMFromVMDeployApp,
+)
+from cloudshell.cp.vcenter.models.deployed_app import (
+    BaseVCenterDeployedApp,
+    VMFromImageDeployedApp,
+    VMFromLinkedCloneDeployedApp,
+    VMFromTemplateDeployedApp,
+    VMFromVMDeployedApp,
+)
 from cloudshell.cp.vcenter.utils import bytes_converter
 
 if TYPE_CHECKING:
@@ -201,3 +215,23 @@ class VMDetailsActions(VMActions, VMNetworkActions):
             vmInstanceData=vm_instance_data,
             vmNetworkData=vm_network_data,
         )
+
+    def create(
+        self, vm, app_model: BaseVCenterDeployApp | BaseVCenterDeployedApp
+    ) -> VmDetailsData:
+        if isinstance(app_model, (VMFromVMDeployApp, VMFromVMDeployedApp)):
+            res = self.prepare_vm_from_vm_details(vm, app_model)
+        elif isinstance(
+            app_model, (VMFromTemplateDeployApp, VMFromTemplateDeployedApp)
+        ):
+            res = self.prepare_vm_from_template_details(vm, app_model)
+        elif isinstance(
+            app_model, (VMFromLinkedCloneDeployApp, VMFromLinkedCloneDeployedApp)
+        ):
+            res = self.prepare_vm_from_clone_details(vm, app_model)
+        elif isinstance(app_model, (VMFromImageDeployApp, VMFromImageDeployedApp)):
+            res = self.prepare_vm_from_image_details(vm, app_model)
+        else:
+            raise NotImplementedError(f"Not supported type {type(app_model)}")
+
+        return res
