@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from cloudshell.cp.core.request_actions import DeployVMRequestActions
 from cloudshell.cp.core.request_actions.models import DeployApp
 
 from cloudshell.cp.vcenter import constants
@@ -70,3 +71,7 @@ class VMFromLinkedCloneDeployApp(VMFromVMDeployApp):
 
     DEPLOYMENT_PATH = constants.VM_FROM_LINKED_CLONE_DEPLOYMENT_PATH
     vcenter_vm_snapshot = ResourceAttrRODeploymentPath(ATTR_NAMES.vcenter_vm_snapshot)
+
+
+class VCenterDeployVMRequestActions(DeployVMRequestActions):
+    deploy_app: BaseVCenterDeployApp

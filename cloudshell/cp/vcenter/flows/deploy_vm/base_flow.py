@@ -155,6 +155,7 @@ class AbstractVCenterDeployVMFlow(AbstractDeployFlow):
         )
         self._logger.info(f"Generated name for the VM: {vm_name}")
 
+        # todo vm folder full path should contain reservation id?
         vm_folder_path = self._prepare_vm_folder_path(deploy_app=deploy_app)
         self._logger.info(f"Prepared folder for the VM: {vm_folder_path}")
 

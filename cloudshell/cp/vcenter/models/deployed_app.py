@@ -1,3 +1,7 @@
+from cloudshell.cp.core.request_actions import (
+    DeployedVMActions,
+    GetVMDetailsRequestActions,
+)
 from cloudshell.cp.core.request_actions.models import DeployedApp
 
 from cloudshell.cp.vcenter import constants
@@ -68,3 +72,11 @@ class VMFromLinkedCloneDeployedApp(VMFromVMDeployedApp):
 
     DEPLOYMENT_PATH = constants.VM_FROM_LINKED_CLONE_DEPLOYMENT_PATH
     vcenter_vm_snapshot = ResourceAttrRODeploymentPath(ATTR_NAMES.vcenter_vm_snapshot)
+
+
+class VCenterGetVMDetailsRequestActions(GetVMDetailsRequestActions):
+    deployed_app: BaseVCenterDeployedApp
+
+
+class VCenterDeployedVMActions(DeployedVMActions):
+    deployed_app: BaseVCenterDeployedApp

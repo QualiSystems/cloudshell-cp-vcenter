@@ -294,6 +294,12 @@ class VCenterAPIClient:
     def create_customization_spec(self, spec: CustomSpecHandler):
         self._si.content.customizationSpecManager.CreateCustomizationSpec(spec.spec)
 
+    def delete_customization_spec(self, name: str):
+        try:
+            self._si.content.customizationSpecManager.DeleteCustomizationSpec(name=name)
+        except vim.fault.NotFound:
+            pass
+
     def clone_vm(
         self,
         vm_template,
