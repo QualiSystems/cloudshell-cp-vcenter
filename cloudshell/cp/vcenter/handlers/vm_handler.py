@@ -37,11 +37,15 @@ class VmHandler(ManagedEntityHandler):
         return f"VM '{self.name}'"
 
     @property
+    def uuid(self) -> str:
+        return self._entity.config.uuid
+
+    @property
     def networks(self) -> list[NetworkHandler]:
-        return list(map(NetworkHandler, self.entity.network))
+        return list(map(NetworkHandler, self._entity.network))
 
     def _get_devices(self):
-        return self.entity.config.hardware.device
+        return self._entity.config.hardware.device
 
     @property
     def vnics(self) -> list[VnicHandler]:
@@ -54,19 +58,19 @@ class VmHandler(ManagedEntityHandler):
         raise NetworkNotFound(name, self)
 
     def validate_guest_tools_installed(self):
-        if self.entity.guest.toolsStatus != vim.vm.GuestInfo.ToolsStatus.toolsOk:
+        if self._entity.guest.toolsStatus != vim.vm.GuestInfo.ToolsStatus.toolsOk:
             raise VMWareToolsNotInstalled(self)
 
     @property
     def power_state(self) -> PowerState:
-        return PowerState(self.entity.summary.runtime.powerState)
+        return PowerState(self._entity.summary.runtime.powerState)
 
     def power_on(self, logger: Logger, task_waiter: VcenterTaskWaiter | None = None):
         if self.power_state is PowerState.ON:
             logger.info("VM already powered on")
         else:
             logger.info(f"Powering on VM '{self.name}'")
-            task = self.entity.PowerOn()
+            task = self._entity.PowerOn()
             task_waiter = task_waiter or VcenterTaskWaiter(logger)
             task_waiter.wait_for_task(task)
 
@@ -79,9 +83,9 @@ class VmHandler(ManagedEntityHandler):
             logger.info(f"Powering off VM '{self.name}'")
             if soft:
                 self.validate_guest_tools_installed()
-                self.entity.ShutdownGuest()  # do not return task
+                self._entity.ShutdownGuest()  # do not return task
             else:
-                task = self.entity.PowerOff()
+                task = self._entity.PowerOff()
                 task_waiter = task_waiter or VcenterTaskWaiter(logger)
                 task_waiter.wait_for_task(task)
 
@@ -91,7 +95,7 @@ class VmHandler(ManagedEntityHandler):
         logger: Logger,
         task_waiter: VcenterTaskWaiter | None = None,
     ):
-        task = self.entity.CustomizeVM_Task(spec.spec.spec)
+        task = self._entity.CustomizeVM_Task(spec.spec.spec)
         task_waiter = task_waiter or VcenterTaskWaiter(logger)
         task_waiter.wait_for_task(task)
 
@@ -101,10 +105,10 @@ class VmHandler(ManagedEntityHandler):
         logger.info(f"Checking for the {self} OS customization events")
         em = EventManager()
         em.wait_for_vm_os_customization_start_event(
-            vcenter_client, vm=self.entity, logger=logger, event_start_time=begin_time
+            vcenter_client, vm=self._entity, logger=logger, event_start_time=begin_time
         )
 
         logger.info(f"Waiting for the {self} OS customization event to be proceeded")
         em.wait_for_vm_os_customization_end_event(
-            vcenter_client, vm=self.entity, logger=logger, event_start_time=begin_time
+            vcenter_client, vm=self._entity, logger=logger, event_start_time=begin_time
         )

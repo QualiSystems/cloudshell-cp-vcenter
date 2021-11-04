@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from cloudshell.cp.vcenter.api_client import VCenterAPIClient
-from cloudshell.cp.vcenter.exceptions import BaseVCenterException
+from cloudshell.cp.vcenter.exceptions import (
+    BaseVCenterException,
+    ObjectNotFoundException,
+)
 from cloudshell.cp.vcenter.handlers.managed_entity_handler import ManagedEntityHandler
 from cloudshell.cp.vcenter.handlers.network_handler import (
     NetworkHandler,
@@ -30,7 +33,7 @@ class DcHandler(ManagedEntityHandler):
 
     @property
     def networks(self) -> list[NetworkHandler]:
-        return list(map(NetworkHandler, self.entity.network))
+        return list(map(NetworkHandler, self._entity.network))
 
     def get_network(self, name: str) -> NetworkHandler:
         for network in self.networks:
@@ -39,7 +42,14 @@ class DcHandler(ManagedEntityHandler):
         raise NetworkNotFound(name, self)
 
     def get_vm_by_uuid(self, uuid: str, vcenter_client: VCenterAPIClient) -> VmHandler:
-        vm = vcenter_client.get_vm(uuid, self.entity)
+        vm = vcenter_client.get_vm(uuid, self._entity)
         if not vm:
             raise VmNotFound(self, uuid=uuid)
+        return VmHandler(vm)
+
+    def get_vm_by_name(self, name: str, vcenter_client: VCenterAPIClient) -> VmHandler:
+        try:
+            vm = vcenter_client.get_vm_by_name(name, self._entity)
+        except ObjectNotFoundException:
+            raise VmNotFound(self, name=name)
         return VmHandler(vm)
