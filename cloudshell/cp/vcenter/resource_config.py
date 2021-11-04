@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from enum import Enum
 from typing import TYPE_CHECKING, Union
 
 from cloudshell.shell.standards.core.resource_config_entities import (
@@ -26,9 +27,28 @@ class ResourceAttrROShellName(ResourceAttrRO):
         super().__init__(name, namespace)
 
 
+class ShutdownMethodAttrRO(ResourceAttrRO):
+    def __init__(self):
+        super().__init__(
+            VCenterAttributeNames.shutdown_method,
+            ResourceAttrROShellName.NAMESPACE.SHELL_NAME,
+        )
+
+    def __get__(self, instance, owner) -> ShutdownMethod:
+        val = super().__get__(instance, owner)
+        if val is self:
+            return val
+        return ShutdownMethod(val)
+
+
 CONTEXT_TYPES = Union[
     ResourceCommandContext, AutoLoadCommandContext, ResourceRemoteCommandContext
 ]
+
+
+class ShutdownMethod(Enum):
+    SOFT = "soft"
+    HARD = "hard"
 
 
 class VCenterAttributeNames:
@@ -64,7 +84,7 @@ class VCenterResourceConfig(GenericResourceConfig):
     saved_sandbox_storage = ResourceAttrROShellName(ATTR_NAMES.saved_sandbox_storage)
     behavior_during_save = ResourceAttrROShellName(ATTR_NAMES.behavior_during_save)
     vm_location = ResourceAttrROShellName(ATTR_NAMES.vm_location)
-    shutdown_method = ResourceAttrROShellName(ATTR_NAMES.shutdown_method)
+    shutdown_method = ShutdownMethodAttrRO()
     ovf_tool_path = ResourceAttrROShellName(ATTR_NAMES.ovf_tool_path)
     reserved_networks = ResourceListAttrRO(
         ATTR_NAMES.reserved_networks, ResourceListAttrRO.NAMESPACE.SHELL_NAME

@@ -367,3 +367,6 @@ class VCenterAPIClient:
             raise ObjectNotFoundException(error_msg)
 
         return snapshot.snapshot
+
+    def query_event(self, filter_spec: vim.event.EventFilterSpec):
+        return self._si.content.eventManager.QueryEvent(filter_spec)

@@ -16,7 +16,6 @@ if TYPE_CHECKING:
     from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 
 
-SHUTDOWN_METHODS = ("hard", "soft")
 BEHAVIOURS_DURING_SAVE = ("Remain Powered On", "Power Off")
 
 
@@ -41,9 +40,6 @@ class ValidationActions:
         _is_not_empty(conf.password, conf.ATTR_NAMES.password)
         _is_not_empty(conf.default_datacenter, conf.ATTR_NAMES.default_datacenter)
         _is_not_empty(conf.vm_location, conf.ATTR_NAMES.vm_location)
-        _is_value_in(
-            conf.shutdown_method, SHUTDOWN_METHODS, conf.ATTR_NAMES.shutdown_method
-        )
         _is_value_in(
             conf.behavior_during_save,
             BEHAVIOURS_DURING_SAVE,
