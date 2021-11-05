@@ -1,10 +1,15 @@
+from logging import Logger
+
 from cloudshell.cp.vcenter.api_client import VCenterAPIClient
 from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
 from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 
 
 def get_vm_uuid_by_name(
-    vcenter_client: VCenterAPIClient, resource_conf: VCenterResourceConfig, vm_name: str
+    vcenter_client: VCenterAPIClient,
+    resource_conf: VCenterResourceConfig,
+    vm_name: str,
+    logger: Logger,
 ) -> str:
     dc = vcenter_client.get_dc(resource_conf.default_datacenter)
     dc = DcHandler(dc)

@@ -111,7 +111,8 @@ class VCenterAPIClient:
 
     def get_cluster(self, name: str, dc):
         for cluster in self._get_items_from_view(
-            dc.hostFolder, [vim.ComputeResource, vim.ClusterComputeResource]
+            dc.hostFolder,
+            [vim.ComputeResource, vim.ClusterComputeResource, vim.HostSystem],
         ):
             if cluster.name == name:
                 return cluster
