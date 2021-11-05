@@ -103,6 +103,10 @@ class ConfigSpecHandler:
             deploy_app.hdd_specs,
         )
 
+    @classmethod
+    def from_strings(cls, cpu: str, ram: str, hdd: str) -> ConfigSpecHandler:
+        return cls(int(cpu), float(ram), list(map(HddSpec.from_str, hdd.split(";"))))
+
     def _update_hdd_specs(self, config_spec, vm):
         existing_disks = {
             _get_disk_num(disk.deviceInfo.label): disk for disk in get_virtual_disks(vm)
@@ -172,7 +176,7 @@ class ConfigSpecHandler:
             raise UnableToFindScsiController()
         return key
 
-    def get_spec_for_vm(self, vm):
+    def get_spec_for_vm(self, vm) -> vim.vm.ConfigSpec:
         config_spec = vim.vm.ConfigSpec(
             cpuHotAddEnabled=True, cpuHotRemoveEnabled=True, memoryHotAddEnabled=True
         )
@@ -182,3 +186,4 @@ class ConfigSpecHandler:
             config_spec.memoryMB = int(self.ram_amount * 1024)
         if self.hdd_specs:
             self._update_hdd_specs(config_spec, vm)
+        return config_spec

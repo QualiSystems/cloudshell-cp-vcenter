@@ -9,6 +9,7 @@ from pyVmomi import vim
 from cloudshell.cp.vcenter.api_client import VCenterAPIClient
 from cloudshell.cp.vcenter.common.vcenter.event_manager import EventManager
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
+from cloudshell.cp.vcenter.handlers.config_spec_handler import ConfigSpecHandler
 from cloudshell.cp.vcenter.handlers.custom_spec_handler import CustomSpecHandler
 from cloudshell.cp.vcenter.handlers.managed_entity_handler import ManagedEntityHandler
 from cloudshell.cp.vcenter.handlers.network_handler import (
@@ -112,3 +113,13 @@ class VmHandler(ManagedEntityHandler):
         em.wait_for_vm_os_customization_end_event(
             vcenter_client, vm=self._entity, logger=logger, event_start_time=begin_time
         )
+
+    def reconfigure_vm(
+        self,
+        config_spec: ConfigSpecHandler,
+        logger: Logger,
+        task_waiter: VcenterTaskWaiter | None = None,
+    ):
+        task = config_spec.get_spec_for_vm(self._entity)
+        task_waiter = task_waiter or VcenterTaskWaiter(logger)
+        task_waiter.wait_for_task(task)
