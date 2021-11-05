@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from logging import Logger
 
-from pyVmomi import vim  # noqa
+from pyVmomi import vim
 
 from cloudshell.shell.flows.connectivity.models.connectivity_model import (
     ConnectionModeEnum,
@@ -20,9 +20,8 @@ from cloudshell.cp.vcenter.handlers.custom_spec_handler import (
 from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 from cloudshell.cp.vcenter.utils.cached_property import cached_property
 from cloudshell.cp.vcenter.utils.client_helpers import get_si
+from cloudshell.cp.vcenter.utils.connectivity_helpers import get_vlan_spec
 from cloudshell.cp.vcenter.utils.task_waiter import VcenterTaskWaiter
-
-# from cloudshell.cp.vcenter.utils.connectivity_helpers import get_vlan_spec  #  noqa
 
 
 class VCenterAPIClient:
@@ -58,6 +57,24 @@ class VCenterAPIClient:
     @property
     def root_container(self):
         return self._si.content.rootFolder
+
+    @property
+    def version(self) -> str:
+        return self._si.content.about.version
+
+    @property
+    def instance_uuid(self) -> str:
+        return self._si.RetriveContent().about.instanceUuid
+
+    @property
+    def vcenter_host(self) -> str:
+        for item in self._si.RetriveContent().setting.setting:
+            if item.key == "VirtualCenter.FQDN":
+                return item.value
+        raise Exception("Unable to find vCenter host")
+
+    def acquire_session_ticket(self) -> str:
+        return self._si.RetriveContent().sessionManager.AcquireCloneTicket()
 
     def _get_items_from_view(self, container, vim_type, recursive=False):
         if not isinstance(vim_type, list):
@@ -220,7 +237,7 @@ class VCenterAPIClient:
                     macChanges=vim.BoolPolicy(value=False),
                     inherited=False,
                 ),
-                vlan=get_vlan_spec(port_mode, vlan_range),  # noqa
+                vlan=get_vlan_spec(port_mode, vlan_range),
             )
         )
         dv_pg_spec = vim.dvs.DistributedVirtualPortgroup.ConfigSpec(
