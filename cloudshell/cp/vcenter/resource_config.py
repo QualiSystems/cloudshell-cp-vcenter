@@ -1,8 +1,14 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import TYPE_CHECKING, Union
+from typing import Union
 
+from cloudshell.api.cloudshell_api import CloudShellAPISession
+from cloudshell.shell.core.driver_context import (
+    AutoLoadCommandContext,
+    ResourceCommandContext,
+    ResourceRemoteCommandContext,
+)
 from cloudshell.shell.standards.core.resource_config_entities import (
     GenericResourceConfig,
     PasswordAttrRO,
@@ -12,14 +18,6 @@ from cloudshell.shell.standards.core.resource_config_entities import (
 )
 
 from cloudshell.cp.vcenter.constants import SHELL_NAME
-
-if TYPE_CHECKING:
-    from cloudshell.api.cloudshell_api import CloudShellAPISession
-    from cloudshell.shell.core.driver_context import (
-        AutoLoadCommandContext,
-        ResourceCommandContext,
-        ResourceRemoteCommandContext,
-    )
 
 
 class ResourceAttrROShellName(ResourceAttrRO):

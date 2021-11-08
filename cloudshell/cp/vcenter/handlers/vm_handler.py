@@ -16,6 +16,10 @@ from cloudshell.cp.vcenter.handlers.network_handler import (
     NetworkHandler,
     NetworkNotFound,
 )
+from cloudshell.cp.vcenter.handlers.snapshot_handler import (
+    SnapshotHandler,
+    SnapshotPath,
+)
 from cloudshell.cp.vcenter.handlers.virtual_device_handler import is_vnic
 from cloudshell.cp.vcenter.handlers.vnic_handler import VnicHandler
 from cloudshell.cp.vcenter.utils.task_waiter import VcenterTaskWaiter
@@ -25,6 +29,12 @@ class VMWareToolsNotInstalled(BaseVCenterException):
     def __init__(self, vm: VmHandler):
         self.vm = vm
         super().__init__(f"VMWare Tools are not installed or running on VM '{vm.name}'")
+
+
+class DuplicatedSnapshotName(BaseVCenterException):
+    def __init__(self, snapshot_name: str):
+        self.snapshot_name = snapshot_name
+        super().__init__(f"Snapshot with name '{snapshot_name}' already exists")
 
 
 class PowerState(Enum):
@@ -51,6 +61,12 @@ class VmHandler(ManagedEntityHandler):
     @property
     def vnics(self) -> list[VnicHandler]:
         return list(map(VnicHandler, filter(is_vnic, self._get_devices())))
+
+    @property
+    def current_snapshot(self) -> SnapshotHandler | None:
+        if not self._entity.snapshot:
+            return None
+        return SnapshotHandler(self._entity.snapshot.currentSnapshot)
 
     def get_network(self, name: str) -> NetworkHandler:
         for network in self.networks:
@@ -123,3 +139,29 @@ class VmHandler(ManagedEntityHandler):
         task = config_spec.get_spec_for_vm(self._entity)
         task_waiter = task_waiter or VcenterTaskWaiter(logger)
         task_waiter.wait_for_task(task)
+
+    def create_snapshot(
+        self,
+        snapshot_name: str,
+        dump_memory: bool,
+        logger: Logger,
+        task_waiter: VcenterTaskWaiter | None = None,
+    ) -> str:
+        try:
+            new_snapshot_path = self.current_snapshot.path + snapshot_name
+        except AttributeError:
+            new_snapshot_path = SnapshotPath(snapshot_name)
+
+        snapshot = self.current_snapshot.get_snapshot_by_path(new_snapshot_path)
+        if snapshot:
+            raise DuplicatedSnapshotName(snapshot_name)
+
+        logger.info(f"Creating a new snapshot for {self} with path {new_snapshot_path}")
+        quiesce = True
+        task = self._entity.CreateSnapshot(
+            snapshot_name, "Created by CloudShell vCenterShell", dump_memory, quiesce
+        )
+        task_waiter = task_waiter or VcenterTaskWaiter(logger)
+        task_waiter.wait_for_task(task)
+
+        return str(new_snapshot_path)
