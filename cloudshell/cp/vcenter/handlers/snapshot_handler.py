@@ -7,7 +7,6 @@ import attr
 from pyVmomi import vim
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
-from cloudshell.cp.vcenter.utils.cached_property import cached_property
 
 
 class SnapshotNotFoundInSnapshotTree(BaseVCenterException):
@@ -19,10 +18,16 @@ class SnapshotPathEmpty(BaseVCenterException):
     ...
 
 
-def _yield_snapshot_tree(snapshot_list) -> Generator[vim.vm.Snapshot, None, None]:
+def _yield_snapshot_handlers(
+    snapshot_list, path: SnapshotPath | None = None
+) -> Generator[SnapshotHandler, None, None]:
+    if not path:
+        path = SnapshotPath()
+
     for snapshot_tree in snapshot_list:
-        yield snapshot_tree
-        yield from _yield_snapshot_tree(snapshot_tree.childSnapshotList)
+        new_path = path + snapshot_tree.name
+        yield SnapshotHandler(snapshot_tree.snapshot, new_path)
+        yield from _yield_snapshot_handlers(snapshot_tree.childSnapshotList, new_path)
 
 
 def _get_snapshot_path(
@@ -80,6 +85,10 @@ class SnapshotPath:
         path.append(other)
         return path
 
+    @property
+    def name(self) -> str:
+        return self._path.rsplit(self.SEPARATOR, 1)[-1]
+
     def copy(self) -> SnapshotPath:
         return SnapshotPath(self._path)
 
@@ -104,27 +113,35 @@ class SnapshotPath:
 @attr.s(auto_attribs=True)
 class SnapshotHandler:
     _snapshot: vim.vm.Snapshot
+    _path: SnapshotPath | None = None
 
-    def get_snapshot_by_path(self, path: SnapshotPath) -> SnapshotHandler | None:
-        snapshot = _get_snapshot_by_path(self._root_snapshot_list, path)
-        if snapshot:
-            snapshot = SnapshotHandler(snapshot)
-        return snapshot
+    @classmethod
+    def get_vm_snapshot_by_path(cls, vm, path: SnapshotPath) -> SnapshotHandler:
+        for snapshot_handler in cls.yield_vm_snapshots(vm):
+            if snapshot_handler.path == path:
+                return snapshot_handler
+        raise SnapshotNotFoundInSnapshotTree
+
+    @classmethod
+    def yield_vm_snapshots(cls, vm) -> Generator[SnapshotHandler, None, None]:
+        yield from _yield_snapshot_handlers(vm.snapshot.rootSnapshotList)
 
     @property
     def _root_snapshot_list(self):
         return self._snapshot.vm.snapshot.rootSnapshotList
 
-    @cached_property
+    @property
     def name(self) -> str:
-        for snapshot_tree in _yield_snapshot_tree(self._root_snapshot_list):
-            if snapshot_tree.snapshot == self._snapshot:
-                return snapshot_tree.name
-        raise SnapshotNotFoundInSnapshotTree  # it shouldn't happen
+        return self.path.name
 
-    @cached_property
+    @property
     def path(self) -> SnapshotPath:
-        path = _get_snapshot_path(self._root_snapshot_list, self._snapshot)
-        if not path:
-            raise SnapshotNotFoundInSnapshotTree  # it shouldn't happen
-        return path
+        if self._path is None:
+            path = _get_snapshot_path(self._root_snapshot_list, self._snapshot)
+            if not path:
+                raise SnapshotNotFoundInSnapshotTree  # it shouldn't happen
+            self._path = path
+        return self._path
+
+    def revert_to_snapshot_task(self):
+        return self._snapshot.RevertToSnapshot_Task()

@@ -18,6 +18,7 @@ from cloudshell.cp.vcenter.handlers.network_handler import (
 )
 from cloudshell.cp.vcenter.handlers.snapshot_handler import (
     SnapshotHandler,
+    SnapshotNotFoundInSnapshotTree,
     SnapshotPath,
 )
 from cloudshell.cp.vcenter.handlers.virtual_device_handler import is_vnic
@@ -35,6 +36,13 @@ class DuplicatedSnapshotName(BaseVCenterException):
     def __init__(self, snapshot_name: str):
         self.snapshot_name = snapshot_name
         super().__init__(f"Snapshot with name '{snapshot_name}' already exists")
+
+
+class SnapshotNotFoundByPath(BaseVCenterException):
+    def __init__(self, snapshot_path: SnapshotPath, vm: VmHandler):
+        self.snapshot_path = snapshot_path
+        self.vm = vm
+        super().__init__(f"Snapshot with path '{snapshot_path}' not found for the {vm}")
 
 
 class PowerState(Enum):
@@ -147,14 +155,16 @@ class VmHandler(ManagedEntityHandler):
         logger: Logger,
         task_waiter: VcenterTaskWaiter | None = None,
     ) -> str:
-        try:
+        if self.current_snapshot:
             new_snapshot_path = self.current_snapshot.path + snapshot_name
-        except AttributeError:
+            try:
+                SnapshotHandler.get_vm_snapshot_by_path(self._entity, new_snapshot_path)
+            except SnapshotNotFoundInSnapshotTree:
+                pass
+            else:
+                raise DuplicatedSnapshotName(snapshot_name)
+        else:
             new_snapshot_path = SnapshotPath(snapshot_name)
-
-        snapshot = self.current_snapshot.get_snapshot_by_path(new_snapshot_path)
-        if snapshot:
-            raise DuplicatedSnapshotName(snapshot_name)
 
         logger.info(f"Creating a new snapshot for {self} with path {new_snapshot_path}")
         quiesce = True
@@ -165,3 +175,26 @@ class VmHandler(ManagedEntityHandler):
         task_waiter.wait_for_task(task)
 
         return str(new_snapshot_path)
+
+    def restore_from_snapshot(
+        self,
+        snapshot_path: str,
+        logger: Logger,
+        task_waiter: VcenterTaskWaiter | None = None,
+    ):
+        snapshot_path = SnapshotPath(snapshot_path)
+        try:
+            logger.info(f"Getting snapshot with path '{snapshot_path}' for the {self}")
+            snapshot = SnapshotHandler.get_vm_snapshot_by_path(
+                self._entity, snapshot_path
+            )
+        except SnapshotNotFoundInSnapshotTree:
+            raise SnapshotNotFoundByPath(snapshot_path, self)
+        else:
+            task = snapshot.revert_to_snapshot_task()
+            task_waiter = task_waiter or VcenterTaskWaiter(logger)
+            task_waiter.wait_for_task(task)
+
+    def get_snapshot_paths(self, logger: Logger) -> list[str]:
+        logger.info(f"Getting snapshots for the {self}")
+        return [str(s.path) for s in SnapshotHandler.yield_vm_snapshots(self._entity)]

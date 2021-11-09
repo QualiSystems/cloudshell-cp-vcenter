@@ -6,7 +6,7 @@ from .get_vm_web_console import get_vm_web_console
 from .power_flow import VCenterPowerFlow
 from .reconfigure_vm import reconfigure_vm
 from .refresh_ip import refresh_ip
-from .snapshots import save_snapshot
+from .snapshots import SnapshotFlow
 from .vm_uuid_by_name import get_vm_uuid_by_name
 
 __all__ = (
@@ -19,5 +19,5 @@ __all__ = (
     get_cluster_usage,
     reconfigure_vm,
     get_vm_web_console,
-    save_snapshot,
+    SnapshotFlow,
 )
