@@ -1,18 +1,26 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from logging import Logger
 
 import attr
 
 from cloudshell.api.cloudshell_api import CloudShellAPISession
+from cloudshell.shell.core.orchestration_save_restore import OrchestrationSaveRestore
 
 from cloudshell.cp.vcenter.api_client import VCenterAPIClient
-from cloudshell.cp.vcenter.exceptions import InvalidCommandParam
+from cloudshell.cp.vcenter.exceptions import BaseVCenterException, InvalidCommandParam
 from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
 from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
 from cloudshell.cp.vcenter.models.deployed_app import BaseVCenterDeployedApp
 from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
+
+
+class InvalidOrchestrationType(BaseVCenterException):
+    def __init__(self, type_: str):
+        msg = f"Invalid orchestration type '{type_}', expect vcenter_snapshot"
+        super().__init__(msg)
 
 
 def _validate_dump_memory_param(dump_memory: str):
@@ -57,3 +65,24 @@ class SnapshotFlow:
         vm = self._get_vm()
         vm.restore_from_snapshot(snapshot_path, self._logger)
         cs_api.SetResourceLiveStatus(self._deployed_app.name, "Offline", "Powered Off")
+
+    def orchestration_save(self) -> str:
+        snapshot_name = datetime.now().strftime("%y_%m_%d %H_%M_%S_%f")
+        snapshot_path = self.save_snapshot(snapshot_name, dump_memory="No")
+        type_ = "vcenter_snapshot"
+        path = f"{type_}:{snapshot_path}"
+
+        result = OrchestrationSaveRestore(
+            self._logger, self._resource_conf.name
+        ).prepare_orchestration_save_result(path)
+        return result
+
+    def orchestration_restore(self, artifacts_info: str, cs_api: CloudShellAPISession):
+        result = OrchestrationSaveRestore(
+            self._logger, self._resource_conf.name
+        ).parse_orchestration_save_result(artifacts_info)
+        type_, snapshot_path = result["path"].split(":", 1)
+        if not type_ == "vcenter_snapshot":
+            raise InvalidOrchestrationType(type_)
+
+        self.restore_from_snapshot(cs_api, snapshot_path)
