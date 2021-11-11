@@ -6,7 +6,7 @@ class NetworkNotFound(BaseVCenterException):
     def __init__(self, net_name: str, entity: ManagedEntityHandler):
         self.net_name = net_name
         self.entity = entity
-        super().__init__(f"Network {net_name} not found in '{entity}'")
+        super().__init__(f"Network {net_name} not found in {entity}")
 
 
 class NetworkHandler(ManagedEntityHandler):
