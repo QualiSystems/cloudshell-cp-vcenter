@@ -6,7 +6,6 @@ from cloudshell.cp.core.rollback import RollbackCommand
 
 if TYPE_CHECKING:
     from cloudshell.cp.vcenter.api_client import VCenterAPIClient
-    from cloudshell.cp.vcenter.handlers.custom_spec_handler import CustomSpecHandler
 
 
 class CloneVMCommand(RollbackCommand):
@@ -22,7 +21,6 @@ class CloneVMCommand(RollbackCommand):
         vm_storage,
         vm_folder,
         vm_snapshot,
-        vm_customization_spec: CustomSpecHandler,
         config_spec,
         logger,
     ):
@@ -37,7 +35,6 @@ class CloneVMCommand(RollbackCommand):
         self._vm_storage = vm_storage
         self._vm_folder = vm_folder
         self._vm_snapshot = vm_snapshot
-        self._vm_customization_spec = vm_customization_spec
         self._config_spec = config_spec
         self._logger = logger
         self._cloned_vm = None
@@ -50,7 +47,6 @@ class CloneVMCommand(RollbackCommand):
             vm_storage=self._vm_storage,
             vm_folder=self._vm_folder,
             snapshot=self._vm_snapshot,
-            customization_spec=self._vm_customization_spec,
             task_waiter=self._task_waiter,
             config_spec=self._config_spec,
         )

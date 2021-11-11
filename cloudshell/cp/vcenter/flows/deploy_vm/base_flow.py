@@ -240,9 +240,8 @@ class AbstractVCenterDeployVMFromTemplateFlow(AbstractVCenterDeployVMFlow):
             vm_template = self._get_vm_template(deploy_app=deploy_app, dc=dc)
 
         with self._cancellation_manager:
-            customization_spec = self._create_vm_customization_spec(
-                deploy_app, vm_template, vm_name
-            )
+            # we create customization spec here and will set it on PowerOn command
+            self._create_vm_customization_spec(deploy_app, vm_template, vm_name)
 
         with self._cancellation_manager:
             snapshot = self._get_vm_snapshot(
@@ -265,6 +264,5 @@ class AbstractVCenterDeployVMFromTemplateFlow(AbstractVCenterDeployVMFlow):
             vm_storage=vm_storage,
             vm_folder=vm_folder,
             vm_snapshot=snapshot,
-            vm_customization_spec=customization_spec,
             config_spec=config_spec,
         ).execute()

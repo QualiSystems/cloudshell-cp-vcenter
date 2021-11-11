@@ -19,8 +19,8 @@ from cloudshell.cp.vcenter.handlers.network_handler import (
 from cloudshell.cp.vcenter.handlers.snapshot_handler import (
     SnapshotHandler,
     SnapshotNotFoundInSnapshotTree,
-    SnapshotPath,
 )
+from cloudshell.cp.vcenter.handlers.vcenter_path import VcenterPath
 from cloudshell.cp.vcenter.handlers.virtual_device_handler import is_vnic
 from cloudshell.cp.vcenter.handlers.vnic_handler import VnicHandler
 from cloudshell.cp.vcenter.utils.task_waiter import VcenterTaskWaiter
@@ -39,7 +39,7 @@ class DuplicatedSnapshotName(BaseVCenterException):
 
 
 class SnapshotNotFoundByPath(BaseVCenterException):
-    def __init__(self, snapshot_path: SnapshotPath, vm: VmHandler):
+    def __init__(self, snapshot_path: VcenterPath, vm: VmHandler):
         self.snapshot_path = snapshot_path
         self.vm = vm
         super().__init__(f"Snapshot with path '{snapshot_path}' not found for the {vm}")
@@ -49,6 +49,12 @@ class PowerState(Enum):
     ON = "poweredOn"
     OFF = "poweredOff"
     SUSPENDED = "suspended"
+
+
+def _get_dc(entity):
+    while not isinstance(entity.parent, vim.Datacenter):
+        entity = entity.parent
+    return entity.parent
 
 
 class VmHandler(ManagedEntityHandler):
@@ -75,6 +81,18 @@ class VmHandler(ManagedEntityHandler):
         if not self._entity.snapshot:
             return None
         return SnapshotHandler(self._entity.snapshot.currentSnapshot)
+
+    @property
+    def path(self) -> VcenterPath:
+        """Path from DC.vmFolder."""
+        dc = _get_dc(self._entity)
+
+        path = VcenterPath(self.name)
+        folder = self._entity.parent
+        while folder != dc.vmFolder:
+            path = VcenterPath(folder.name) + path
+            folder = folder.parent
+        return path
 
     def get_network(self, name: str) -> NetworkHandler:
         for network in self.networks:
@@ -164,7 +182,7 @@ class VmHandler(ManagedEntityHandler):
             else:
                 raise DuplicatedSnapshotName(snapshot_name)
         else:
-            new_snapshot_path = SnapshotPath(snapshot_name)
+            new_snapshot_path = VcenterPath(snapshot_name)
 
         logger.info(f"Creating a new snapshot for {self} with path {new_snapshot_path}")
         quiesce = True
@@ -182,7 +200,7 @@ class VmHandler(ManagedEntityHandler):
         logger: Logger,
         task_waiter: VcenterTaskWaiter | None = None,
     ):
-        snapshot_path = SnapshotPath(snapshot_path)
+        snapshot_path = VcenterPath(snapshot_path)
         try:
             logger.info(f"Getting snapshot with path '{snapshot_path}' for the {self}")
             snapshot = SnapshotHandler.get_vm_snapshot_by_path(
@@ -198,3 +216,8 @@ class VmHandler(ManagedEntityHandler):
     def get_snapshot_paths(self, logger: Logger) -> list[str]:
         logger.info(f"Getting snapshots for the {self}")
         return [str(s.path) for s in SnapshotHandler.yield_vm_snapshots(self._entity)]
+
+    def delete(self, logger, task_waiter: VcenterTaskWaiter | None = None):
+        task = self._entity.Destroy_Task()
+        task_waiter = task_waiter or VcenterTaskWaiter(logger)
+        task_waiter.wait_for_task(task)

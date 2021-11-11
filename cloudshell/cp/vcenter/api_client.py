@@ -326,7 +326,6 @@ class VCenterAPIClient:
         vm_folder,
         vm_resource_pool=None,
         snapshot=None,
-        customization_spec=None,
         task_waiter=None,
         config_spec=None,
     ):
