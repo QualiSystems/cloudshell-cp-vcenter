@@ -192,16 +192,6 @@ class VCenterAPIClient:
             f"VM '{name}' not found in datacenter '{dc.name}'"
         )
 
-    def power_on_vm(self, vm, task_waiter=None):
-        if vm.summary.runtime.powerState == vim.VirtualMachine.PowerState.poweredOn:
-            self._logger.info("VM already powered on")
-            return
-
-        self._logger.info(f"Powering on VM '{vm.name}'")
-        task = vm.PowerOn()
-        task_waiter = task_waiter or self._default_task_waiter
-        task_waiter.wait_for_task(task)
-
     def power_off_vm(self, vm, soft: bool, task_waiter=None):
         if vm.summary.runtime.powerState == vim.VirtualMachine.PowerState.poweredOff:
             self._logger.info("VM already powered off")

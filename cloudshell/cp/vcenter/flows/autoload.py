@@ -11,9 +11,9 @@ from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 
 @attr.s(auto_attribs=True)
 class VCenterAutoloadFlow:
-    _resource_config: "VCenterResourceConfig"
-    _vcenter_client: "VCenterAPIClient"
-    _logger: "Logger"
+    _resource_config: VCenterResourceConfig
+    _vcenter_client: VCenterAPIClient
+    _logger: Logger
 
     def discover(self) -> AutoLoadDetails:
         """Discover command."""

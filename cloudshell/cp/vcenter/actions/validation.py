@@ -1,13 +1,13 @@
+from __future__ import annotations
+
 import os
 from typing import TYPE_CHECKING, Iterable
 from urllib.request import urlopen
 
 import attr
 
-from cloudshell.cp.vcenter.exceptions import (
-    InvalidAttributeException,
-    VMWareToolsNotInstalled,
-)
+from cloudshell.cp.vcenter.exceptions import InvalidAttributeException
+from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
 
 if TYPE_CHECKING:
     from logging import Logger
@@ -21,16 +21,9 @@ BEHAVIOURS_DURING_SAVE = ("Remain Powered On", "Power Off")
 
 @attr.s(auto_attribs=True)
 class ValidationActions:
-    _vcenter_client: "VCenterAPIClient"
-    _resource_conf: "VCenterResourceConfig"
-    _logger: "Logger"
-
-    def validate_vmware_tools(self, vm):
-        self._logger.info(f"Validating VMWare tools on the VM {vm} ...")
-        if vm.guest.toolsStatus == "toolsNotInstalled":
-            raise VMWareToolsNotInstalled(
-                f"VMWare Tools are not installed or not running on the VM '{vm.name}'"
-            )
+    _vcenter_client: VCenterAPIClient
+    _resource_conf: VCenterResourceConfig
+    _logger: Logger
 
     def validate_resource_conf(self):
         self._logger.info("Validating resource config ...")
@@ -55,7 +48,8 @@ class ValidationActions:
 
         conf = self._resource_conf
         dc = self._vcenter_client.get_dc(conf.default_datacenter)
-        self._vcenter_client.get_network(conf.holding_network, dc)
+        dc_handler = DcHandler(dc)
+        dc_handler.get_network(conf.holding_network)
         if conf.vm_location:
             self._vcenter_client.get_folder(conf.vm_location, dc.vmFolder)
         if conf.vm_cluster:
