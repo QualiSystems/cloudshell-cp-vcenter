@@ -80,11 +80,15 @@ class DcHandler(ManagedEntityHandler):
 
     def get_vm_folder(self, path: str | VcenterPath) -> FolderHandler:
         vm_folder = FolderHandler(self._entity.vmFolder, self._si)
-        return vm_folder.get_folder(path)
+        if path:
+            vm_folder = vm_folder.get_folder(path)
+        return vm_folder
 
     def get_or_create_vm_folder(self, path: str | VcenterPath) -> FolderHandler:
         vm_folder = FolderHandler(self._entity.vmFolder, self._si)
-        return vm_folder.get_or_create_folder(path)
+        if path:
+            vm_folder = vm_folder.get_or_create_folder(path)
+        return vm_folder
 
     def get_cluster(self, name: str) -> ClusterHandler | HostHandler:
         for vc_cluster in self._si.find_items(

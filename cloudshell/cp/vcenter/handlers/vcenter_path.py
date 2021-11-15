@@ -33,7 +33,7 @@ class VcenterPath:
         return path
 
     def __iter__(self) -> Iterable[str]:
-        return iter(self._path.split(self.SEPARATOR))
+        return iter(filter(bool, self._path.split(self.SEPARATOR)))
 
     @property
     def name(self) -> str:
