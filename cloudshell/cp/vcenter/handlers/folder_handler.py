@@ -29,8 +29,8 @@ class FolderHandler(ManagedEntityHandler):
             path = VcenterPath(path)
         vc_folder = parent
         try:
-            for sub_path in path:
-                vc_folder = si.find_child(vc_folder, sub_path.name)
+            for name in path:
+                vc_folder = si.find_child(vc_folder, name)
         except AttributeError:
             raise FolderNotFound(parent, str(path))
         if not vc_folder:

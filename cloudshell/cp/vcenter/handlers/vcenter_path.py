@@ -32,8 +32,8 @@ class VcenterPath:
         path.append(other)
         return path
 
-    def __iter__(self) -> Iterable[VcenterPath]:
-        return iter(map(VcenterPath, self._path.split(self.SEPARATOR)))
+    def __iter__(self) -> Iterable[str]:
+        return iter(self._path.split(self.SEPARATOR))
 
     @property
     def name(self) -> str:
