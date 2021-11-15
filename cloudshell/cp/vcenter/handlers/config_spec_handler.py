@@ -91,8 +91,8 @@ def _yield_disk_device_key(vm) -> Generator[int, None, None]:
 
 @attr.s(auto_attribs=True)
 class ConfigSpecHandler:
-    cpu_num: int
-    ram_amount: float
+    cpu_num: int | None
+    ram_amount: float | None
     hdd_specs: list[HddSpec]
 
     @classmethod
@@ -180,10 +180,10 @@ class ConfigSpecHandler:
         config_spec = vim.vm.ConfigSpec(
             cpuHotAddEnabled=True, cpuHotRemoveEnabled=True, memoryHotAddEnabled=True
         )
-        if self.cpu_num:
+        if self.cpu_num is not None:
             config_spec.numCPUs = self.cpu_num
-        if self.ram_amount:
+        if self.ram_amount is not None:
             config_spec.memoryMB = int(self.ram_amount * 1024)
-        if self.hdd_specs:
+        if self.hdd_specs is not None:
             self._update_hdd_specs(config_spec, vm)
         return config_spec

@@ -88,7 +88,7 @@ class ResourceIntAttrRO(ResourceAttrRO):
         val = super().__get__(instance, owner)
         if val is self or val is self.default:
             return val
-        return int(val)
+        return int(val) if val else None
 
 
 class ResourceFloatAttrRO(ResourceAttrRO):
@@ -99,7 +99,7 @@ class ResourceFloatAttrRO(ResourceAttrRO):
         val = super().__get__(instance, owner)
         if val is self or val is self.default:
             return val
-        return float(val)
+        return float(val) if val else None
 
 
 class ResourceIntAttrRODeploymentPath(ResourceIntAttrRO):
