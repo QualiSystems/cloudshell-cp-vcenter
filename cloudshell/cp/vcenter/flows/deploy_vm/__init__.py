@@ -8,17 +8,19 @@ from .from_vm import VCenterDeployVMFromVMFlow
 
 from cloudshell.cp.vcenter.models import deploy_app
 
-MAP_DEPLOY_APP_TO_FLOW = {
-    deploy_app.VMFromVMDeployApp: VCenterDeployVMFromVMFlow,
-    deploy_app.VMFromImageDeployApp: VCenterDeployVMFromImageFlow,
-    deploy_app.VMFromTemplateDeployApp: VCenterDeployVMFromTemplateFlow,
-    deploy_app.VMFromLinkedCloneDeployApp: VCenterDeployVMFromLinkedCloneFlow,
-}
+DEPLOY_APP_TO_FLOW = (
+    (deploy_app.VMFromVMDeployApp, VCenterDeployVMFromVMFlow),
+    (deploy_app.VMFromImageDeployApp, VCenterDeployVMFromImageFlow),
+    (deploy_app.VMFromTemplateDeployApp, VCenterDeployVMFromTemplateFlow),
+    (deploy_app.VMFromLinkedCloneDeployApp, VCenterDeployVMFromLinkedCloneFlow),
+)
 
 
 def get_deploy_flow(request_action) -> type[AbstractVCenterDeployVMFlow]:
     da = request_action.deploy_app
-    return MAP_DEPLOY_APP_TO_FLOW[da]
+    for deploy_class, deploy_flow in DEPLOY_APP_TO_FLOW:
+        if isinstance(da, deploy_class):
+            return deploy_flow
 
 
 __all__ = (
