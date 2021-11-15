@@ -17,7 +17,7 @@ MAP_DEPLOY_APP_TO_FLOW = {
 
 
 def get_deploy_flow(request_action) -> type[AbstractVCenterDeployVMFlow]:
-    da = request_action.da
+    da = request_action.deploy_app
     return MAP_DEPLOY_APP_TO_FLOW[da]
 
 
