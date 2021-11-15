@@ -8,7 +8,7 @@ if tuple(map(int, setuptools_version.split("."))) < (40, 0):
 
     python = sys.executable
     try:
-        s = os.system('{} -m pip install "setuptools>=40"'.format(python))
+        s = os.system(f'{python} -m pip install "setuptools>=40"')
         if s != 0:
             raise Exception
     except Exception:
@@ -33,9 +33,9 @@ setup(
     author_email="info@qualisystems.com",
     packages=find_packages(),
     description=(
-        "This Shell enables setting up vCenter as a cloud provider in CloudShell. "
-        "It supports connectivity, and adds new deployment types for apps which can be used in "
-        "CloudShell sandboxes."
+        "This Shell enables setting up vCenter as a cloud provider in CloudShell. It "
+        "supports connectivity, and adds new deployment types for apps which can be "
+        "used in CloudShell sandboxes."
     ),
     install_requires=required,
     tests_require=required_for_tests,

@@ -9,9 +9,9 @@ import attr
 from cloudshell.api.cloudshell_api import CloudShellAPISession
 from cloudshell.shell.core.orchestration_save_restore import OrchestrationSaveRestore
 
-from cloudshell.cp.vcenter.api_client import VCenterAPIClient
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException, InvalidCommandParam
 from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
+from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
 from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
 from cloudshell.cp.vcenter.models.deployed_app import BaseVCenterDeployedApp
 from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
@@ -35,15 +35,16 @@ def _validate_dump_memory_param(dump_memory: str):
 
 @attr.s(auto_attribs=True)
 class SnapshotFlow:
-    _vcenter_client: VCenterAPIClient
     _resource_conf: VCenterResourceConfig
     _deployed_app: BaseVCenterDeployedApp
     _logger: Logger
 
+    def __attrs_post_init__(self):
+        self._si = SiHandler.from_config(self._resource_conf, self._logger)
+
     def _get_vm(self) -> VmHandler:
-        dc = self._vcenter_client.get_dc(self._resource_conf.default_datacenter)
-        dc = DcHandler(dc)
-        return dc.get_vm_by_uuid(self._deployed_app.vmdetails.uid, self._vcenter_client)
+        dc = DcHandler.get_dc(self._resource_conf.default_datacenter, self._si)
+        return dc.get_vm_by_uuid(self._deployed_app.vmdetails.uid)
 
     def get_snapshot_paths(self) -> str:
         vm = self._get_vm()

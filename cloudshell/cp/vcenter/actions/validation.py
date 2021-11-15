@@ -8,25 +8,26 @@ import attr
 
 from cloudshell.cp.vcenter.exceptions import InvalidAttributeException
 from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
+from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
 
 if TYPE_CHECKING:
     from logging import Logger
 
-    from cloudshell.cp.vcenter.api_client import VCenterAPIClient
     from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 
 
+# todo move this validation to the model
 BEHAVIOURS_DURING_SAVE = ("Remain Powered On", "Power Off")
 
 
 @attr.s(auto_attribs=True)
 class ValidationActions:
-    _vcenter_client: VCenterAPIClient
+    _si: SiHandler
     _resource_conf: VCenterResourceConfig
     _logger: Logger
 
     def validate_resource_conf(self):
-        self._logger.info("Validating resource config ...")
+        self._logger.info("Validating resource config")
         conf = self._resource_conf
         _is_not_empty(conf.address, "address")
         _is_not_empty(conf.user, conf.ATTR_NAMES.user)
@@ -39,41 +40,37 @@ class ValidationActions:
             conf.ATTR_NAMES.behavior_during_save,
         )
 
-    def validate_connection(self):
-        self._logger.info("Validating connection to the vCenter ...")
-        _ = self._vcenter_client._si  # try to connect
-
     def validate_resource_conf_dc_objects(self):
-        self._logger.info("Validating resource config objects on the vCenter ...")
-
+        self._logger.info("Validating resource config objects on the vCenter")
         conf = self._resource_conf
-        dc = self._vcenter_client.get_dc(conf.default_datacenter)
-        dc_handler = DcHandler(dc)
-        dc_handler.get_network(conf.holding_network)
+        dc = DcHandler.get_dc(conf.default_datacenter, self._si)
+        dc.get_network(conf.holding_network)
         if conf.vm_location:
-            self._vcenter_client.get_folder(conf.vm_location, dc.vmFolder)
+            dc.get_vm_folder(conf.vm_location)
         if conf.vm_cluster:
-            self._vcenter_client.get_cluster(conf.vm_cluster, dc)
+            dc.get_cluster(conf.vm_cluster)
         if conf.vm_storage:
-            self._vcenter_client.get_storage(conf.vm_storage, dc)
+            dc.get_datastore(conf.vm_storage)
         if conf.saved_sandbox_storage:
-            self._vcenter_client.get_storage(conf.saved_sandbox_storage, dc)
+            dc.get_datastore(conf.saved_sandbox_storage)
         if conf.default_dv_switch:
-            self._vcenter_client.get_dv_switch(conf.default_dv_switch, dc)
+            dc.get_dv_switch(conf.default_dv_switch)
+        if conf.vm_resource_pool:
+            dc.get_resource_pool(conf.vm_resource_pool)
 
     def validate_deploy_app_dc_objects(self, deploy_app):
-        self._logger.info("Validating deploy app objects on the vCenter ...")
+        self._logger.info("Validating deploy app objects on the vCenter")
 
-        dc = self._vcenter_client.get_dc(self._resource_conf.default_datacenter)
+        dc = DcHandler.get_dc(self._resource_conf.default_datacenter, self._si)
         if deploy_app.vm_location:
-            self._vcenter_client.get_folder(deploy_app.vm_location, dc.vmFolder)
+            dc.get_vm_folder(deploy_app.vm_location)
         if deploy_app.vm_cluster:
-            self._vcenter_client.get_cluster(deploy_app.vm_cluster, dc)
+            dc.get_cluster(deploy_app.vm_cluster)
         if deploy_app.vm_storage:
-            self._vcenter_client.get_storage(deploy_app.vm_storage, dc)
+            dc.get_datastore(deploy_app.vm_storage)
 
     def validate_deploy_app(self, deploy_app):
-        self._logger.info("Validating deploy app ...")
+        self._logger.info("Validating deploy app")
 
         conf = self._resource_conf
         _one_is_not_empty(
@@ -90,29 +87,29 @@ class ValidationActions:
         )
 
     def validate_deploy_app_from_vm(self, deploy_app):
-        self._logger.info("Validating deploy app from VM ...")
+        self._logger.info("Validating deploy app from VM")
         _is_not_empty(deploy_app.vcenter_vm, deploy_app.ATTR_NAMES.vcenter_vm)
 
     def validate_deploy_app_from_template(self, deploy_app):
-        self._logger.info("Validating deploy app from Template ...")
+        self._logger.info("Validating deploy app from Template")
         _is_not_empty(
             deploy_app.vcenter_template, deploy_app.ATTR_NAMES.vcenter_template
         )
 
     def validate_deploy_app_from_clone(self, deploy_app):
-        self._logger.info("Validating deploy app from Linked Clone ...")
+        self._logger.info("Validating deploy app from Linked Clone")
         _is_not_empty(deploy_app.vcenter_vm, deploy_app.ATTR_NAMES.vcenter_vm)
         _is_not_empty(
             deploy_app.vcenter_vm_snapshot, deploy_app.ATTR_NAMES.vcenter_vm_snapshot
         )
 
     def validate_deploy_app_from_image(self, deploy_app):
-        self._logger.info("Validating deploy app from Image ...")
+        self._logger.info("Validating deploy app from Image")
         _is_not_empty(deploy_app.vcenter_image, deploy_app.ATTR_NAMES.vcenter_image)
         _is_valid_url(deploy_app.vcenter_image, deploy_app.ATTR_NAMES.vcenter_image)
 
     def validate_ovf_tool(self, ovf_tool_path):
-        self._logger.info("Validating OVF Tool ...")
+        self._logger.info("Validating OVF Tool")
         _is_not_empty(ovf_tool_path, self._resource_conf.ATTR_NAMES.ovf_tool_path)
         _is_valid_url(ovf_tool_path, self._resource_conf.ATTR_NAMES.ovf_tool_path)
 

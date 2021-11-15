@@ -1,29 +1,62 @@
 from __future__ import annotations
 
+from contextlib import suppress
 from datetime import datetime
 from enum import Enum
 from logging import Logger
 
 from pyVmomi import vim
 
-from cloudshell.cp.vcenter.api_client import VCenterAPIClient
 from cloudshell.cp.vcenter.common.vcenter.event_manager import EventManager
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
 from cloudshell.cp.vcenter.handlers.config_spec_handler import ConfigSpecHandler
 from cloudshell.cp.vcenter.handlers.custom_spec_handler import CustomSpecHandler
+from cloudshell.cp.vcenter.handlers.datastore_handler import DatastoreHandler
+from cloudshell.cp.vcenter.handlers.folder_handler import FolderHandler
 from cloudshell.cp.vcenter.handlers.managed_entity_handler import ManagedEntityHandler
 from cloudshell.cp.vcenter.handlers.network_handler import (
+    DVPortGroupHandler,
     NetworkHandler,
     NetworkNotFound,
 )
+from cloudshell.cp.vcenter.handlers.resource_pool import ResourcePoolHandler
 from cloudshell.cp.vcenter.handlers.snapshot_handler import (
     SnapshotHandler,
     SnapshotNotFoundInSnapshotTree,
 )
 from cloudshell.cp.vcenter.handlers.vcenter_path import VcenterPath
-from cloudshell.cp.vcenter.handlers.virtual_device_handler import is_vnic
-from cloudshell.cp.vcenter.handlers.vnic_handler import VnicHandler
+from cloudshell.cp.vcenter.handlers.virtual_device_handler import (
+    is_virtual_disk,
+    is_vnic,
+)
+from cloudshell.cp.vcenter.handlers.virtual_disk_handler import VirtualDiskHandler
+from cloudshell.cp.vcenter.handlers.vnic_handler import (
+    VnicHandler,
+    VnicWithMacNotFound,
+    VnicWithoutNetwork,
+)
 from cloudshell.cp.vcenter.utils.task_waiter import VcenterTaskWaiter
+from cloudshell.cp.vcenter.utils.units_converter import BASE_10
+
+
+class VmNotFound(BaseVCenterException):
+    def __init__(
+        self,
+        entity: ManagedEntityHandler,
+        uuid: str | None = None,
+        name: str | None = None,
+    ):
+        self.entity = entity
+        self.uuid = uuid
+        self.name = name
+
+        if not uuid and not name:
+            raise ValueError("You should specify uuid or name")
+        if uuid:
+            msg = f"VM with the uuid {uuid} in the {entity} not found"
+        else:
+            msg = f"VM with the name {name} in the {entity} not found"
+        super().__init__(msg)
 
 
 class VMWareToolsNotInstalled(BaseVCenterException):
@@ -58,6 +91,8 @@ def _get_dc(entity):
 
 
 class VmHandler(ManagedEntityHandler):
+    _entity: vim.VirtualMachine
+
     def __str__(self):
         return f"VM '{self.name}'"
 
@@ -67,14 +102,33 @@ class VmHandler(ManagedEntityHandler):
 
     @property
     def networks(self) -> list[NetworkHandler]:
-        return list(map(NetworkHandler, self._entity.network))
-
-    def _get_devices(self):
-        return self._entity.config.hardware.device
+        return [NetworkHandler(network, self._si) for network in self._entity.network]
 
     @property
     def vnics(self) -> list[VnicHandler]:
         return list(map(VnicHandler, filter(is_vnic, self._get_devices())))
+
+    @property
+    def disks(self) -> list[VirtualDiskHandler]:
+        return list(
+            map(VirtualDiskHandler, filter(is_virtual_disk, self._get_devices()))
+        )
+
+    @property
+    def disk_size(self) -> int:
+        return sum(map(lambda d: d.capacity_in_bytes, self.disks))
+
+    @property
+    def num_cpu(self) -> int:
+        return self._entity.summary.config.numCpu
+
+    @property
+    def memory_size(self) -> int:
+        return self._entity.summary.config.memorySizeMB * BASE_10
+
+    @property
+    def guest_os(self) -> str:
+        return self._entity.summary.config.guestFullName
 
     @property
     def current_snapshot(self) -> SnapshotHandler | None:
@@ -94,19 +148,92 @@ class VmHandler(ManagedEntityHandler):
             folder = folder.parent
         return path
 
+    @property
+    def power_state(self) -> PowerState:
+        return PowerState(self._entity.summary.runtime.powerState)
+
+    @property
+    def _moId(self) -> str:
+        # avoid using this property
+        return self._entity._moId
+
+    def _get_devices(self):
+        return self._entity.config.hardware.device
+
     def get_network(self, name: str) -> NetworkHandler:
         for network in self.networks:
             if network.name == name:
                 return network
         raise NetworkNotFound(name, self)
 
+    def has_vnics(self) -> bool:
+        for vnic in self.vnics:
+            if vnic.mac_address:
+                return True
+        return False
+
+    def get_network_name_from_vnic(self, vnic: VnicHandler) -> str:
+        try:
+            name = vnic.network_name
+        except ValueError:
+            for network in self.networks:
+                with suppress(ValueError):
+                    if network.key == vnic.port_group_key:
+                        name = network.name
+                        break
+            else:
+                name = ""
+        return name
+
+    def get_network_from_vnic(self, vnic: VnicHandler) -> NetworkHandler:
+        network = None
+        try:
+            vc_network = vnic.network
+            network = NetworkHandler(vc_network, self._si)
+        except ValueError:
+            for network in self.networks:
+                if network.key == vnic.port_group_key:
+                    break
+        if not network:
+            raise VnicWithoutNetwork
+
+        return network
+
+    def connect_vnic_to_port_group(
+        self,
+        vnic: VnicHandler,
+        port_group: DVPortGroupHandler,
+        logger: Logger,
+        task_waiter: VcenterTaskWaiter | None = None,
+    ) -> None:
+        nic_spec = vnic.create_spec_for_connection_port_group(port_group)
+        config_spec = vim.vm.ConfigSpec(deviceChange=[nic_spec])
+        task = self._entity.ReconfigVM_Task(config_spec)
+        task_waiter = task_waiter or VcenterTaskWaiter(logger)
+        task_waiter.wait_for_task(task)
+
+    def connect_vnic_to_network(
+        self,
+        vnic: VnicHandler,
+        network: NetworkHandler,
+        logger: Logger,
+        task_waiter: VcenterTaskWaiter | None = None,
+    ) -> None:
+        nic_spec = vnic.create_spec_for_connection_network(network)
+        config_spec = vim.vm.ConfigSpec(deviceChange=[nic_spec])
+        task = self._entity.ReconfigVM_Task(config_spec)
+        task_waiter = task_waiter or VcenterTaskWaiter(logger)
+        task_waiter.wait_for_task(task)
+
+    def get_vnic_by_mac(self, mac_address: str) -> VnicHandler:
+        for vnic in self.vnics:
+            if vnic.mac_address == mac_address:
+                return vnic
+        raise VnicWithMacNotFound(mac_address, self)
+
     def validate_guest_tools_installed(self):
         if self._entity.guest.toolsStatus != vim.vm.GuestInfo.ToolsStatus.toolsOk:
             raise VMWareToolsNotInstalled(self)
-
-    @property
-    def power_state(self) -> PowerState:
-        return PowerState(self._entity.summary.runtime.powerState)
 
     def power_on(self, logger: Logger, task_waiter: VcenterTaskWaiter | None = None):
         if self.power_state is PowerState.ON:
@@ -142,18 +269,16 @@ class VmHandler(ManagedEntityHandler):
         task_waiter = task_waiter or VcenterTaskWaiter(logger)
         task_waiter.wait_for_task(task)
 
-    def wait_for_customization_ready(
-        self, vcenter_client: VCenterAPIClient, begin_time: datetime, logger: Logger
-    ):
+    def wait_for_customization_ready(self, begin_time: datetime, logger: Logger):
         logger.info(f"Checking for the {self} OS customization events")
         em = EventManager()
         em.wait_for_vm_os_customization_start_event(
-            vcenter_client, vm=self._entity, logger=logger, event_start_time=begin_time
+            self._si, self._entity, logger=logger, event_start_time=begin_time
         )
 
         logger.info(f"Waiting for the {self} OS customization event to be proceeded")
         em.wait_for_vm_os_customization_end_event(
-            vcenter_client, vm=self._entity, logger=logger, event_start_time=begin_time
+            self._si, self._entity, logger=logger, event_start_time=begin_time
         )
 
     def reconfigure_vm(
@@ -196,22 +321,27 @@ class VmHandler(ManagedEntityHandler):
 
     def restore_from_snapshot(
         self,
-        snapshot_path: str,
+        snapshot_path: str | VcenterPath,
         logger: Logger,
         task_waiter: VcenterTaskWaiter | None = None,
     ):
-        snapshot_path = VcenterPath(snapshot_path)
+        logger.info(f"Getting snapshot with path '{snapshot_path}' for the {self}")
+        snapshot = self.get_snapshot_by_path(snapshot_path)
+        task = snapshot.revert_to_snapshot_task()
+        task_waiter = task_waiter or VcenterTaskWaiter(logger)
+        task_waiter.wait_for_task(task)
+
+    def get_snapshot_by_path(self, snapshot_path: str | VcenterPath) -> SnapshotHandler:
+        if not isinstance(snapshot_path, VcenterPath):
+            snapshot_path = VcenterPath(snapshot_path)
+
         try:
-            logger.info(f"Getting snapshot with path '{snapshot_path}' for the {self}")
             snapshot = SnapshotHandler.get_vm_snapshot_by_path(
                 self._entity, snapshot_path
             )
         except SnapshotNotFoundInSnapshotTree:
             raise SnapshotNotFoundByPath(snapshot_path, self)
-        else:
-            task = snapshot.revert_to_snapshot_task()
-            task_waiter = task_waiter or VcenterTaskWaiter(logger)
-            task_waiter.wait_for_task(task)
+        return snapshot
 
     def get_snapshot_paths(self, logger: Logger) -> list[str]:
         logger.info(f"Getting snapshots for the {self}")
@@ -221,3 +351,32 @@ class VmHandler(ManagedEntityHandler):
         task = self._entity.Destroy_Task()
         task_waiter = task_waiter or VcenterTaskWaiter(logger)
         task_waiter.wait_for_task(task)
+
+    def clone_vm(
+        self,
+        vm_name: str,
+        vm_storage: DatastoreHandler,
+        vm_folder: FolderHandler,
+        logger: Logger,
+        vm_resource_pool: ResourcePoolHandler | None = None,
+        snapshot: SnapshotHandler | None = None,
+        config_spec: ConfigSpecHandler | None = None,
+        task_waiter: VcenterTaskWaiter | None = None,
+    ) -> VmHandler:
+        clone_spec = vim.vm.CloneSpec(powerOn=False)
+        placement = vim.vm.RelocateSpec()
+        placement.datastore = vm_storage._entity
+        if vm_resource_pool:
+            placement.pool = vm_resource_pool
+        if snapshot:
+            clone_spec.snapshot = snapshot._snapshot
+            clone_spec.template = False
+            placement.diskMoveType = "createNewChildDiskBacking"
+        if config_spec:
+            clone_spec.config_spec = config_spec.get_spec_for_vm(self._entity)
+        clone_spec.location = placement
+
+        task = self._entity.Clone(folder=vm_folder, name=vm_name, spec=clone_spec)
+        task_waiter = task_waiter or VcenterTaskWaiter(logger)
+        new_vc_vm = task_waiter.wait_for_task(task)
+        return VmHandler(new_vc_vm, self._si)

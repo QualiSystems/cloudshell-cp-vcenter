@@ -48,21 +48,6 @@ def _get_snapshot_path(
     return None
 
 
-def _get_snapshot_by_path(snapshot_list, path: VcenterPath):
-    if not path:
-        return None
-
-    new_path = path.copy()
-    root_name = new_path.pop_head()
-    for snapshot_tree in snapshot_list:
-        if snapshot_tree.name == root_name:
-            if new_path:
-                return _get_snapshot_path(snapshot_tree.childSnapshotList, new_path)
-            else:
-                return snapshot_tree.snapshot
-    return None
-
-
 @attr.s(auto_attribs=True)
 class SnapshotHandler:
     _snapshot: vim.vm.Snapshot

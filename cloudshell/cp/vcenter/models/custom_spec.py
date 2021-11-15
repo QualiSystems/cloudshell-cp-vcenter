@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from collections.abc import Mapping
 from dataclasses import dataclass, field, fields, is_dataclass
 from enum import Enum
 from typing import TYPE_CHECKING
@@ -62,36 +61,6 @@ class CustomizationSpecParams:
 
     def __bool__(self) -> bool:
         return not self.is_empty()
-
-    @classmethod
-    def _set_instance_attributes(cls, instance, data):
-        for key, val in data.items():
-            instance_field = getattr(instance, key)
-
-            if isinstance(val, Mapping):
-                cls._set_instance_attributes(
-                    instance=instance_field,
-                    data=val,
-                )
-            elif isinstance(instance_field, ObjectsList):
-                if val:
-                    for obj_data in val:
-                        obj_instance = instance_field.OBJECT_CLASS()
-                        cls._set_instance_attributes(
-                            instance=obj_instance,
-                            data=obj_data,
-                        )
-                        instance_field.append(obj_instance)
-                else:
-                    setattr(instance, key, Empty)
-            else:
-                setattr(instance, key, val)
-
-    @classmethod
-    def from_dict(cls, data) -> CustomizationSpecParams:
-        instance = cls()
-        cls._set_instance_attributes(instance=instance, data=data)
-        return instance
 
     @classmethod
     @abstractmethod

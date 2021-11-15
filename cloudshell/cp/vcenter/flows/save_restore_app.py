@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import suppress
 from logging import Logger
 from typing import Iterable
 
@@ -17,9 +18,13 @@ from cloudshell.cp.core.request_actions.models import (
 )
 from cloudshell.cp.core.rollback import RollbackCommandsManager
 
-from cloudshell.cp.vcenter.api_client import VCenterAPIClient
 from cloudshell.cp.vcenter.flows.deploy_vm.commands.clone_vm import CloneVMCommand
+from cloudshell.cp.vcenter.handlers.datastore_handler import DatastoreHandler
 from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
+from cloudshell.cp.vcenter.handlers.folder_handler import FolderHandler, FolderNotFound
+from cloudshell.cp.vcenter.handlers.resource_pool import ResourcePoolHandler
+from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
+from cloudshell.cp.vcenter.handlers.vcenter_path import VcenterPath
 from cloudshell.cp.vcenter.handlers.vm_handler import PowerState, VmHandler
 from cloudshell.cp.vcenter.models.base_deployment_app import (
     VCenterVMFromCloneDeployAppAttributeNames,
@@ -34,27 +39,25 @@ SNAPSHOT_NAME = "artifact"
 
 @attr.s(auto_attribs=True)
 class SaveRestoreAppFlow:
-    _vcenter_client: VCenterAPIClient
     _resource_conf: VCenterResourceConfig
     _cs_api: CloudShellAPISession
     _cancellation_manager: CancellationContextManager
     _logger: Logger
 
     def __attrs_post_init__(self):
+        self._si = SiHandler.from_config(self._resource_conf, self._logger)
         self._rollback_manager = RollbackCommandsManager(logger=self._logger)
         self._task_waiter = VcenterCancellationContextTaskWaiter(
             self._logger, self._cancellation_manager
         )
 
     def save_apps(self, save_actions: Iterable[SaveApp]) -> str:
-        dc = self._vcenter_client.get_dc(self._resource_conf.default_datacenter)
-        dc = DcHandler(dc)
+        dc = DcHandler.get_dc(self._resource_conf.default_datacenter, self._si)
         results = [self._save_app(action, dc) for action in save_actions]
         return DriverResponse(results).to_driver_response_json()
 
     def delete_saved_apps(self, delete_saved_app_actions: list[DeleteSavedApp]):
-        dc = self._vcenter_client.get_dc(self._resource_conf.default_datacenter)
-        dc = DcHandler(dc)
+        dc = DcHandler.get_dc(self._resource_conf.default_datacenter, self._si)
         for action in delete_saved_app_actions:
             self._delete_saved_app(action, dc)
         self._delete_folders(delete_saved_app_actions, dc)
@@ -72,40 +75,35 @@ class SaveRestoreAppFlow:
             deploy_app.vm_storage = self._resource_conf.saved_sandbox_storage
         return deploy_app
 
+    @staticmethod
     def _prepare_folders(
-        self, deploy_app: VMFromVMDeployApp, dc: DcHandler, reservation_id: str
-    ):
+        deploy_app: VMFromVMDeployApp, dc: DcHandler, reservation_id: str
+    ) -> FolderHandler:
         # todo do we need deploy app?
-        vm_location_folder = self._vcenter_client.get_folder(
-            deploy_app.vm_location, dc._entity  # fixme
-        )
-        saved_sandboxes_folder = self._vcenter_client.get_or_create_folder(
-            SAVED_SANDBOXES_FOLDER, vm_location_folder
-        )
-        return self._vcenter_client.get_or_create_folder(
-            reservation_id, saved_sandboxes_folder
-        )
+        vm_location_folder = dc.get_vm_folder(deploy_app.vm_location)
+        folder_path = VcenterPath(SAVED_SANDBOXES_FOLDER) + reservation_id
+        return vm_location_folder.get_or_create_folder(folder_path)
 
-    def _get_vm_resource_pool(self, deploy_app: VMFromVMDeployApp, dc: DcHandler):
+    def _get_vm_resource_pool(
+        self, deploy_app: VMFromVMDeployApp, dc: DcHandler
+    ) -> ResourcePoolHandler:
         r_conf = self._resource_conf
         r_pool_name = deploy_app.vm_resource_pool or r_conf.vm_resource_pool
         cluster_name = deploy_app.vm_cluster or r_conf.vm_cluster
         if r_pool_name:
-            return self._vcenter_client.get_resource_pool(r_pool_name, dc._entity)
+            return dc.get_resource_pool(r_pool_name)
         if cluster_name:
-            cluster = self._vcenter_client.get_cluster(cluster_name, dc._entity)
-            return cluster.resourcePool
+            cluster = dc.get_cluster(cluster_name)
+            return cluster.get_resource_pool()
 
     def _save_app(self, save_action: SaveApp, dc: DcHandler) -> SaveAppResult:
         with self._cancellation_manager:
             vm_uuid = save_action.actionParams.sourceVmUuid
             r_id = save_action.actionParams.savedSandboxId
-            vm = dc.get_vm_by_uuid(vm_uuid, self._vcenter_client)
+            vm = dc.get_vm_by_uuid(vm_uuid)
             deploy_app = self._create_deploy_app(save_action, vm)
             vm_resource_pool = self._get_vm_resource_pool(deploy_app, dc)
-            vm_storage = self._vcenter_client.get_storage(
-                deploy_app.vm_storage, dc._entity
-            )
+            vm_storage = dc.get_datastore(deploy_app.vm_storage)
 
         with self._cancellation_manager:
             vm_folder = self._prepare_folders(deploy_app, dc, r_id)
@@ -117,13 +115,13 @@ class SaveRestoreAppFlow:
 
         new_vm_name = f"Clone of {vm.name[0:32]}"
         cloned_vm = self._clone_vm(
-            vm._entity,
+            vm,
             new_vm_name,
             vm_resource_pool,
             vm_storage,
             vm_folder,
         )
-        cloned_vm = VmHandler(cloned_vm)
+        cloned_vm = VmHandler(cloned_vm, self._si)
         cloned_vm.create_snapshot(SNAPSHOT_NAME, dump_memory=False, logger=self._logger)
 
         if vm_power_state is PowerState.ON:
@@ -148,11 +146,17 @@ class SaveRestoreAppFlow:
             savedEntityAttributes=entity_attrs,
         )
 
-    def _clone_vm(self, vm_template, vm_name, vm_resource_pool, vm_storage, vm_folder):
+    def _clone_vm(
+        self,
+        vm_template: VmHandler,
+        vm_name: str,
+        vm_resource_pool: ResourcePoolHandler,
+        vm_storage: DatastoreHandler,
+        vm_folder: FolderHandler,
+    ) -> VmHandler:
         return CloneVMCommand(
             rollback_manager=self._rollback_manager,
             cancellation_manager=self._cancellation_manager,
-            vcenter_client=self._vcenter_client,
             logger=self._logger,
             task_waiter=self._task_waiter,
             vm_template=vm_template,
@@ -168,22 +172,21 @@ class SaveRestoreAppFlow:
         for artifact in action.actionParams.artifacts:
             with self._cancellation_manager:
                 vm_uuid = artifact.artifactRef
-                vm = dc.get_vm_by_uuid(vm_uuid, self._vcenter_client)
+                vm = dc.get_vm_by_uuid(vm_uuid)
             vm.power_off(soft=False, logger=self._logger, task_waiter=self._task_waiter)
             vm.delete(self._logger, self._task_waiter)
 
     def _delete_folders(
         self, delete_saved_app_actions: list[DeleteSavedApp], dc: DcHandler
     ):
-        folders_to_delete = {
-            (
-                f"{self._resource_conf.vm_location}"
-                f"/{SAVED_SANDBOXES_FOLDER}"
-                f"/{action.actionParams.savedSandboxId}"
-            )
-            for action in delete_saved_app_actions
-        }
-        for folder_path in folders_to_delete:
-            folder = self._vcenter_client.get_folder(folder_path, dc._entity)
-            task = folder.Destroy_Task()
-            self._task_waiter.wait_for_task(task=task)
+        path = VcenterPath(self._resource_conf.vm_location) + SAVED_SANDBOXES_FOLDER
+        try:
+            sandbox_folder = dc.get_vm_folder(path)
+        except FolderNotFound:
+            return
+
+        for action in delete_saved_app_actions:
+            rid = action.actionParams.savedSandboxId
+            with suppress(FolderNotFound):
+                folder = sandbox_folder.get_folder(rid)
+                folder.destroy(self._logger, self._task_waiter)

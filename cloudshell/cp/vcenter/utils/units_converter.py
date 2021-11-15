@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+import attr
+
 BASE_10 = 2 ** 10
 BASE_SI = 1000
 
@@ -35,3 +39,14 @@ def format_hertz(size, prefix=PREFIX_HZ):
     return _format_units(
         size=size, prefix=prefix, prefixes=HERTZ_PREFIX_LABELS, unit_step=BASE_SI
     )
+
+
+@attr.s(auto_attribs=True)
+class UsageInfo:
+    capacity: str
+    used: str
+    free: str
+    used_percentage: str
+
+    def to_dict(self) -> dict[str, str]:
+        return attr.asdict(self)

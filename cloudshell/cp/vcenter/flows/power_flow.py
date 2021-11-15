@@ -3,8 +3,8 @@ from logging import Logger
 
 import attr
 
-from cloudshell.cp.vcenter.api_client import VCenterAPIClient
 from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
+from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
 from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
 from cloudshell.cp.vcenter.models.deployed_app import BaseVCenterDeployedApp
 from cloudshell.cp.vcenter.resource_config import ShutdownMethod, VCenterResourceConfig
@@ -12,23 +12,22 @@ from cloudshell.cp.vcenter.resource_config import ShutdownMethod, VCenterResourc
 
 @attr.s(auto_attribs=True)
 class VCenterPowerFlow:
-    _vcenter_client: VCenterAPIClient
     _deployed_app: BaseVCenterDeployedApp
     _resource_config: VCenterResourceConfig
     _logger: Logger
 
-    def _get_vm(self) -> VmHandler:
+    def _get_vm(self, si: SiHandler) -> VmHandler:
         self._logger.info(f"Getting VM by its UID {self._deployed_app.vmdetails.uid}")
-        dc = self._vcenter_client.get_dc(self._resource_config.default_datacenter)
-        dc = DcHandler(dc)
-        return dc.get_vm_by_uuid(self._deployed_app.vmdetails.uid, self._vcenter_client)
+        dc = DcHandler.get_dc(self._resource_config.default_datacenter, si)
+        return dc.get_vm_by_uuid(self._deployed_app.vmdetails.uid)
 
     def power_on(self):
-        vm = self._get_vm()
+        si = SiHandler.from_config(self._resource_config, self._logger)
+        vm = self._get_vm(si)
+
         self._logger.info(f"Powering On {vm}")
         spec_name = self._deployed_app.customization_spec
-        spec = self._vcenter_client.get_customization_spec(spec_name)
-
+        spec = si.get_customization_spec(spec_name)
         if spec:
             self._logger.info(f"Adding Customization Spec to the {vm}")
             vm.add_customization_spec(spec, self._logger)
@@ -39,13 +38,12 @@ class VCenterPowerFlow:
         vm.power_on(self._logger)
 
         if spec:
-            vm.wait_for_customization_ready(
-                self._vcenter_client, begin_time, self._logger
-            )
-            self._vcenter_client.delete_customization_spec(spec_name)
+            vm.wait_for_customization_ready(begin_time, self._logger)
+            si.delete_customization_spec(spec_name)
 
     def power_off(self):
-        vm = self._get_vm()
+        si = SiHandler.from_config(self._resource_config, self._logger)
+        vm = self._get_vm(si)
         self._logger.info(f"Powering Off {vm}")
         soft = self._resource_config.shutdown_method is ShutdownMethod.SOFT
         vm.power_off(soft, self._logger)

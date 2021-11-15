@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 from pyVmomi import vim
 
-from cloudshell.cp.vcenter.api_client import VCenterAPIClient
+from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
 
 
 class EventManager:
@@ -22,7 +22,7 @@ class EventManager:
 
     def _get_vm_events(
         self,
-        vcenter_client: VCenterAPIClient,
+        si: SiHandler,
         vm,
         event_type_id_list,
         event_start_time: datetime | None = None,
@@ -37,11 +37,11 @@ class EventManager:
             entity=vm_events, eventTypeId=event_type_id_list, time=time_filter
         )
 
-        return vcenter_client.query_event(filter_spec)
+        return si.query_event(filter_spec)
 
     def _wait_for_event(
         self,
-        vcenter_client: VCenterAPIClient,
+        si: SiHandler,
         vm,
         event_type_id_list,
         timeout,
@@ -52,10 +52,10 @@ class EventManager:
         timeout_time = datetime.now() + timedelta(seconds=timeout)
 
         while True:
-            logger.info(f"Getting VM '{vm.name}' events {event_type_id_list}...")
+            logger.info(f"Getting VM '{vm.name}' events {event_type_id_list}")
             events = self._get_vm_events(
-                vcenter_client=vcenter_client,
-                vm=vm,
+                si,
+                vm,
                 event_type_id_list=event_type_id_list,
                 event_start_time=event_start_time,
             )
@@ -74,7 +74,7 @@ class EventManager:
 
     def wait_for_vm_os_customization_start_event(
         self,
-        vcenter_client: VCenterAPIClient,
+        si: SiHandler,
         vm,
         logger,
         event_start_time: datetime | None = None,
@@ -85,8 +85,8 @@ class EventManager:
         wait_time = wait_time or self.VMOSCustomization.START_EVENT_WAIT_TIME
 
         start_event = self._wait_for_event(
-            vcenter_client,
-            vm=vm,
+            si,
+            vm,
             logger=logger,
             event_type_id_list=[self.VMOSCustomization.START_EVENT],
             timeout=timeout,
@@ -102,7 +102,7 @@ class EventManager:
 
     def wait_for_vm_os_customization_end_event(
         self,
-        vcenter_client: VCenterAPIClient,
+        si: SiHandler,
         vm,
         logger,
         event_start_time: datetime | None = None,
@@ -113,8 +113,8 @@ class EventManager:
         wait_time = wait_time or self.VMOSCustomization.END_EVENT_WAIT_TIME
 
         return self._wait_for_event(
-            vcenter_client,
-            vm=vm,
+            si,
+            vm,
             logger=logger,
             event_type_id_list=[
                 self.VMOSCustomization.SUCCESS_END_EVENT,

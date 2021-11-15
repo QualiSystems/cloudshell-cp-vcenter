@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import ClassVar, TypeVar
+from typing import ClassVar, Iterable, TypeVar
 
 import attr
 
@@ -32,6 +32,9 @@ class VcenterPath:
         path.append(other)
         return path
 
+    def __iter__(self) -> Iterable[VcenterPath]:
+        return iter(map(VcenterPath, self._path.split(self.SEPARATOR)))
+
     @property
     def name(self) -> str:
         return self._path.rsplit(self.SEPARATOR, 1)[-1]
@@ -56,3 +59,15 @@ class VcenterPath:
             path = ""
         self._path = path
         return head
+
+    def pop(self) -> str:
+        if not self._path:
+            raise VcenterPathEmpty
+
+        try:
+            path, last = self._path.rsplit(self.SEPARATOR, 1)
+        except ValueError:
+            path = ""
+            last = self.name
+        self._path = path
+        return last
