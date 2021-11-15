@@ -89,11 +89,13 @@ class DcHandler(ManagedEntityHandler):
     def get_cluster(self, name: str) -> ClusterHandler | HostHandler:
         for vc_cluster in self._si.find_items(
             [vim.ComputeResource, vim.ClusterComputeResource],
-            container=self._entity,
+            container=self._entity.hostFolder,
         ):
             if vc_cluster.name == name:
                 return ClusterHandler(vc_cluster, self._si)
-        for vc_host in self._si.find_items([vim.HostSystem], container=self._entity):
+        for vc_host in self._si.find_items(
+            [vim.HostSystem], container=self._entity.hostFolder
+        ):
             if vc_host.name == name:
                 return HostHandler(vc_host, self._si)
 
