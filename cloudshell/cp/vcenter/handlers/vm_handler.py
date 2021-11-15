@@ -367,7 +367,7 @@ class VmHandler(ManagedEntityHandler):
         placement = vim.vm.RelocateSpec()
         placement.datastore = vm_storage._entity
         if vm_resource_pool:
-            placement.pool = vm_resource_pool
+            placement.pool = vm_resource_pool._entity
         if snapshot:
             clone_spec.snapshot = snapshot._snapshot
             clone_spec.template = False
@@ -376,7 +376,9 @@ class VmHandler(ManagedEntityHandler):
             clone_spec.config_spec = config_spec.get_spec_for_vm(self._entity)
         clone_spec.location = placement
 
-        task = self._entity.Clone(folder=vm_folder, name=vm_name, spec=clone_spec)
+        task = self._entity.Clone(
+            folder=vm_folder._entity, name=vm_name, spec=clone_spec
+        )
         task_waiter = task_waiter or VcenterTaskWaiter(logger)
         new_vc_vm = task_waiter.wait_for_task(task)
         return VmHandler(new_vc_vm, self._si)
