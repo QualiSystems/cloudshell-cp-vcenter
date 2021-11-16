@@ -287,7 +287,8 @@ class VmHandler(ManagedEntityHandler):
         logger: Logger,
         task_waiter: VcenterTaskWaiter | None = None,
     ):
-        task = config_spec.get_spec_for_vm(self._entity)
+        spec = config_spec.get_spec_for_vm(self._entity)
+        task = self._entity.ReconfigVM_Task(spec)
         task_waiter = task_waiter or VcenterTaskWaiter(logger)
         task_waiter.wait_for_task(task)
 
