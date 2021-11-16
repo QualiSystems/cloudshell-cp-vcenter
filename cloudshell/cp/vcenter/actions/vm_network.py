@@ -90,8 +90,7 @@ class VMNetworkActions:
         self._logger.info(f"Finding VM IP address for the vm {vm.name}")
         for ip in self._get_vm_ip_addresses(vm, default_network):
             if self._is_ipv4_address(ip):
-                ip = ip_match_function(ip)
-                if ip:
+                if ip_match_function(ip):
                     return ip
 
     def get_vm_ip(
