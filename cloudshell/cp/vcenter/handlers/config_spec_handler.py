@@ -107,8 +107,14 @@ class ConfigSpecHandler:
         )
 
     @classmethod
-    def from_strings(cls, cpu: str, ram: str, hdd: str) -> ConfigSpecHandler:
-        return cls(int(cpu), float(ram), list(map(HddSpec.from_str, hdd.split(";"))))
+    def from_strings(
+        cls, cpu: str | None, ram: str | None, hdd: str | None
+    ) -> ConfigSpecHandler:
+        return cls(
+            int(cpu) if cpu else None,
+            float(ram) if ram else None,
+            list(map(HddSpec.from_str, hdd.split(";"))) if hdd else [],
+        )
 
     def _update_hdd_specs(self, config_spec, vm):
         existing_disks = {

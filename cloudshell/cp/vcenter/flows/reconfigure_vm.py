@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from logging import Logger
 
 from cloudshell.cp.vcenter.handlers.config_spec_handler import ConfigSpecHandler
@@ -10,9 +12,9 @@ from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 def reconfigure_vm(
     resource_conf: VCenterResourceConfig,
     deployed_app: BaseVCenterDeployedApp,
-    cpu: str,
-    ram: str,
-    hdd: str,
+    cpu: str | None,
+    ram: str | None,
+    hdd: str | None,
     logger: Logger,
 ):
     logger.info("Reconfiguring VM")
