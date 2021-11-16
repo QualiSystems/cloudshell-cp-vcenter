@@ -38,17 +38,18 @@ class SiHandler:
 
     @property
     def instance_uuid(self) -> str:
-        return self._si.RetriveContent().about.instanceUuid
+        return self._si.content.about.instanceUuid
 
     @property
     def vcenter_host(self) -> str:
-        for item in self._si.RetriveContent().setting.setting:
+        # noinspection PyUnresolvedReferences
+        for item in self._si.content.setting.setting:
             if item.key == "VirtualCenter.FQDN":
                 return item.value
         raise Exception("Unable to find vCenter host")
 
     def acquire_session_ticket(self) -> str:
-        return self._si.RetriveContent().sessionManager.AcquireCloneTicket()
+        return self._si.content.sessionManager.AcquireCloneTicket()
 
     def find_items(self, vim_type, recursive=False, container=None) -> Any:
         container = container or self.root_folder

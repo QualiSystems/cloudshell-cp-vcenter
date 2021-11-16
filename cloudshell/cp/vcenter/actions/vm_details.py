@@ -84,7 +84,7 @@ class VMDetailsActions(VMNetworkActions):
         for vnic in vm.vnics:
             network = vm.get_network_from_vnic(vnic)
             is_predefined = network.name in self._resource_conf.reserved_networks
-            private_ip = self.get_vm_ip_from_vnic(vm._entity, vnic=vnic)
+            private_ip = self.get_vm_ip_from_vnic(vm._entity, vnic._device)
 
             if network.vlan_id and (self.is_quali_network(network) or is_predefined):
                 is_primary = private_ip and primary_ip == private_ip
