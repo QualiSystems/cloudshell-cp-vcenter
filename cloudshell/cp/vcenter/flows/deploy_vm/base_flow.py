@@ -187,7 +187,7 @@ class AbstractVCenterDeployVMFlow(AbstractDeployFlow):
                 dc=dc,
             )
 
-        self._logger.info(f"Preparing Deploy App result for the VM {vm_name}")
+        self._logger.info(f"Preparing Deploy App result for the {deployed_vm}")
         return self._prepare_deploy_app_result(
             deployed_vm=deployed_vm,
             deploy_app=deploy_app,

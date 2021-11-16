@@ -17,7 +17,7 @@ class VCenterPowerFlow:
     _logger: Logger
 
     def _get_vm(self, si: SiHandler) -> VmHandler:
-        self._logger.info(f"Getting VM by its UID {self._deployed_app.vmdetails.uid}")
+        self._logger.info(f"Getting VM by its UUID {self._deployed_app.vmdetails.uid}")
         dc = DcHandler.get_dc(self._resource_config.default_datacenter, si)
         return dc.get_vm_by_uuid(self._deployed_app.vmdetails.uid)
 
@@ -25,7 +25,7 @@ class VCenterPowerFlow:
         si = SiHandler.from_config(self._resource_config, self._logger)
         vm = self._get_vm(si)
 
-        self._logger.info(f"Powering On {vm}")
+        self._logger.info(f"Powering On the {vm}")
         spec_name = self._deployed_app.customization_spec
         spec = si.get_customization_spec(spec_name)
         if spec:

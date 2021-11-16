@@ -87,7 +87,7 @@ class VMNetworkActions:
 
     def _find_vm_ip(self, vm, default_network, ip_match_function):
         """Find VM IP address."""
-        self._logger.info(f"Finding VM IP address for the vm {vm}")
+        self._logger.info(f"Finding VM IP address for the vm {vm.name}")
         for ip in self._get_vm_ip_addresses(vm, default_network):
             if self._is_ipv4_address(ip):
                 ip = ip_match_function(ip)
@@ -102,7 +102,7 @@ class VMNetworkActions:
         timeout: int | None = None,
     ) -> str:
         """Get VM IP address."""
-        self._logger.info(f"Getting IP address for the VM {vm} from the vCenter")
+        self._logger.info(f"Getting IP address for the VM {vm.name} from the vCenter")
 
         timeout = timeout or 0
         timeout_time = datetime.now() + timedelta(seconds=timeout)
