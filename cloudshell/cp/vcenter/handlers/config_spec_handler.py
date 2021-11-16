@@ -95,6 +95,9 @@ class ConfigSpecHandler:
     ram_amount: float | None
     hdd_specs: list[HddSpec]
 
+    def __bool__(self) -> bool:
+        return bool(self.cpu_num or self.ram_amount or self.hdd_specs)
+
     @classmethod
     def from_deploy_add(cls, deploy_app: BaseVCenterDeployApp) -> ConfigSpecHandler:
         return cls(
@@ -184,6 +187,6 @@ class ConfigSpecHandler:
             config_spec.numCPUs = self.cpu_num
         if self.ram_amount is not None:
             config_spec.memoryMB = int(self.ram_amount * 1024)
-        if self.hdd_specs is not None:
+        if self.hdd_specs:
             self._update_hdd_specs(config_spec, vm)
         return config_spec

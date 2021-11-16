@@ -52,7 +52,7 @@ class VCenterDeployVMFromImageFlow(AbstractVCenterDeployVMFlow):
         dc: DcHandler,
     ):
         """Create VM on the vCenter."""
-        vm_folder_path = self._prepare_vm_folder_path(deploy_app=deploy_app)
+        vm_folder_path = self._prepare_vm_folder_path(deploy_app)
 
         return DeployVMFromImageCommand(
             rollback_manager=self._rollback_manager,

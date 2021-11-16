@@ -8,7 +8,6 @@ from cloudshell.cp.core.request_actions.models import DeployAppResult, VmDetails
 from cloudshell.cp.core.rollback import RollbackCommandsManager
 from cloudshell.cp.core.utils.name_generator import generate_name
 
-from cloudshell.cp.vcenter import constants
 from cloudshell.cp.vcenter.actions.validation import ValidationActions
 from cloudshell.cp.vcenter.flows.deploy_vm.commands.clone_vm import CloneVMCommand
 from cloudshell.cp.vcenter.handlers.config_spec_handler import ConfigSpecHandler
@@ -26,7 +25,7 @@ from cloudshell.cp.vcenter.handlers.vcenter_path import VcenterPath
 from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
 from cloudshell.cp.vcenter.models.custom_spec import get_custom_spec_params
 from cloudshell.cp.vcenter.utils.task_waiter import VcenterCancellationContextTaskWaiter
-from cloudshell.cp.vcenter.utils.vm_helpers import get_vnics
+from cloudshell.cp.vcenter.utils.vm_helpers import get_vm_folder_path, get_vnics
 
 if TYPE_CHECKING:
     from logging import Logger
@@ -140,9 +139,9 @@ class AbstractVCenterDeployVMFlow(AbstractDeployFlow):
 
     def _prepare_vm_folder_path(self, deploy_app: BaseVCenterDeployApp) -> VcenterPath:
         self._logger.info("Preparing VM folder")
-        path = VcenterPath(deploy_app.vm_cluster or self._resource_config.vm_location)
-        path.append(constants.DEPLOYED_APPS_FOLDER)
-        return path
+        return get_vm_folder_path(
+            deploy_app, self._resource_config, self._reservation_info.reservation_id
+        )
 
     def _deploy(self, request_actions: DeployVMRequestActions) -> DeployAppResult:
         """Deploy VCenter VM."""
@@ -153,12 +152,10 @@ class AbstractVCenterDeployVMFlow(AbstractDeployFlow):
         with self._cancellation_manager:
             self._validate_deploy_app(deploy_app)
 
-        vm_name = generate_name(
-            deploy_app.app_name, postfix=self._reservation_info.reservation_id
-        )
+        postfix = self._reservation_info.reservation_id[-8:]
+        vm_name = generate_name(deploy_app.app_name, postfix)
         self._logger.info(f"Generated name for the VM: {vm_name}")
 
-        # todo vm folder full path should contain reservation id?
         vm_folder_path = self._prepare_vm_folder_path(deploy_app)
         self._logger.info(f"Prepared folder for the VM: {vm_folder_path}")
 

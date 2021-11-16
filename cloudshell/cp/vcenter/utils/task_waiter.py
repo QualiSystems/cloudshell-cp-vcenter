@@ -1,15 +1,19 @@
 import time
+from logging import Logger
+from typing import ClassVar
 
+import attr
 from pyVmomi import vim  # noqa
+
+from cloudshell.cp.core.cancellation_manager import CancellationContextManager
 
 from cloudshell.cp.vcenter.exceptions import TaskFaultException
 
 
+@attr.s(auto_attribs=True)
 class VcenterTaskWaiter:
-    DEFAULT_WAIT_TIME = 2
-
-    def __init__(self, logger):
-        self._logger = logger
+    DEFAULT_WAIT_TIME: ClassVar[int] = 2
+    _logger: Logger
 
     def _check_task(self, task):
         pass
@@ -39,7 +43,9 @@ class VcenterTaskWaiter:
 class VcenterCancellationContextTaskWaiter(VcenterTaskWaiter):
     DEFAULT_WAIT_TIME = 2
 
-    def __init__(self, logger, cancellation_manager):
+    def __init__(
+        self, logger: Logger, cancellation_manager: CancellationContextManager
+    ):
         super().__init__(logger=logger)
         self._cancellation_manager = cancellation_manager
 
@@ -47,7 +53,7 @@ class VcenterCancellationContextTaskWaiter(VcenterTaskWaiter):
         if all(
             [
                 task.info.cancelable,
-                self._cancellation_manager.is_cancelled,
+                self._cancellation_manager.cancellation_context.is_cancelled,
                 not task.info.cancelled,
             ]
         ):
