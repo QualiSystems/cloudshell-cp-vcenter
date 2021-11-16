@@ -8,6 +8,7 @@ import attr
 from pyVmomi import vim
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
+from cloudshell.cp.vcenter.models.base_deployment_app import HddSpec
 from cloudshell.cp.vcenter.utils.vm_helpers import (
     get_all_devices,
     get_device_key,
@@ -16,7 +17,7 @@ from cloudshell.cp.vcenter.utils.vm_helpers import (
 )
 
 if TYPE_CHECKING:
-    from cloudshell.cp.vcenter.models.deploy_app import BaseVCenterDeployApp, HddSpec
+    from cloudshell.cp.vcenter.models.deploy_app import BaseVCenterDeployApp
 
 
 MAX_NUMBER_OF_VM_DISKS = 16
