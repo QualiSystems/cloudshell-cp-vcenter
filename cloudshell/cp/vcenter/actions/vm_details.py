@@ -11,7 +11,7 @@ from cloudshell.cp.core.request_actions.models import (
 
 from cloudshell.cp.vcenter.actions.vm_network import VMNetworkActions
 from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
-from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
+from cloudshell.cp.vcenter.handlers.vm_handler import PowerState, VmHandler
 from cloudshell.cp.vcenter.models.deploy_app import (
     BaseVCenterDeployApp,
     VMFromImageDeployApp,
@@ -76,7 +76,7 @@ class VMDetailsActions(VMNetworkActions):
         self._logger.info(f"Preparing VM Details network data for the {vm}")
         network_interfaces = []
 
-        if deploy_app.wait_for_ip:
+        if deploy_app.wait_for_ip and vm.power_state is PowerState.ON:
             primary_ip = self.get_vm_ip(vm._entity, ip_regex=deploy_app.ip_regex)
         else:
             primary_ip = None

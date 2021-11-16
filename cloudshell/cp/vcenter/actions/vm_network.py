@@ -70,7 +70,7 @@ class VMNetworkActions:
 
     def _get_vm_ip_addresses(self, vm, default_network):
         """Get all VM IP address except the default network address."""
-        self._logger.info(f"Getting all VM IP addresses for the vm {vm}")
+        self._logger.info(f"Getting all VM IP addresses for the vm {vm.name}")
         ips = []
 
         if vm.guest.ipAddress:
