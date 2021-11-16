@@ -77,7 +77,7 @@ class VMNetworkActions:
             ips.append(vm.guest.ipAddress)
 
         for nic in vm.guest.net:
-            if nic.network != default_network:
+            if not default_network or nic.network != default_network.name:
                 for addr in nic.ipAddress:
                     if addr:
                         ips.append(addr)
@@ -96,7 +96,7 @@ class VMNetworkActions:
 
     def get_vm_ip(
         self,
-        vm: vim.VirtualMachine,
+        vm: vim.VirtualMachine,  # todo VmHandler
         default_network: vim.Network | None = None,
         ip_regex: str | None = None,
         timeout: int | None = None,
