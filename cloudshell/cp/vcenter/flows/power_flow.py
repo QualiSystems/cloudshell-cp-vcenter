@@ -27,8 +27,8 @@ class VCenterPowerFlow:
 
         self._logger.info(f"Powering On the {vm}")
         spec_name = self._deployed_app.customization_spec
-        spec = si.get_customization_spec(spec_name)
-        if spec:
+        if spec_name:
+            spec = si.get_customization_spec(spec_name)
             self._logger.info(f"Adding Customization Spec to the {vm}")
             vm.add_customization_spec(spec, self._logger)
         else:
@@ -37,7 +37,7 @@ class VCenterPowerFlow:
         begin_time = datetime.now()
         vm.power_on(self._logger)
 
-        if spec:
+        if spec_name:
             vm.wait_for_customization_ready(begin_time, self._logger)
             si.delete_customization_spec(spec_name)
 
