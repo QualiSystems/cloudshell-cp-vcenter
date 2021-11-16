@@ -33,7 +33,7 @@ class BaseVCenterDeployApp(DeployApp):
     auto_delete = ResourceBoolAttrRODeploymentPath(ATTR_NAMES.auto_delete)
     autoload = ResourceBoolAttrRODeploymentPath(ATTR_NAMES.autoload)
     ip_regex = ResourceAttrRODeploymentPath(ATTR_NAMES.ip_regex)
-    refresh_ip_timeout = ResourceAttrRODeploymentPath(ATTR_NAMES.refresh_ip_timeout)
+    refresh_ip_timeout = ResourceIntAttrRODeploymentPath(ATTR_NAMES.refresh_ip_timeout)
     customization_spec = ResourceAttrRODeploymentPath(ATTR_NAMES.customization_spec)
     hostname = ResourceAttrRODeploymentPath(ATTR_NAMES.hostname)
     private_ip = ResourceAttrRODeploymentPath(ATTR_NAMES.private_ip)

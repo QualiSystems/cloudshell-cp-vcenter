@@ -18,6 +18,9 @@ class VcenterPath:
     SEPARATOR: ClassVar[str] = "/"
     _path: str = ""
 
+    def __attrs_post_init__(self):
+        self._path = self._path.replace("\\", "/")
+
     def __str__(self) -> str:
         return self._path
 
