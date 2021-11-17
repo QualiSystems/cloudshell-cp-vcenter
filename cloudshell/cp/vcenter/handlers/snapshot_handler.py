@@ -62,7 +62,8 @@ class SnapshotHandler:
 
     @classmethod
     def yield_vm_snapshots(cls, vm) -> Generator[SnapshotHandler, None, None]:
-        yield from _yield_snapshot_handlers(vm.snapshot.rootSnapshotList)
+        if vm.snapshot:
+            yield from _yield_snapshot_handlers(vm.snapshot.rootSnapshotList)
 
     @property
     def _root_snapshot_list(self):
