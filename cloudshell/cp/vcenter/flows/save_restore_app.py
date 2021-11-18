@@ -66,8 +66,8 @@ class SaveRestoreAppFlow:
         self, save_action: SaveApp, vm: VmHandler
     ) -> VMFromVMDeployApp:
         attrs = save_action.actionParams.deploymentPathAttributes
+        attrs = {a.attributeName: a.attributeValue for a in attrs}
         attrs[VMFromVMDeployApp.ATTR_NAMES.vcenter_vm] = vm.path
-        # todo check attributes is dict or list
         deploy_app = VMFromVMDeployApp(attributes=attrs)
         if self._resource_conf.vm_location:  # use vm location from the resource
             deploy_app.vm_location = self._resource_conf.vm_location
@@ -79,10 +79,11 @@ class SaveRestoreAppFlow:
     def _prepare_folders(
         deploy_app: VMFromVMDeployApp, dc: DcHandler, reservation_id: str
     ) -> FolderHandler:
-        # todo do we need deploy app?
-        vm_location_folder = dc.get_vm_folder(deploy_app.vm_location)
-        folder_path = VcenterPath(SAVED_SANDBOXES_FOLDER) + reservation_id
-        return vm_location_folder.get_or_create_folder(folder_path)
+        folder_path = VcenterPath(deploy_app.vm_location)
+        folder_path.append(SAVED_SANDBOXES_FOLDER)
+        folder_path.append(reservation_id)
+
+        return dc.get_or_create_vm_folder(folder_path)
 
     def _get_vm_resource_pool(
         self, deploy_app: VMFromVMDeployApp, dc: DcHandler
@@ -121,12 +122,15 @@ class SaveRestoreAppFlow:
             vm_storage,
             vm_folder,
         )
-        cloned_vm = VmHandler(cloned_vm, self._si)
         cloned_vm.create_snapshot(SNAPSHOT_NAME, dump_memory=False, logger=self._logger)
 
         if vm_power_state is PowerState.ON:
             vm.power_on(self._logger)
 
+        return self._prepare_result(cloned_vm, save_action)
+
+    @staticmethod
+    def _prepare_result(cloned_vm: VmHandler, save_action: SaveApp) -> SaveAppResult:
         attr_names = VCenterVMFromCloneDeployAppAttributeNames
         entity_attrs = [
             Attribute(attr_names.vcenter_vm, str(cloned_vm.path)),
