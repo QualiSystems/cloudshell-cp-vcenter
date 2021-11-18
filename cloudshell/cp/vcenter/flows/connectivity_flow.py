@@ -25,6 +25,12 @@ from cloudshell.cp.vcenter.utils.connectivity_helpers import (
 )
 
 
+class DvSwitchNameEmpty(BaseVCenterException):
+    def __init__(self):
+        msg = "For connectivity actions you have to specify default DvSwitch"
+        super().__init__(msg)
+
+
 class VCenterConnectivityFlow(AbstractConnectivityFlow):
     def __init__(
         self,
@@ -37,7 +43,17 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         self._si = SiHandler.from_config(resource_conf, logger)
         self._network_lock = Lock()
 
+    def apply_connectivity(self, request: str) -> str:
+        self._validate_dvs_present()
+        return super().apply_connectivity(request)
+
+    def _validate_dvs_present(self):
+        if not self._resource_conf.default_dv_switch:
+            raise DvSwitchNameEmpty
+
     def _set_vlan(self, action: ConnectivityActionModel) -> str:
+        vlan_id = action.connection_params.vlan_id
+        self._logger.info(f"Start setting vlan {vlan_id}")
         vc_conf = self._resource_conf
         dc = DcHandler.get_dc(vc_conf.default_datacenter, self._si)
         vm = dc.get_vm_by_uuid(action.custom_action_attrs.vm_uuid)
@@ -47,14 +63,14 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         dc.get_network(vc_conf.holding_network)  # validate that it exists
         dv_port_name = generate_port_group_name(
             vc_conf.default_dv_switch,
-            action.connection_params.vlan_id,
+            vlan_id,
             action.connection_params.mode.value,
         )
 
         port_group = self._get_or_create_port_group(
             dc,
             dv_port_name,
-            action.connection_params.vlan_id,
+            vlan_id,
             action.connection_params.mode,
         )
         try:
@@ -73,7 +89,6 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
     def _remove_vlan(self, action: ConnectivityActionModel) -> str:
         vlan_id = action.connection_params.vlan_id
         self._logger.info(f"Start removing vlan {vlan_id}")
-        self._logger.debug(f"Action details: {action}")
 
         vc_conf = self._resource_conf
         dc = DcHandler.get_dc(vc_conf.default_datacenter, self._si)
