@@ -124,7 +124,7 @@ class VmHandler(ManagedEntityHandler):
 
     @property
     def memory_size(self) -> int:
-        return self._entity.summary.config.memorySizeMB * BASE_10
+        return self._entity.summary.config.memorySizeMB * BASE_10 * BASE_10
 
     @property
     def guest_os(self) -> str:
@@ -225,11 +225,18 @@ class VmHandler(ManagedEntityHandler):
         task_waiter = task_waiter or VcenterTaskWaiter(logger)
         task_waiter.wait_for_task(task)
 
-    def get_vnic_by_mac(self, mac_address: str) -> VnicHandler:
+    def get_vnic_by_mac(self, mac_address: str, logger: Logger) -> VnicHandler:
+        logger.info(f"Searching for vNIC of the {self} with mac {mac_address}")
         for vnic in self.vnics:
-            if vnic.mac_address == mac_address:
+            if vnic.mac_address.lower() == mac_address.lower():
                 return vnic
         raise VnicWithMacNotFound(mac_address, self)
+
+    def get_vlan_id_for_network(self, network_name: str) -> int:
+        host = self._entity.runtime.host
+        for pg in host.config.network.portgroup:
+            if pg.spec.name == network_name:
+                return pg.spec.vlanId
 
     def validate_guest_tools_installed(self):
         if self._entity.guest.toolsStatus != vim.vm.GuestInfo.ToolsStatus.toolsOk:

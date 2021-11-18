@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING
 from pyVmomi import vim
 
 from cloudshell.cp.vcenter.exceptions import VMIPNotFoundException
-from cloudshell.cp.vcenter.handlers.network_handler import NetworkHandler
 
 if TYPE_CHECKING:
     from logging import Logger
@@ -34,8 +33,8 @@ class VMNetworkActions:
         self._logger = logger
         self._cancellation_manager = cancellation_manager
 
-    def is_quali_network(self, network: NetworkHandler) -> bool:
-        return network.name.startswith(self.QUALI_NETWORK_PREFIX)
+    def is_quali_network(self, network_name: str) -> bool:
+        return network_name.startswith(self.QUALI_NETWORK_PREFIX)
 
     def _is_ipv4_address(self, ip):
         self._logger.info(f"Checking if IP address {ip} is IPv4 ")

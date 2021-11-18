@@ -82,23 +82,24 @@ class VMDetailsActions(VMNetworkActions):
             primary_ip = None
 
         for vnic in vm.vnics:
-            network = vm.get_network_from_vnic(vnic)
-            is_predefined = network.name in self._resource_conf.reserved_networks
+            network_name = vm.get_network_name_from_vnic(vnic)
+            is_predefined = network_name in self._resource_conf.reserved_networks
             private_ip = self.get_vm_ip_from_vnic(vm._entity, vnic._device)
+            vlan_id = vm.get_vlan_id_for_network(network_name)
 
-            if network.vlan_id and (self.is_quali_network(network) or is_predefined):
+            if vlan_id and (self.is_quali_network(network_name) or is_predefined):
                 is_primary = private_ip and primary_ip == private_ip
 
                 network_data = [
                     VmDetailsProperty(key="IP", value=private_ip),
                     VmDetailsProperty(key="MAC Address", value=vnic.mac_address),
                     VmDetailsProperty(key="Network Adapter", value=vnic.label),
-                    VmDetailsProperty(key="Port Group Name", value=network.name),
+                    VmDetailsProperty(key="Port Group Name", value=network_name),
                 ]
 
                 interface = VmDetailsNetworkInterface(
                     interfaceId=vnic.mac_address,
-                    networkId=network.vlan_id,
+                    networkId=str(vlan_id),
                     isPrimary=is_primary,
                     isPredefined=is_predefined,
                     networkData=network_data,
@@ -204,5 +205,5 @@ class VMDetailsActions(VMNetworkActions):
             res = self.prepare_vm_from_image_details(vm, app_model)
         else:
             raise NotImplementedError(f"Not supported type {type(app_model)}")
-
+        self._logger.info(f"VM Details: {res}")
         return res

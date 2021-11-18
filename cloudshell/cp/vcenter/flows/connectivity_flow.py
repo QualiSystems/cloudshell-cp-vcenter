@@ -71,17 +71,21 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         return "vlan created"
 
     def _remove_vlan(self, action: ConnectivityActionModel) -> str:
+        vlan_id = action.connection_params.vlan_id
+        self._logger.info(f"Start removing vlan {vlan_id}")
+        self._logger.debug(f"Action details: {action}")
+
         vc_conf = self._resource_conf
         dc = DcHandler.get_dc(vc_conf.default_datacenter, self._si)
         vm = dc.get_vm_by_uuid(action.custom_action_attrs.vm_uuid)
         default_network = dc.get_network(vc_conf.holding_network)
-        vnic = vm.get_vnic_by_mac(action.connector_attrs.interface)
+        vnic = vm.get_vnic_by_mac(action.connector_attrs.interface, self._logger)
         net_name = vm.get_network_name_from_vnic(vnic)
 
-        if action.connection_params.vlan_id:
+        if vlan_id:
             expected_dv_port_name = generate_port_group_name(
                 vc_conf.default_dv_switch,
-                action.connection_params.vlan_id,
+                vlan_id,
                 action.connection_params.mode.value,
             )
             remove_network = expected_dv_port_name == net_name
