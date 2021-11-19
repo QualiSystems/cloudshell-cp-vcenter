@@ -355,7 +355,8 @@ class VmHandler(ManagedEntityHandler):
         logger.info(f"Getting snapshots for the {self}")
         return [str(s.path) for s in SnapshotHandler.yield_vm_snapshots(self._entity)]
 
-    def delete(self, logger, task_waiter: VcenterTaskWaiter | None = None):
+    def delete(self, logger: Logger, task_waiter: VcenterTaskWaiter | None = None):
+        logger.info(f"Deleting the {self}")
         task = self._entity.Destroy_Task()
         task_waiter = task_waiter or VcenterTaskWaiter(logger)
         task_waiter.wait_for_task(task)
@@ -371,6 +372,7 @@ class VmHandler(ManagedEntityHandler):
         config_spec: ConfigSpecHandler | None = None,
         task_waiter: VcenterTaskWaiter | None = None,
     ) -> VmHandler:
+        logger.info(f"Cloning the {self} to the new VM '{self.name}'")
         clone_spec = vim.vm.CloneSpec(powerOn=False)
         placement = vim.vm.RelocateSpec()
         placement.datastore = vm_storage._entity

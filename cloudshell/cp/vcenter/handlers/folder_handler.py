@@ -62,6 +62,7 @@ class FolderHandler(ManagedEntityHandler):
         return folder
 
     def destroy(self, logger: Logger, task_waiter: VcenterTaskWaiter | None = None):
+        logger.info(f"Deleting the {self}")
         task = self._entity.Destroy_Task()
         task_waiter = task_waiter or VcenterTaskWaiter(logger)
         task_waiter.wait_for_task(task)

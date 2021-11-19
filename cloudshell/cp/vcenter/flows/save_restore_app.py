@@ -13,6 +13,7 @@ from cloudshell.cp.core.request_actions.models import (
     Artifact,
     Attribute,
     DeleteSavedApp,
+    DeleteSavedAppResult,
     SaveApp,
     SaveAppResult,
 )
@@ -56,11 +57,16 @@ class SaveRestoreAppFlow:
         results = [self._save_app(action, dc) for action in save_actions]
         return DriverResponse(results).to_driver_response_json()
 
-    def delete_saved_apps(self, delete_saved_app_actions: list[DeleteSavedApp]):
+    def delete_saved_apps(
+        self, delete_saved_app_actions: list[DeleteSavedApp]
+    ) -> list[DeleteSavedAppResult]:
         dc = DcHandler.get_dc(self._resource_conf.default_datacenter, self._si)
         for action in delete_saved_app_actions:
             self._delete_saved_app(action, dc)
         self._delete_folders(delete_saved_app_actions, dc)
+        return [
+            DeleteSavedAppResult(action.actionId) for action in delete_saved_app_actions
+        ]
 
     def _get_app_attrs(self, save_action: SaveApp, vm_path: str) -> dict[str, str]:
         attrs = {
@@ -196,7 +202,7 @@ class SaveRestoreAppFlow:
             return
 
         for action in delete_saved_app_actions:
-            rid = action.actionParams.savedSandboxId
+            sandbox_id = action.actionParams.savedSandboxId
             with suppress(FolderNotFound):
-                folder = sandbox_folder.get_folder(rid)
+                folder = sandbox_folder.get_folder(sandbox_id)
                 folder.destroy(self._logger, self._task_waiter)
