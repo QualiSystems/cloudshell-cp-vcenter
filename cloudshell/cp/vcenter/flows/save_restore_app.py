@@ -19,6 +19,7 @@ from cloudshell.cp.core.request_actions.models import (
 )
 from cloudshell.cp.core.rollback import RollbackCommandsManager
 
+from cloudshell.cp.vcenter.constants import VM_FROM_LINKED_CLONE_DEPLOYMENT_PATH
 from cloudshell.cp.vcenter.flows.deploy_vm.commands.clone_vm import CloneVMCommand
 from cloudshell.cp.vcenter.handlers.datastore_handler import DatastoreHandler
 from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
@@ -159,6 +160,7 @@ class SaveRestoreAppFlow:
             save_action.actionId,
             artifacts=[Artifact(cloned_vm.uuid, cloned_vm.name)],
             savedEntityAttributes=entity_attrs,
+            saveDeploymentModel=VM_FROM_LINKED_CLONE_DEPLOYMENT_PATH,
         )
 
     def _clone_vm(
