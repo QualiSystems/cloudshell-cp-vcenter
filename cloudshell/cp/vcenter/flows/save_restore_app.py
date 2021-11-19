@@ -84,11 +84,11 @@ class SaveRestoreAppFlow:
 
     @staticmethod
     def _prepare_folders(
-        vm_location: str, dc: DcHandler, reservation_id: str
+        vm_location: str, dc: DcHandler, sandbox_id: str
     ) -> FolderHandler:
         folder_path = VcenterPath(vm_location)
         folder_path.append(SAVED_SANDBOXES_FOLDER)
-        folder_path.append(reservation_id)
+        folder_path.append(sandbox_id)
 
         return dc.get_or_create_vm_folder(folder_path)
 
@@ -105,9 +105,11 @@ class SaveRestoreAppFlow:
             return cluster.get_resource_pool()
 
     def _save_app(self, save_action: SaveApp, dc: DcHandler) -> SaveAppResult:
+        self._logger.info(f"Starting save app {save_action.actionParams.sourceAppName}")
+        self._logger.debug(f"Save action model: {save_action}")
         with self._cancellation_manager:
             vm_uuid = save_action.actionParams.sourceVmUuid
-            r_id = save_action.actionParams.savedSandboxId
+            sandbox_id = save_action.actionParams.savedSandboxId
             vm = dc.get_vm_by_uuid(vm_uuid)
             app_attrs = self._get_app_attrs(save_action, str(vm.path))
             vm_resource_pool = self._get_vm_resource_pool(app_attrs, dc)
@@ -117,7 +119,7 @@ class SaveRestoreAppFlow:
 
         with self._cancellation_manager:
             vm_folder = self._prepare_folders(
-                app_attrs[VMFromVMDeployApp.ATTR_NAMES.vm_location], dc, r_id
+                app_attrs[VMFromVMDeployApp.ATTR_NAMES.vm_location], dc, sandbox_id
             )
 
         vm_power_state = None
@@ -146,13 +148,6 @@ class SaveRestoreAppFlow:
         entity_attrs = [
             Attribute(attr_names.vcenter_vm, str(cloned_vm.path)),
             Attribute(attr_names.vcenter_vm_snapshot, SNAPSHOT_NAME),
-            # attributes to ignore
-            Attribute(attr_names.customization_spec, ""),
-            Attribute(attr_names.private_ip, ""),
-            Attribute(attr_names.cpu_num, ""),
-            Attribute(attr_names.ram_amount, ""),
-            Attribute(attr_names.hostname, ""),
-            Attribute(attr_names.hdd_specs, ""),
         ]
 
         return SaveAppResult(
