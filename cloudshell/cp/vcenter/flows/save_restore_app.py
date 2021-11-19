@@ -26,7 +26,7 @@ from cloudshell.cp.vcenter.handlers.folder_handler import FolderHandler, FolderN
 from cloudshell.cp.vcenter.handlers.resource_pool import ResourcePoolHandler
 from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
 from cloudshell.cp.vcenter.handlers.vcenter_path import VcenterPath
-from cloudshell.cp.vcenter.handlers.vm_handler import PowerState, VmHandler
+from cloudshell.cp.vcenter.handlers.vm_handler import PowerState, VmHandler, VmNotFound
 from cloudshell.cp.vcenter.models.base_deployment_app import (
     VCenterVMFromCloneDeployAppAttributeNames,
 )
@@ -185,9 +185,12 @@ class SaveRestoreAppFlow:
 
     def _delete_saved_app(self, action: DeleteSavedApp, dc: DcHandler):
         for artifact in action.actionParams.artifacts:
+            vm_uuid = artifact.artifactRef
             with self._cancellation_manager:
-                vm_uuid = artifact.artifactRef
-                vm = dc.get_vm_by_uuid(vm_uuid)
+                try:
+                    vm = dc.get_vm_by_uuid(vm_uuid)
+                except VmNotFound:
+                    continue
             vm.power_off(soft=False, logger=self._logger, task_waiter=self._task_waiter)
             vm.delete(self._logger, self._task_waiter)
 
