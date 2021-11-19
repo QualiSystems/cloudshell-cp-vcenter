@@ -62,35 +62,42 @@ class SaveRestoreAppFlow:
             self._delete_saved_app(action, dc)
         self._delete_folders(delete_saved_app_actions, dc)
 
-    def _create_deploy_app(
-        self, save_action: SaveApp, vm: VmHandler
-    ) -> VMFromVMDeployApp:
-        attrs = save_action.actionParams.deploymentPathAttributes
-        attrs = {a.attributeName: a.attributeValue for a in attrs}
-        attrs[VMFromVMDeployApp.ATTR_NAMES.vcenter_vm] = vm.path
-        deploy_app = VMFromVMDeployApp(attributes=attrs)
-        if self._resource_conf.vm_location:  # use vm location from the resource
-            deploy_app.vm_location = self._resource_conf.vm_location
-        if self._resource_conf.saved_sandbox_storage:
-            deploy_app.vm_storage = self._resource_conf.saved_sandbox_storage
-        return deploy_app
+    def _get_app_attrs(self, save_action: SaveApp, vm_path: str) -> dict[str, str]:
+        attrs = {
+            a.attributeName.rsplit(".", 1)[-1]: a.attributeValue
+            for a in save_action.actionParams.deploymentPathAttributes
+        }
+        attrs[VMFromVMDeployApp.ATTR_NAMES.vcenter_vm] = vm_path
+
+        conf = self._resource_conf
+        attr_names = VMFromVMDeployApp.ATTR_NAMES
+        if conf.vm_location:
+            attrs[attr_names.vm_location] = conf.vm_location
+        if conf.saved_sandbox_storage:
+            attrs[attr_names.vm_storage] = conf.saved_sandbox_storage
+        r_pool = attrs[attr_names.vm_resource_pool] or conf.vm_resource_pool
+        cluster_name = attrs[attr_names.vm_cluster] or conf.vm_cluster
+        attrs[attr_names.vm_resource_pool] = r_pool
+        attrs[attr_names.vm_cluster] = cluster_name
+
+        return attrs
 
     @staticmethod
     def _prepare_folders(
-        deploy_app: VMFromVMDeployApp, dc: DcHandler, reservation_id: str
+        vm_location: str, dc: DcHandler, reservation_id: str
     ) -> FolderHandler:
-        folder_path = VcenterPath(deploy_app.vm_location)
+        folder_path = VcenterPath(vm_location)
         folder_path.append(SAVED_SANDBOXES_FOLDER)
         folder_path.append(reservation_id)
 
         return dc.get_or_create_vm_folder(folder_path)
 
+    @staticmethod
     def _get_vm_resource_pool(
-        self, deploy_app: VMFromVMDeployApp, dc: DcHandler
+        app_attrs: dict[str, str], dc: DcHandler
     ) -> ResourcePoolHandler:
-        r_conf = self._resource_conf
-        r_pool_name = deploy_app.vm_resource_pool or r_conf.vm_resource_pool
-        cluster_name = deploy_app.vm_cluster or r_conf.vm_cluster
+        r_pool_name = app_attrs.get(VMFromVMDeployApp.ATTR_NAMES.vm_resource_pool)
+        cluster_name = app_attrs.get(VMFromVMDeployApp.ATTR_NAMES.vm_cluster)
         if r_pool_name:
             return dc.get_resource_pool(r_pool_name)
         if cluster_name:
@@ -102,15 +109,19 @@ class SaveRestoreAppFlow:
             vm_uuid = save_action.actionParams.sourceVmUuid
             r_id = save_action.actionParams.savedSandboxId
             vm = dc.get_vm_by_uuid(vm_uuid)
-            deploy_app = self._create_deploy_app(save_action, vm)
-            vm_resource_pool = self._get_vm_resource_pool(deploy_app, dc)
-            vm_storage = dc.get_datastore(deploy_app.vm_storage)
+            app_attrs = self._get_app_attrs(save_action, str(vm.path))
+            vm_resource_pool = self._get_vm_resource_pool(app_attrs, dc)
+            vm_storage = dc.get_datastore(
+                app_attrs[VMFromVMDeployApp.ATTR_NAMES.vm_storage]
+            )
 
         with self._cancellation_manager:
-            vm_folder = self._prepare_folders(deploy_app, dc, r_id)
+            vm_folder = self._prepare_folders(
+                app_attrs[VMFromVMDeployApp.ATTR_NAMES.vm_location], dc, r_id
+            )
 
         vm_power_state = None
-        if deploy_app.behavior_during_save == "Power Off":
+        if app_attrs[VMFromVMDeployApp.ATTR_NAMES.behavior_during_save] == "Power Off":
             vm_power_state = vm.power_state
             vm.power_off(soft=False, logger=self._logger)
 
