@@ -21,6 +21,7 @@ def get_deploy_flow(request_action) -> type[AbstractVCenterDeployVMFlow]:
     for deploy_class, deploy_flow in DEPLOY_APP_TO_FLOW:
         if isinstance(da, deploy_class):
             return deploy_flow
+    raise NotImplementedError(f"Not supported deployment type {type(da)}")
 
 
 __all__ = (
