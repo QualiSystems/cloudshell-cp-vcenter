@@ -87,3 +87,7 @@ class SnapshotFlow:
             raise InvalidOrchestrationType(type_)
 
         self.restore_from_snapshot(cs_api, snapshot_path)
+
+    def remove_snapshot(self, snapshot_name: str) -> None:
+        vm = self._get_vm()
+        vm.remove_snapshot(snapshot_name, self._logger)
