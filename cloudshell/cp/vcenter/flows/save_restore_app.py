@@ -20,6 +20,7 @@ from cloudshell.cp.core.request_actions.models import (
 from cloudshell.cp.core.rollback import RollbackCommandsManager
 
 from cloudshell.cp.vcenter.constants import VM_FROM_LINKED_CLONE_DEPLOYMENT_PATH
+from cloudshell.cp.vcenter.exceptions import BaseVCenterException
 from cloudshell.cp.vcenter.flows.deploy_vm.commands.clone_vm import CloneVMCommand
 from cloudshell.cp.vcenter.handlers.datastore_handler import DatastoreHandler
 from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
@@ -37,6 +38,15 @@ from cloudshell.cp.vcenter.utils.task_waiter import VcenterCancellationContextTa
 
 SAVED_SANDBOXES_FOLDER = "Saved Sandboxes"
 SNAPSHOT_NAME = "artifact"
+
+
+class SaveRestoreAttributeMissed(BaseVCenterException):
+    def __init__(self, attr_name: str):
+        self.attr_name = attr_name
+        super().__init__(
+            f"Attribute {attr_name} should be in the save app attributes or in the "
+            f"vCenter resource"
+        )
 
 
 @attr.s(auto_attribs=True)
@@ -87,6 +97,20 @@ class SaveRestoreAppFlow:
         attrs[attr_names.vm_cluster] = cluster_name
 
         return attrs
+
+    def _validate_app_attrs(self, attrs: dict[str, str]):
+        if not attrs.get(VMFromVMDeployApp.ATTR_NAMES.vm_storage):
+            raise SaveRestoreAttributeMissed(VMFromVMDeployApp.ATTR_NAMES.vm_storage)
+        if not attrs.get(
+            VMFromVMDeployApp.ATTR_NAMES.vm_resource_pool
+        ) or not attrs.get(VMFromVMDeployApp.ATTR_NAMES.vm_cluster):
+            raise SaveRestoreAttributeMissed(VMFromVMDeployApp.ATTR_NAMES.vm_cluster)
+        if not attrs.get(VMFromVMDeployApp.ATTR_NAMES.vm_location):
+            raise SaveRestoreAttributeMissed(VMFromVMDeployApp.ATTR_NAMES.vm_location)
+        if not attrs.get(VMFromVMDeployApp.ATTR_NAMES.behavior_during_save):
+            raise SaveRestoreAttributeMissed(
+                VMFromVMDeployApp.ATTR_NAMES.behavior_during_save
+            )
 
     @staticmethod
     def _prepare_folders(
