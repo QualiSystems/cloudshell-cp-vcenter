@@ -8,6 +8,7 @@ from .power_flow import VCenterPowerFlow
 from .reconfigure_vm import reconfigure_vm
 from .refresh_ip import refresh_ip
 from .snapshots import SnapshotFlow
+from .validate_attributes import validate_attributes
 from .vm_uuid_by_name import get_vm_uuid_by_name
 
 __all__ = (
@@ -22,4 +23,5 @@ __all__ = (
     get_vm_web_console,
     SnapshotFlow,
     get_hints,
+    validate_attributes,
 )
