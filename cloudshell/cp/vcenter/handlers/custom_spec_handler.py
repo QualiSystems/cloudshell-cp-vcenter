@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from abc import abstractmethod
-from typing import ClassVar, Type, TypeVar, Union
+from typing import ClassVar, TypeVar, Union
 
 import attr
 from pyVmomi import vim
@@ -30,7 +32,7 @@ class WrongCustomSpecParams(BaseVCenterException):
     def __init__(
         self,
         custom_spec_params: CUSTOM_SPEC_PARAM_TYPES,
-        custom_spec: "CustomSpecHandler",
+        custom_spec: CustomSpecHandler,
     ):
         self.custom_spec_params = custom_spec_params
         self.custom_spec = custom_spec
@@ -50,7 +52,7 @@ class CustomSpecHandler(Protocol):
 
     @classmethod
     @abstractmethod
-    def create(cls: Type[T], name: str) -> T:
+    def create(cls: type[T], name: str) -> T:
         ...
 
     def _populate_nics(self, total_if_num: int):
@@ -62,7 +64,7 @@ class CustomSpecHandler(Protocol):
             adapter_mapping = vim.vm.customization.AdapterMapping(adapter=adapter)
             self.spec.spec.nicSettingMap.append(adapter_mapping)
 
-    def _set_network_params(self, networks: "NetworksList", num_vm_nics: int):
+    def _set_network_params(self, networks: NetworksList, num_vm_nics: int):
         if networks is Empty:
             return
 
@@ -102,7 +104,7 @@ class CustomWindowsSpecHandler(CustomSpecHandler):
     VM_WORKGROUP_NAME = "WORKGROUP"
 
     @classmethod
-    def create(cls, name: str) -> "CustomWindowsSpecHandler":
+    def create(cls, name: str) -> CustomWindowsSpecHandler:
         spec = vim.CustomizationSpecItem(
             info=vim.CustomizationSpecInfo(
                 type=cls.SPEC_TYPE.value,
@@ -220,7 +222,7 @@ class CustomLinuxSpecHandler(CustomSpecHandler):
     VM_TIMEZONE = "US/Pacific"
 
     @classmethod
-    def create(cls, name: str) -> "CustomLinuxSpecHandler":
+    def create(cls, name: str) -> CustomLinuxSpecHandler:
         spec = vim.CustomizationSpecItem(
             info=vim.CustomizationSpecInfo(
                 type=cls.SPEC_TYPE.value,
@@ -284,5 +286,5 @@ def create_custom_spec_from_spec_params(
         spec_class = CustomWindowsSpecHandler
     else:
         spec_class = CustomLinuxSpecHandler
-    spec = spec_class(name)
+    spec = spec_class.create(name)
     return spec
