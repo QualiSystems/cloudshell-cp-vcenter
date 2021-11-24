@@ -44,7 +44,7 @@ class DeployVMFromImageCommand(RollbackCommand):
         self._logger = logger
         self._deployed_vm: VmHandler | None = None
 
-    def _execute(self):
+    def _execute(self) -> VmHandler:
         ovf_tool_script = OVFToolScript(
             ovf_tool_path=self._resource_conf.ovf_tool_path,
             datacenter=self._resource_conf.default_datacenter,

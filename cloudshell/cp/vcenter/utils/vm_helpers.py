@@ -27,19 +27,21 @@ def get_device_key(device):
     return device.key
 
 
-def get_all_devices(vm):
+def get_all_devices(vm: vim.VirtualMachine):
     return vm.config.hardware.device
 
 
-def get_vnics(vm) -> Iterator[vim.vm.device.VirtualEthernetCard]:
+def get_vnics(vm: vim.VirtualMachine) -> Iterator[vim.vm.device.VirtualEthernetCard]:
     return filter(is_vnic, get_all_devices(vm))
 
 
-def get_virtual_disks(vm) -> Iterator[vim.vm.device.VirtualDisk]:
+def get_virtual_disks(vm: vim.VirtualMachine) -> Iterator[vim.vm.device.VirtualDisk]:
     return filter(is_virtual_disk, get_all_devices(vm))
 
 
-def get_virtual_scsi_controllers(vm) -> Iterator[vim.vm.device.VirtualSCSIController]:
+def get_virtual_scsi_controllers(
+    vm: vim.VirtualMachine,
+) -> Iterator[vim.vm.device.VirtualSCSIController]:
     return filter(is_virtual_scsi_controller, get_all_devices(vm))
 
 

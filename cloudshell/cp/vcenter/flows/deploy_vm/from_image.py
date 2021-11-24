@@ -61,8 +61,7 @@ class VCenterDeployVMFromImageFlow(AbstractVCenterDeployVMFlow):
             vcenter_image=deploy_app.vcenter_image,
             vcenter_image_arguments=deploy_app.vcenter_image_arguments,
             vm_name=vm_name,
-            vm_resource_pool=deploy_app.vm_resource_pool
-            or self._resource_config.vm_resource_pool,
+            vm_resource_pool=vm_resource_pool,
             vm_storage=vm_storage,
             vm_folder_path=vm_folder_path,
             dc=dc,
