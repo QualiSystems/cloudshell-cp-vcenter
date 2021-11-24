@@ -1,8 +1,14 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import attr
 from pyVmomi import vim
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
-from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
+
+if TYPE_CHECKING:
+    from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
 
 
 class VSwitchNotFound(BaseVCenterException):
