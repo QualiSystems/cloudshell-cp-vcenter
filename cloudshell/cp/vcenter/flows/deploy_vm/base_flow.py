@@ -25,7 +25,7 @@ from cloudshell.cp.vcenter.handlers.vcenter_path import VcenterPath
 from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
 from cloudshell.cp.vcenter.models.custom_spec import get_custom_spec_params
 from cloudshell.cp.vcenter.utils.task_waiter import VcenterCancellationContextTaskWaiter
-from cloudshell.cp.vcenter.utils.vm_helpers import get_vm_folder_path, get_vnics
+from cloudshell.cp.vcenter.utils.vm_helpers import get_vm_folder_path
 
 if TYPE_CHECKING:
     from logging import Logger
@@ -204,7 +204,7 @@ class AbstractVCenterDeployVMFromTemplateFlow(AbstractVCenterDeployVMFlow):
         pass
 
     def _create_vm_customization_spec(
-        self, deploy_app: BaseVCenterDeployApp, vm_template, vm_name: str
+        self, deploy_app: BaseVCenterDeployApp, vm_template: VmHandler, vm_name: str
     ) -> CustomSpecHandler:
         custom_spec_params = get_custom_spec_params(deploy_app, vm_template)
 
@@ -219,7 +219,7 @@ class AbstractVCenterDeployVMFromTemplateFlow(AbstractVCenterDeployVMFlow):
             spec = create_custom_spec_from_spec_params(custom_spec_params, vm_name)
 
         if spec:
-            num_of_nics = len(list(get_vnics(vm_template)))
+            num_of_nics = len(vm_template.vnics)
             spec.set_custom_spec_params(custom_spec_params, num_of_nics)
 
             if deploy_app.customization_spec:

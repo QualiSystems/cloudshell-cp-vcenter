@@ -65,7 +65,7 @@ def _get_disk_num(name: str) -> int:
     return int(re.search(r"\d+", name).group())
 
 
-def _yield_device_unit_number(vm) -> Generator[int, None, None]:
+def _yield_device_unit_number(vm: vim.VirtualMachine) -> Generator[int, None, None]:
     """Get generator for the next available device unit number."""
     unit_numbers = list(range(MAX_NUMBER_OF_VM_DISKS))
     unit_numbers.remove(SCSI_CONTROLLER_UNIT_NUMBER)
@@ -79,7 +79,7 @@ def _yield_device_unit_number(vm) -> Generator[int, None, None]:
     raise MaxDiskNumberExceedError()
 
 
-def _yield_disk_device_key(vm) -> Generator[int, None, None]:
+def _yield_disk_device_key(vm: vim.VirtualMachine) -> Generator[int, None, None]:
     """Get generator for the next available disk key number."""
     all_devices_keys = set(map(get_device_key, get_all_devices(vm)))
     last_disk_key = max(map(get_device_key, get_virtual_disks(vm)))
@@ -117,7 +117,7 @@ class ConfigSpecHandler:
             list(map(HddSpec.from_str, hdd.split(";"))) if hdd else [],
         )
 
-    def _update_hdd_specs(self, config_spec, vm):
+    def _update_hdd_specs(self, config_spec, vm: vim.VirtualMachine):
         existing_disks = {
             _get_disk_num(disk.deviceInfo.label): disk for disk in get_virtual_disks(vm)
         }
@@ -161,7 +161,7 @@ class ConfigSpecHandler:
         hdd_spec: HddSpec,
         dev_key_gen: Iterator[int],
         unit_number_gen: Iterator[int],
-        vm,
+        vm: vim.VirtualMachine,
     ) -> vim.vm.device.VirtualDeviceSpec:
         new_disk = vim.vm.device.VirtualDisk()
         new_disk.key = next(dev_key_gen)
@@ -179,14 +179,14 @@ class ConfigSpecHandler:
         return disk_spec
 
     @staticmethod
-    def _get_device_controller_key(vm):
+    def _get_device_controller_key(vm: vim.VirtualMachine):
         try:
             key = next(map(get_device_key, get_virtual_scsi_controllers(vm)))
         except StopIteration:
             raise UnableToFindScsiController()
         return key
 
-    def get_spec_for_vm(self, vm) -> vim.vm.ConfigSpec:
+    def get_spec_for_vm(self, vm: vim.VirtualMachine) -> vim.vm.ConfigSpec:
         config_spec = vim.vm.ConfigSpec(
             cpuHotAddEnabled=True, cpuHotRemoveEnabled=True, memoryHotAddEnabled=True
         )

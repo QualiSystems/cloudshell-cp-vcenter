@@ -10,6 +10,7 @@ from netaddr import IPNetwork
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
 
 if TYPE_CHECKING:
+    from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
     from cloudshell.cp.vcenter.models.deploy_app import BaseVCenterDeployApp
 
 
@@ -30,7 +31,10 @@ class SpecType(Enum):
     LINUX = "Linux"
 
     @classmethod
-    def from_os_name(cls, os_name: str):
+    def from_os_name(cls, os_name: str | None) -> SpecType:
+        if os_name is None:
+            return cls.LINUX
+
         if "other" in os_name.lower():
             raise CustomSpecNotSupportedForOs(os_name)
         elif "windows" in os_name.lower():
@@ -197,9 +201,9 @@ def is_not_empty(val) -> bool:
 
 
 def get_custom_spec_params_class(
-    vm,
+    vm: VmHandler,
 ) -> type[WindowsCustomizationSpecParams | LinuxCustomizationSpecParams]:
-    spec_type = SpecType.from_os_name(vm.config.guestId)
+    spec_type = SpecType.from_os_name(vm.guest_id)
     if spec_type.WINDOWS:
         return WindowsCustomizationSpecParams
     else:
@@ -207,7 +211,8 @@ def get_custom_spec_params_class(
 
 
 def get_custom_spec_params(
-    deploy_app: BaseVCenterDeployApp, vm
+    deploy_app: BaseVCenterDeployApp,
+    vm: VmHandler,
 ) -> WindowsCustomizationSpecParams | LinuxCustomizationSpecParams | None:
     custom_spec = None
     if deploy_app.hostname or deploy_app.private_ip:

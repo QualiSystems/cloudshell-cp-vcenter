@@ -131,6 +131,10 @@ class VmHandler(ManagedEntityHandler):
         return self._entity.summary.config.guestFullName
 
     @property
+    def guest_id(self) -> str | None:
+        return self._entity.guest.guestId
+
+    @property
     def current_snapshot(self) -> SnapshotHandler | None:
         if not self._entity.snapshot:
             return None
