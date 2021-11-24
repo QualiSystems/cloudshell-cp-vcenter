@@ -27,6 +27,10 @@ from cloudshell.cp.vcenter.handlers.resource_pool import (
     ResourcePoolNotFound,
 )
 from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
+from cloudshell.cp.vcenter.handlers.v_switch_handler import (
+    VSwitchHandler,
+    VSwitchNotFound,
+)
 from cloudshell.cp.vcenter.handlers.vcenter_path import VcenterPath
 from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler, VmNotFound
 
@@ -134,10 +138,17 @@ class DcHandler(ManagedEntityHandler):
                 return DvSwitchHandler(vc_dvs, self._si)
         raise DvSwitchNotFound(self, dvs_name)
 
+    def get_v_switch(self, name: str) -> VSwitchHandler:
+        for host in self._entity.hostFolder.childEntity:
+            for v_switch in host.config.network.vswitch:
+                if v_switch.name == name:
+                    return VSwitchHandler(v_switch)
+        raise VSwitchNotFound(self, name)
+
     def get_resource_pool(self, name: str) -> ResourcePoolHandler:
         for r_pool in self._si.find_items(
             vim.ResourcePool, container=self._entity.hostFolder
         ):
             if r_pool.name == name:
                 return ResourcePoolHandler(r_pool, self._si)
-        raise ResourcePoolNotFound(name, self)
+        raise ResourcePoolNotFound(self, name)

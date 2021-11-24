@@ -22,7 +22,7 @@ class DvSwitchNotFound(BaseVCenterException):
     def __init__(self, entity: ManagedEntityHandler, name: str):
         self.entity = entity
         self.name = name
-        msg = f"DistributedVirtualSwitch with name {name} not found int {entity}"
+        msg = f"DistributedVirtualSwitch with name {name} not found in the {entity}"
         super().__init__(msg)
 
 

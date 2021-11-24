@@ -5,7 +5,7 @@ from cloudshell.cp.vcenter.handlers.managed_entity_handler import ManagedEntityH
 
 
 class ResourcePoolNotFound(BaseVCenterException):
-    def __init__(self, name: str, entity: ManagedEntityHandler):
+    def __init__(self, entity: ManagedEntityHandler, name: str):
         self.name = name
         self.entity = entity
         super().__init__(f"Resource Pool with name {name} not found in the {entity}")
