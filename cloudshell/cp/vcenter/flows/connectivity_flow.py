@@ -8,6 +8,9 @@ from cloudshell.shell.flows.connectivity.models.connectivity_model import (
     ConnectionModeEnum,
     ConnectivityActionModel,
 )
+from cloudshell.shell.flows.connectivity.models.driver_response import (
+    ConnectivityActionResult,
+)
 from cloudshell.shell.flows.connectivity.parse_request_service import (
     AbstractParseConnectivityService,
 )
@@ -58,7 +61,7 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         if not self._resource_conf.default_dv_switch:
             raise DvSwitchNameEmpty
 
-    def _set_vlan(self, action: ConnectivityActionModel) -> str:
+    def _set_vlan(self, action: ConnectivityActionModel) -> ConnectivityActionResult:
         vlan_id = action.connection_params.vlan_id
         self._logger.info(f"Start setting vlan {vlan_id}")
         vc_conf = self._resource_conf
@@ -94,9 +97,10 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         except Exception:
             self._remove_port_group(port_group)
             raise
-        return "vlan created"
+        msg = f"Setting VLAN {vlan_id} successfully completed"
+        return ConnectivityActionResult.success_result_vm(action, msg, vnic.mac_address)
 
-    def _remove_vlan(self, action: ConnectivityActionModel) -> str:
+    def _remove_vlan(self, action: ConnectivityActionModel) -> ConnectivityActionResult:
         vlan_id = action.connection_params.vlan_id
         self._logger.info(f"Start removing vlan {vlan_id}")
 
@@ -121,7 +125,8 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
             vm.connect_vnic_to_network(vnic, default_network, self._logger)
             port_group = self._get_port_group(network, vm)
             self._remove_port_group(port_group)
-        return "vlan removed"
+        msg = f"Removing VLAN {vlan_id} successfully completed"
+        return ConnectivityActionResult.success_result_vm(action, msg, vnic.mac_address)
 
     def _get_or_create_port_group(
         self,
