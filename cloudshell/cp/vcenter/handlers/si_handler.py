@@ -71,8 +71,9 @@ class SiHandler:
         return self._si.content.searchIndex.FindChild(parent, name)
 
     def get_customization_spec(self, name: str) -> CustomSpecHandler | None:
-        spec = self._si.content.customizationSpecManager.GetCustomizationSpec(name)
-        if not spec:
+        try:
+            spec = self._si.content.customizationSpecManager.GetCustomizationSpec(name)
+        except vim.fault.NotFound:
             return None
 
         custom_spec_handler = get_custom_spec_from_vim_spec(spec)
