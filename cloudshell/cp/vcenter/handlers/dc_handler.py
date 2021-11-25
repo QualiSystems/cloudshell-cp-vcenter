@@ -12,24 +12,22 @@ from cloudshell.cp.vcenter.handlers.datastore_handler import (
     DatastoreHandler,
     DatastoreNotFound,
 )
-from cloudshell.cp.vcenter.handlers.dv_switch_handler import (
-    DvSwitchHandler,
-    DvSwitchNotFound,
-)
 from cloudshell.cp.vcenter.handlers.folder_handler import FolderHandler
 from cloudshell.cp.vcenter.handlers.managed_entity_handler import ManagedEntityHandler
 from cloudshell.cp.vcenter.handlers.network_handler import (
+    DVPortGroupHandler,
     NetworkHandler,
     NetworkNotFound,
+    get_network_handler,
 )
 from cloudshell.cp.vcenter.handlers.resource_pool import (
     ResourcePoolHandler,
     ResourcePoolNotFound,
 )
 from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
-from cloudshell.cp.vcenter.handlers.v_switch_handler import (
-    VSwitchHandler,
-    VSwitchNotFound,
+from cloudshell.cp.vcenter.handlers.switch_handler import (
+    DvSwitchHandler,
+    DvSwitchNotFound,
 )
 from cloudshell.cp.vcenter.handlers.vcenter_path import VcenterPath
 from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler, VmNotFound
@@ -53,18 +51,18 @@ class DcHandler(ManagedEntityHandler):
         return f"Datacenter '{self.name}'"
 
     @property
-    def networks(self) -> list[NetworkHandler]:
-        return [NetworkHandler(net, self._si) for net in self._entity.network]
+    def networks(self) -> list[NetworkHandler | DVPortGroupHandler]:
+        return [get_network_handler(net, self._si) for net in self._entity.network]
 
     @property
     def datastores(self) -> list[DatastoreHandler]:
         return [DatastoreHandler(store, self._si) for store in self._entity.datastore]
 
-    def get_network(self, name: str) -> NetworkHandler:
+    def get_network(self, name: str) -> NetworkHandler | DVPortGroupHandler:
         for network in self.networks:
             if network.name == name:
                 return network
-        raise NetworkNotFound(name, self)
+        raise NetworkNotFound(self, name)
 
     def get_vm_by_uuid(self, uuid: str) -> VmHandler:
         vm = self._si.find_by_uuid(self._entity, uuid, vm_search=True)
@@ -137,13 +135,6 @@ class DcHandler(ManagedEntityHandler):
             if vc_dvs.name == dvs_name:
                 return DvSwitchHandler(vc_dvs, self._si)
         raise DvSwitchNotFound(self, dvs_name)
-
-    def get_v_switch(self, name: str) -> VSwitchHandler:
-        for host in self._entity.hostFolder.childEntity:
-            for v_switch in host.config.network.vswitch:
-                if v_switch.name == name:
-                    return VSwitchHandler(v_switch)
-        raise VSwitchNotFound(self, name)
 
     def get_resource_pool(self, name: str) -> ResourcePoolHandler:
         for r_pool in self._si.find_items(

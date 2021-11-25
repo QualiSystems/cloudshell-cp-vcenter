@@ -5,7 +5,12 @@ from abc import abstractmethod
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
 from cloudshell.cp.vcenter.handlers.datastore_handler import DatastoreHandler
 from cloudshell.cp.vcenter.handlers.managed_entity_handler import ManagedEntityHandler
+from cloudshell.cp.vcenter.handlers.network_handler import HostPortGroupHandler
 from cloudshell.cp.vcenter.handlers.resource_pool import ResourcePoolHandler
+from cloudshell.cp.vcenter.handlers.switch_handler import (
+    VSwitchHandler,
+    VSwitchNotFound,
+)
 from cloudshell.cp.vcenter.utils.units_converter import (
     BASE_10,
     BASE_SI,
@@ -42,6 +47,10 @@ class BasicClusterHostHandler(ManagedEntityHandler):
     def get_resource_pool(self) -> ResourcePoolHandler:
         return ResourcePoolHandler(self._entity.resourcePool, self._si)
 
+    @abstractmethod
+    def get_v_switch(self, name: str) -> VSwitchHandler:
+        ...
+
 
 class ClusterHandler(BasicClusterHostHandler):
     def __str__(self) -> str:
@@ -71,6 +80,20 @@ class ClusterHandler(BasicClusterHostHandler):
             used_percentage=str(round(used / capacity * 100)),
         )
 
+    @property
+    def hosts(self) -> list[HostHandler]:
+        return [HostHandler(host, self._si) for host in self._entity.host]
+
+    def get_v_switch(self, name: str) -> VSwitchHandler:
+        for host in self.hosts:
+            try:
+                v_switch = host.get_v_switch(name)
+            except VSwitchNotFound:
+                pass
+            else:
+                return v_switch
+        raise VSwitchNotFound(self, name)
+
 
 class HostHandler(BasicClusterHostHandler):
     def __str__(self) -> str:
@@ -99,3 +122,19 @@ class HostHandler(BasicClusterHostHandler):
             free=format_bytes(capacity, used),
             used_percentage=str(round(used / capacity * 100)),
         )
+
+    @property
+    def port_groups(self) -> list[HostPortGroupHandler]:
+        return [
+            HostPortGroupHandler(pg, self)
+            for pg in self._entity.config.network.portgroup
+        ]
+
+    def get_v_switch(self, name: str) -> VSwitchHandler:
+        for v_switch in self._entity.config.network.vswitch:
+            if v_switch.name == name:
+                return VSwitchHandler(v_switch, self)
+        raise VSwitchNotFound(self, name)
+
+    def remove_port_group(self, name: str):
+        self._entity.configManager.networkSystem.RemovePortGroup(name)

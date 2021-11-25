@@ -13,10 +13,14 @@ from cloudshell.shell.flows.connectivity.parse_request_service import (
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
 from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
 from cloudshell.cp.vcenter.handlers.network_handler import (
+    AbstractPortGroupHandler,
     DVPortGroupHandler,
-    DVPortGroupNotFound,
+    HostPortGroupHandler,
+    PortGroupNotFound,
 )
 from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
+from cloudshell.cp.vcenter.handlers.switch_handler import DvSwitchNotFound
+from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
 from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 from cloudshell.cp.vcenter.utils.connectivity_helpers import (
     generate_port_group_name,
@@ -69,18 +73,24 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
 
         port_group = self._get_or_create_port_group(
             dc,
+            vm,
             dv_port_name,
             vlan_id,
             action.connection_params.mode,
         )
         try:
+            # todo should we create vNIC if doesn't have empty one?
             vnic = get_available_vnic(
                 vm,
                 vc_conf.holding_network,
                 vc_conf.reserved_networks,
                 action.custom_action_attrs.vnic,
             )
-            vm.connect_vnic_to_port_group(vnic, port_group, self._logger)
+            if isinstance(port_group, DVPortGroupHandler):
+                vm.connect_vnic_to_port_group(vnic, port_group, self._logger)
+            elif isinstance(port_group, HostPortGroupHandler):
+                network = dc.get_network(port_group.name)
+                vm.connect_vnic_to_network(vnic, network, self._logger)
         except Exception:
             self._remove_port_group(port_group)
             raise
@@ -116,23 +126,28 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
     def _get_or_create_port_group(
         self,
         dc: DcHandler,
+        vm: VmHandler,
         dv_port_name: str,
         vlan_range: str,
         port_mode: ConnectionModeEnum,
-    ) -> DVPortGroupHandler:
+    ) -> AbstractPortGroupHandler:
+        try:
+            switch = dc.get_dv_switch(self._resource_conf.default_dv_switch)
+        except DvSwitchNotFound:
+            switch = vm.get_v_switch(self._resource_conf.default_dv_switch)
+
         with self._network_lock:
-            dv_switch = dc.get_dv_switch(self._resource_conf.default_dv_switch)
             try:
-                port_group = dv_switch.get_dv_port_group(dv_port_name)
-            except DVPortGroupNotFound:
-                dv_switch.create_dv_port_group(
+                port_group = switch.get_port_group(dv_port_name)
+            except PortGroupNotFound:
+                switch.create_port_group(
                     dv_port_name,
                     vlan_range,
                     port_mode,
                     self._resource_conf.promiscuous_mode,
                     self._logger,
                 )
-                port_group = dv_switch.get_dv_port_group(dv_port_name)
+                port_group = switch.get_port_group(dv_port_name)
         return port_group
 
     def _get_port_group(

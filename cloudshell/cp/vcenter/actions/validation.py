@@ -6,9 +6,17 @@ from urllib.request import urlopen
 
 import attr
 
-from cloudshell.cp.vcenter.exceptions import InvalidAttributeException
+from cloudshell.cp.vcenter.exceptions import (
+    BaseVCenterException,
+    InvalidAttributeException,
+)
+from cloudshell.cp.vcenter.handlers.cluster_handler import ClusterHandler
 from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
 from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
+from cloudshell.cp.vcenter.handlers.switch_handler import (
+    DvSwitchNotFound,
+    VSwitchNotFound,
+)
 from cloudshell.cp.vcenter.models.deploy_app import (
     BaseVCenterDeployApp,
     VMFromImageDeployApp,
@@ -21,6 +29,12 @@ if TYPE_CHECKING:
     from logging import Logger
 
     from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
+
+
+class SwitchNotFound(BaseVCenterException):
+    def __init__(self, name: str):
+        self.name = name
+        super().__init__(f"Neither dvSwitch nor vSwitch with name {name} not found")
 
 
 # todo move this validation to the model
@@ -55,16 +69,17 @@ class ValidationActions:
         conf = self._resource_conf
         dc = self._get_dc()
         dc.get_network(conf.holding_network)
+        cluster = None
         if conf.vm_location:
             dc.get_vm_folder(conf.vm_location)
         if conf.vm_cluster:
-            dc.get_cluster(conf.vm_cluster)
+            cluster = dc.get_cluster(conf.vm_cluster)
         if conf.vm_storage:
             dc.get_datastore(conf.vm_storage)
         if conf.saved_sandbox_storage:
             dc.get_datastore(conf.saved_sandbox_storage)
         if conf.default_dv_switch:
-            dc.get_dv_switch(conf.default_dv_switch)
+            self._validate_switch(dc, cluster)
         if conf.vm_resource_pool:
             dc.get_resource_pool(conf.vm_resource_pool)
 
@@ -145,6 +160,18 @@ class ValidationActions:
         self._logger.info("Validating OVF Tool")
         _is_not_empty(ovf_tool_path, self._resource_conf.ATTR_NAMES.ovf_tool_path)
         _is_valid_url(ovf_tool_path, self._resource_conf.ATTR_NAMES.ovf_tool_path)
+
+    def _validate_switch(self, dc: DcHandler, cluster: ClusterHandler | None):
+        switch_name = self._resource_conf.default_dv_switch
+        try:
+            dc.get_dv_switch(switch_name)
+        except DvSwitchNotFound:
+            if not cluster:
+                raise SwitchNotFound(switch_name)
+            try:
+                cluster.get_v_switch(switch_name)
+            except VSwitchNotFound:
+                raise SwitchNotFound(switch_name)
 
 
 def _is_valid_url(url: str, attr_name: str):

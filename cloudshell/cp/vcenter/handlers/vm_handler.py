@@ -9,6 +9,7 @@ from pyVmomi import vim
 
 from cloudshell.cp.vcenter.common.vcenter.event_manager import EventManager
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
+from cloudshell.cp.vcenter.handlers.cluster_handler import HostHandler
 from cloudshell.cp.vcenter.handlers.config_spec_handler import ConfigSpecHandler
 from cloudshell.cp.vcenter.handlers.custom_spec_handler import CustomSpecHandler
 from cloudshell.cp.vcenter.handlers.datastore_handler import DatastoreHandler
@@ -17,13 +18,14 @@ from cloudshell.cp.vcenter.handlers.managed_entity_handler import ManagedEntityH
 from cloudshell.cp.vcenter.handlers.network_handler import (
     DVPortGroupHandler,
     NetworkHandler,
-    NetworkNotFound,
+    get_network_handler,
 )
 from cloudshell.cp.vcenter.handlers.resource_pool import ResourcePoolHandler
 from cloudshell.cp.vcenter.handlers.snapshot_handler import (
     SnapshotHandler,
     SnapshotNotFoundInSnapshotTree,
 )
+from cloudshell.cp.vcenter.handlers.switch_handler import VSwitchHandler
 from cloudshell.cp.vcenter.handlers.vcenter_path import VcenterPath
 from cloudshell.cp.vcenter.handlers.virtual_device_handler import (
     is_virtual_disk,
@@ -101,8 +103,8 @@ class VmHandler(ManagedEntityHandler):
         return self._entity.config.uuid
 
     @property
-    def networks(self) -> list[NetworkHandler]:
-        return [NetworkHandler(network, self._si) for network in self._entity.network]
+    def networks(self) -> list[NetworkHandler | DVPortGroupHandler]:
+        return [get_network_handler(net, self._si) for net in self._entity.network]
 
     @property
     def vnics(self) -> list[VnicHandler]:
@@ -113,6 +115,10 @@ class VmHandler(ManagedEntityHandler):
         return list(
             map(VirtualDiskHandler, filter(is_virtual_disk, self._get_devices()))
         )
+
+    @property
+    def host(self) -> HostHandler:
+        return HostHandler(self._entity.runtime.host, self._si)
 
     @property
     def disk_size(self) -> int:
@@ -163,12 +169,6 @@ class VmHandler(ManagedEntityHandler):
 
     def _get_devices(self):
         return self._entity.config.hardware.device
-
-    def get_network(self, name: str) -> NetworkHandler:
-        for network in self.networks:
-            if network.name == name:
-                return network
-        raise NetworkNotFound(name, self)
 
     def has_vnics(self) -> bool:
         for vnic in self.vnics:
@@ -242,6 +242,9 @@ class VmHandler(ManagedEntityHandler):
             if pg.spec.name == network_name:
                 return pg.spec.vlanId
 
+    def get_v_switch(self, name: str) -> VSwitchHandler:
+        return self.host.get_v_switch(name)
+
     def validate_guest_tools_installed(self):
         if self._entity.guest.toolsStatus != vim.vm.GuestInfo.ToolsStatus.toolsOk:
             raise VMWareToolsNotInstalled(self)
@@ -250,7 +253,7 @@ class VmHandler(ManagedEntityHandler):
         if self.power_state is PowerState.ON:
             logger.info("VM already powered on")
         else:
-            logger.info(f"Powering on VM '{self.name}'")
+            logger.info(f"Powering on the {self}")
             task = self._entity.PowerOn()
             task_waiter = task_waiter or VcenterTaskWaiter(logger)
             task_waiter.wait_for_task(task)
@@ -261,7 +264,7 @@ class VmHandler(ManagedEntityHandler):
         if self.power_state is PowerState.OFF:
             logger.info("VM already powered off")
         else:
-            logger.info(f"Powering off VM '{self.name}'")
+            logger.info(f"Powering off the {self}")
             if soft:
                 self.validate_guest_tools_installed()
                 self._entity.ShutdownGuest()  # do not return task
@@ -388,7 +391,7 @@ class VmHandler(ManagedEntityHandler):
         config_spec: ConfigSpecHandler | None = None,
         task_waiter: VcenterTaskWaiter | None = None,
     ) -> VmHandler:
-        logger.info(f"Cloning the {self} to the new VM '{self.name}'")
+        logger.info(f"Cloning the {self} to the new VM '{vm_name}'")
         clone_spec = vim.vm.CloneSpec(powerOn=False)
         placement = vim.vm.RelocateSpec()
         placement.datastore = vm_storage._entity

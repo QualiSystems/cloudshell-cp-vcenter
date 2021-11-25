@@ -1,24 +1,42 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+import attr
 from pyVmomi import vim
+from typing_extensions import Protocol
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
 from cloudshell.cp.vcenter.handlers.managed_entity_handler import ManagedEntityHandler
+from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
+
+if TYPE_CHECKING:
+    from cloudshell.cp.vcenter.handlers.cluster_handler import HostHandler
+    from cloudshell.cp.vcenter.handlers.switch_handler import VSwitchHandler
 
 
 class NetworkNotFound(BaseVCenterException):
-    def __init__(self, net_name: str, entity: ManagedEntityHandler):
-        self.net_name = net_name
+    def __init__(self, entity: ManagedEntityHandler, name: str):
+        self.name = name
         self.entity = entity
-        super().__init__(f"Network {net_name} not found in {entity}")
+        super().__init__(f"Network {name} not found in {entity}")
 
 
-class DVPortGroupNotFound(BaseVCenterException):
-    def __init__(self, port_group_name: str, entity: ManagedEntityHandler):
-        self.port_group_name = port_group_name
+class PortGroupNotFound(BaseVCenterException):
+    MSG = ""
+
+    def __init__(self, entity: ManagedEntityHandler | VSwitchHandler, name: str):
+        self.name = name
         self.entity = entity
-        msg = f"Distributed Virtual Port Group {port_group_name} not found in {entity}"
-        super().__init__(msg)
+        super().__init__(self.MSG.format(entity=entity, name=name))
+
+
+class DVPortGroupNotFound(PortGroupNotFound):
+    MSG = "Distributed Virtual Port Group {name} not found in {entity}"
+
+
+class HostPortGroupNotFound(PortGroupNotFound):
+    MSG = "Host Port Group with name {name} not found in {entity}"
 
 
 class NetworkHandler(ManagedEntityHandler):
@@ -27,21 +45,22 @@ class NetworkHandler(ManagedEntityHandler):
     def __str__(self) -> str:
         return f"Network '{self.name}'"
 
+
+class AbstractPortGroupHandler(Protocol):
     @property
     def key(self) -> str:
-        return self._entity.key
+        raise NotImplementedError
 
     @property
-    def vlan_id(self) -> str | None:
-        try:
-            return self._entity.config.defaultPortConfig.vlan.vlanId
-        except AttributeError:
-            return None
+    def is_connected(self) -> bool:
+        raise NotImplementedError
+
+    def destroy(self):
+        raise NotImplementedError
 
 
-# base class is Network?
-class DVPortGroupHandler(ManagedEntityHandler):
-    _entity: vim.dvs.vim.dvs.DistributedVirtualPortgroup
+class DVPortGroupHandler(ManagedEntityHandler, AbstractPortGroupHandler):
+    _entity: vim.dvs.DistributedVirtualPortgroup
 
     def __str__(self) -> str:
         return f"Distributed Virtual Port group '{self.name}'"
@@ -49,6 +68,13 @@ class DVPortGroupHandler(ManagedEntityHandler):
     @property
     def key(self) -> str:
         return self._entity.key
+
+    @property
+    def vlan_id(self) -> int | None:
+        try:
+            return self._entity.config.defaultPortConfig.vlan.vlanId
+        except AttributeError:
+            return None
 
     @property
     def switch_uuid(self) -> str:
@@ -60,3 +86,42 @@ class DVPortGroupHandler(ManagedEntityHandler):
 
     def destroy(self):
         self._entity.Destroy()
+
+
+@attr.s(auto_attribs=True)
+class HostPortGroupHandler(AbstractPortGroupHandler):
+    _entity: vim.host.PortGroup
+    _host: HostHandler
+
+    def __str__(self) -> str:
+        return f"Host Port Group '{self.name}'"
+
+    @property
+    def v_switch_key(self) -> str:
+        return self._entity.vswitch
+
+    @property
+    def name(self) -> str:
+        return self._entity.spec.name
+
+    @property
+    def key(self) -> str:
+        return self._entity.key
+
+    @property
+    def is_connected(self) -> bool:
+        return bool(self._entity.port)
+
+    def destroy(self):
+        self._host.remove_port_group(self.name)
+
+
+def get_network_handler(
+    net: vim.Network | vim.dvs.DistributedVirtualPortgroup, si: SiHandler
+) -> NetworkHandler | DVPortGroupHandler:
+    if isinstance(net, vim.dvs.DistributedVirtualPortgroup):
+        return DVPortGroupHandler(net, si)
+    elif isinstance(net, vim.Network):
+        return NetworkHandler(net, si)
+    else:
+        raise NotImplementedError(f"Not supported {type(net)} as network")
