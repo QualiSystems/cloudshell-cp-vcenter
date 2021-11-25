@@ -398,8 +398,6 @@ class VmHandler(ManagedEntityHandler):
             clone_spec.snapshot = snapshot._snapshot
             clone_spec.template = False
             placement.diskMoveType = "createNewChildDiskBacking"
-        if config_spec:
-            clone_spec.config_spec = config_spec.get_spec_for_vm(self._entity)
         clone_spec.location = placement
 
         task = self._entity.Clone(
@@ -407,4 +405,8 @@ class VmHandler(ManagedEntityHandler):
         )
         task_waiter = task_waiter or VcenterTaskWaiter(logger)
         new_vc_vm = task_waiter.wait_for_task(task)
-        return VmHandler(new_vc_vm, self._si)
+        new_vm = VmHandler(new_vc_vm, self._si)
+
+        if config_spec:
+            new_vm.reconfigure_vm(config_spec, logger, task_waiter)
+        return new_vm
