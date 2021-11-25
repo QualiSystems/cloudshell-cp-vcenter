@@ -80,6 +80,8 @@ class VnicHandler(VirtualDeviceHandler):
         vnic.connectable = vim.vm.device.VirtualDevice.ConnectInfo(
             connected=True,
             startConnected=True,
+            allowGuestControl=True,
+            status="untried",
         )
 
         nic_spec = vim.vm.device.VirtualDeviceSpec()
@@ -103,8 +105,10 @@ class VnicHandler(VirtualDeviceHandler):
         vnic.wakeOnLanEnabled = True
         vnic.deviceInfo = vim.Description()
         vnic.connectable = vim.vm.device.VirtualDevice.ConnectInfo(
-            connected=False,
-            startConnected=False,
+            connected=True,
+            startConnected=True,
+            allowGuestControl=True,
+            status="untried",
         )
         nic_spec = vim.vm.device.VirtualDeviceSpec()
 
