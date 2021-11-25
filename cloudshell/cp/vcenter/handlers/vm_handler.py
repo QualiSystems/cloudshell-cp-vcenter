@@ -17,6 +17,7 @@ from cloudshell.cp.vcenter.handlers.folder_handler import FolderHandler
 from cloudshell.cp.vcenter.handlers.managed_entity_handler import ManagedEntityHandler
 from cloudshell.cp.vcenter.handlers.network_handler import (
     DVPortGroupHandler,
+    HostPortGroupNotFound,
     NetworkHandler,
     get_network_handler,
 )
@@ -107,6 +108,10 @@ class VmHandler(ManagedEntityHandler):
         return [get_network_handler(net, self._si) for net in self._entity.network]
 
     @property
+    def gv_port_groups(self) -> list[DVPortGroupHandler]:
+        return list(filter(lambda x: isinstance(x, DVPortGroupHandler), self.networks))
+
+    @property
     def vnics(self) -> list[VnicHandler]:
         return list(map(VnicHandler, filter(is_vnic, self._get_devices())))
 
@@ -170,36 +175,28 @@ class VmHandler(ManagedEntityHandler):
     def _get_devices(self):
         return self._entity.config.hardware.device
 
-    def has_vnics(self) -> bool:
-        for vnic in self.vnics:
-            if vnic.mac_address:
-                return True
-        return False
-
-    def get_network_name_from_vnic(self, vnic: VnicHandler) -> str:
+    def create_vnic(self) -> VnicHandler:
         try:
-            name = vnic.network_name
-        except ValueError:
-            for network in self.networks:
-                with suppress(ValueError):
-                    if network.key == vnic.port_group_key:
-                        name = network.name
-                        break
-            else:
-                name = ""
-        return name
+            vnic_type = self.vnics[0].vnic_type
+            vnic = VnicHandler.create_new(vnic_type)
+        except IndexError:
+            vnic = VnicHandler.create_new()
+        return vnic
 
-    def get_network_from_vnic(self, vnic: VnicHandler) -> NetworkHandler:
-        network = None
+    def get_network_from_vnic(
+        self, vnic: VnicHandler
+    ) -> NetworkHandler | DVPortGroupHandler:
         try:
-            vc_network = vnic.network
+            vc_network = vnic.vc_network
             network = NetworkHandler(vc_network, self._si)
         except ValueError:
-            for network in self.networks:
-                if network.key == vnic.port_group_key:
-                    break
-        if not network:
-            raise VnicWithoutNetwork
+            for pg in self.gv_port_groups:
+                with suppress(ValueError):
+                    if pg.key == vnic.port_group_key:
+                        network = pg
+                        break
+            else:
+                raise VnicWithoutNetwork
 
         return network
 
@@ -236,11 +233,16 @@ class VmHandler(ManagedEntityHandler):
                 return vnic
         raise VnicWithMacNotFound(mac_address, self)
 
-    def get_vlan_id_for_network(self, network_name: str) -> int:
-        host = self._entity.runtime.host
-        for pg in host.config.network.portgroup:
-            if pg.spec.name == network_name:
-                return pg.spec.vlanId
+    def get_network_vlan_id(self, network: NetworkHandler | DVPortGroupHandler) -> int:
+        if isinstance(network, DVPortGroupHandler):
+            pg = network
+        else:
+            for pg in self.host.port_groups:
+                if pg.name == network.name:
+                    break
+            else:
+                raise HostPortGroupNotFound(self, network.name)
+        return pg.vlan_id
 
     def get_v_switch(self, name: str) -> VSwitchHandler:
         return self.host.get_v_switch(name)

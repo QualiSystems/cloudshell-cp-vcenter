@@ -52,6 +52,10 @@ class AbstractPortGroupHandler(Protocol):
         raise NotImplementedError
 
     @property
+    def vlan_id(self) -> int:
+        raise NotImplementedError
+
+    @property
     def is_connected(self) -> bool:
         raise NotImplementedError
 
@@ -70,11 +74,8 @@ class DVPortGroupHandler(ManagedEntityHandler, AbstractPortGroupHandler):
         return self._entity.key
 
     @property
-    def vlan_id(self) -> int | None:
-        try:
-            return self._entity.config.defaultPortConfig.vlan.vlanId
-        except AttributeError:
-            return None
+    def vlan_id(self) -> int:
+        return self._entity.config.defaultPortConfig.vlan.vlanId
 
     @property
     def switch_uuid(self) -> str:
@@ -107,6 +108,10 @@ class HostPortGroupHandler(AbstractPortGroupHandler):
     @property
     def key(self) -> str:
         return self._entity.key
+
+    @property
+    def vlan_id(self) -> int:
+        return self._entity.spec.vlanId
 
     @property
     def is_connected(self) -> bool:

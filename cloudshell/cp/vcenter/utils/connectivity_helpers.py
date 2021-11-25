@@ -27,16 +27,18 @@ def get_available_vnic(
         if vnic_name and vnic_name != vnic.label:
             continue
 
-        net_name = vm.get_network_name_from_vnic(vnic)
+        network = vm.get_network_from_vnic(vnic)
         if (
-            not net_name
-            or net_name == default_net_name
+            not network.name
+            or network.name == default_net_name
             or (
-                not is_network_generated_name(net_name)
-                and net_name not in reserved_networks
+                not is_network_generated_name(network.name)
+                and network.name not in reserved_networks
             )
         ):
             break
     else:
-        raise BaseVCenterException("No vNIC available")
+        if len(vm.vnics) >= 8:
+            raise BaseVCenterException("Limit of vNICs per VM is 8")
+        vnic = vm.create_vnic()
     return vnic

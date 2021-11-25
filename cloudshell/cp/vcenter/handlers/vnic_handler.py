@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import attr
 from pyVmomi import vim
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
@@ -23,7 +24,18 @@ class VnicWithoutNetwork(BaseVCenterException):
     ...
 
 
+@attr.s(auto_attribs=True)
 class VnicHandler(VirtualDeviceHandler):
+    _is_new_vnic: bool = False
+
+    @classmethod
+    def create_new(cls, vnic_type=vim.vm.device.VirtualEthernetCard) -> VnicHandler:
+        return cls(vnic_type(), is_new_vnic=True)
+
+    @property
+    def vnic_type(self) -> type[vim.vm.device.VirtualDevice]:
+        return type(self._device)
+
     @property
     def mac_address(self) -> str | None:
         try:
@@ -40,7 +52,7 @@ class VnicHandler(VirtualDeviceHandler):
             raise ValueError
 
     @property
-    def network(self) -> vim.Network:
+    def vc_network(self) -> vim.Network:
         try:
             return self._device.backing.network
         except AttributeError:
@@ -71,7 +83,13 @@ class VnicHandler(VirtualDeviceHandler):
         )
 
         nic_spec = vim.vm.device.VirtualDeviceSpec()
-        nic_spec.operation = vim.vm.device.VirtualDeviceSpec.Operation.edit
+
+        if self._is_new_vnic:
+            nic_spec.operation = vim.vm.device.VirtualDeviceSpec.Operation.add
+            self._is_new_vnic = False
+        else:
+            nic_spec.operation = vim.vm.device.VirtualDeviceSpec.Operation.edit
+
         nic_spec.device = vnic
         return nic_spec
 
@@ -89,6 +107,12 @@ class VnicHandler(VirtualDeviceHandler):
             startConnected=False,
         )
         nic_spec = vim.vm.device.VirtualDeviceSpec()
-        nic_spec.operation = vim.vm.device.VirtualDeviceSpec.Operation.edit
+
+        if self._is_new_vnic:
+            nic_spec.operation = vim.vm.device.VirtualDeviceSpec.Operation.add
+            self._is_new_vnic = False
+        else:
+            nic_spec.operation = vim.vm.device.VirtualDeviceSpec.Operation.edit
+
         nic_spec.device = vnic
         return nic_spec

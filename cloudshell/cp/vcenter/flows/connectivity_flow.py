@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from logging import Logger
 from threading import Lock
 
@@ -16,6 +18,7 @@ from cloudshell.cp.vcenter.handlers.network_handler import (
     AbstractPortGroupHandler,
     DVPortGroupHandler,
     HostPortGroupHandler,
+    NetworkHandler,
     PortGroupNotFound,
 )
 from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
@@ -61,8 +64,6 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         vc_conf = self._resource_conf
         dc = DcHandler.get_dc(vc_conf.default_datacenter, self._si)
         vm = dc.get_vm_by_uuid(action.custom_action_attrs.vm_uuid)
-        if not vm.has_vnics():
-            raise BaseVCenterException(f"Trying to connect {vm} but it has no vNics")
 
         dc.get_network(vc_conf.holding_network)  # validate that it exists
         dv_port_name = generate_port_group_name(
@@ -79,7 +80,6 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
             action.connection_params.mode,
         )
         try:
-            # todo should we create vNIC if doesn't have empty one?
             vnic = get_available_vnic(
                 vm,
                 vc_conf.holding_network,
@@ -105,7 +105,7 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         vm = dc.get_vm_by_uuid(action.custom_action_attrs.vm_uuid)
         default_network = dc.get_network(vc_conf.holding_network)
         vnic = vm.get_vnic_by_mac(action.connector_attrs.interface, self._logger)
-        net_name = vm.get_network_name_from_vnic(vnic)
+        network = vm.get_network_from_vnic(vnic)
 
         if vlan_id:
             expected_dv_port_name = generate_port_group_name(
@@ -113,13 +113,13 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
                 vlan_id,
                 action.connection_params.mode.value,
             )
-            remove_network = expected_dv_port_name == net_name
+            remove_network = expected_dv_port_name == network.name
         else:
-            remove_network = is_network_generated_name(net_name)
+            remove_network = is_network_generated_name(network.name)
 
         if remove_network:
             vm.connect_vnic_to_network(vnic, default_network, self._logger)
-            port_group = self._get_port_group(net_name, dc)
+            port_group = self._get_port_group(network, vm)
             self._remove_port_group(port_group)
         return "vlan removed"
 
@@ -151,13 +151,16 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         return port_group
 
     def _get_port_group(
-        self, port_group_name: str, dc: DcHandler
-    ) -> DVPortGroupHandler:
-        with self._network_lock:
-            dv_switch = dc.get_dv_switch(self._resource_conf.default_dv_switch)
-            return dv_switch.get_dv_port_group(port_group_name)
+        self, network: DVPortGroupHandler | NetworkHandler, vm: VmHandler
+    ) -> DVPortGroupHandler | HostPortGroupHandler:
+        if isinstance(network, DVPortGroupHandler):
+            return network
 
-    def _remove_port_group(self, port_group: DVPortGroupHandler):
+        with self._network_lock:
+            switch = vm.get_v_switch(self._resource_conf.default_dv_switch)
+            return switch.get_port_group(network.name)
+
+    def _remove_port_group(self, port_group: DVPortGroupHandler | HostPortGroupHandler):
         with self._network_lock:
             if not port_group.is_connected:
                 port_group.destroy()

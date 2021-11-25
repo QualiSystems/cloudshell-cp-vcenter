@@ -82,19 +82,19 @@ class VMDetailsActions(VMNetworkActions):
             primary_ip = None
 
         for vnic in vm.vnics:
-            network_name = vm.get_network_name_from_vnic(vnic)
-            is_predefined = network_name in self._resource_conf.reserved_networks
+            network = vm.get_network_from_vnic(vnic)
+            is_predefined = network.name in self._resource_conf.reserved_networks
             private_ip = self.get_vm_ip_from_vnic(vm._entity, vnic._device)
-            vlan_id = vm.get_vlan_id_for_network(network_name)
+            vlan_id = vm.get_network_vlan_id(network)
 
-            if vlan_id and (self.is_quali_network(network_name) or is_predefined):
+            if vlan_id and (self.is_quali_network(network.name) or is_predefined):
                 is_primary = private_ip and primary_ip == private_ip
 
                 network_data = [
                     VmDetailsProperty(key="IP", value=private_ip),
                     VmDetailsProperty(key="MAC Address", value=vnic.mac_address),
                     VmDetailsProperty(key="Network Adapter", value=vnic.label),
-                    VmDetailsProperty(key="Port Group Name", value=network_name),
+                    VmDetailsProperty(key="Port Group Name", value=network.name),
                 ]
 
                 interface = VmDetailsNetworkInterface(
