@@ -104,7 +104,7 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         dc = DcHandler.get_dc(vc_conf.default_datacenter, self._si)
         vm = dc.get_vm_by_uuid(action.custom_action_attrs.vm_uuid)
         default_network = dc.get_network(vc_conf.holding_network)
-        vnic = vm.get_vnic_by_mac(action.custom_action_attrs.vnic, self._logger)
+        vnic = vm.get_vnic_by_mac(action.connector_attrs.interface, self._logger)
         network = vm.get_network_from_vnic(vnic)
 
         if vlan_id:
