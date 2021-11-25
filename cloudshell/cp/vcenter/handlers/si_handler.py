@@ -70,8 +70,11 @@ class SiHandler:
     def find_child(self, parent, name: str) -> Any:
         return self._si.content.searchIndex.FindChild(parent, name)
 
-    def get_customization_spec(self, name: str) -> CustomSpecHandler:
+    def get_customization_spec(self, name: str) -> CustomSpecHandler | None:
         spec = self._si.content.customizationSpecManager.GetCustomizationSpec(name)
+        if not spec:
+            return None
+
         custom_spec_handler = get_custom_spec_from_vim_spec(spec)
         return custom_spec_handler
 
