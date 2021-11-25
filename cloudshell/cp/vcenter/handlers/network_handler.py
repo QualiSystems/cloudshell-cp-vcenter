@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from logging import Logger
 from typing import TYPE_CHECKING
 
 import attr
@@ -9,6 +10,7 @@ from typing_extensions import Protocol
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
 from cloudshell.cp.vcenter.handlers.managed_entity_handler import ManagedEntityHandler
 from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
+from cloudshell.cp.vcenter.utils.task_waiter import VcenterTaskWaiter
 
 if TYPE_CHECKING:
     from cloudshell.cp.vcenter.handlers.cluster_handler import HostHandler
@@ -45,6 +47,14 @@ class NetworkHandler(ManagedEntityHandler):
     def __str__(self) -> str:
         return f"Network '{self.name}'"
 
+    @property
+    def is_connected(self) -> bool:
+        return bool(self._entity.vm)
+
+    def destroy(self, logger: Logger):
+        task = self._entity.Destroy()
+        VcenterTaskWaiter(logger).wait_for_task(task)
+
 
 class AbstractPortGroupHandler(Protocol):
     @property
@@ -59,7 +69,7 @@ class AbstractPortGroupHandler(Protocol):
     def is_connected(self) -> bool:
         raise NotImplementedError
 
-    def destroy(self):
+    def destroy(self, logger: Logger):
         raise NotImplementedError
 
 
@@ -85,8 +95,9 @@ class DVPortGroupHandler(ManagedEntityHandler, AbstractPortGroupHandler):
     def is_connected(self) -> bool:
         return bool(self._entity.vm)
 
-    def destroy(self):
-        self._entity.Destroy()
+    def destroy(self, logger: Logger):
+        task = self._entity.Destroy()
+        VcenterTaskWaiter(logger).wait_for_task(task)
 
 
 @attr.s(auto_attribs=True)
@@ -117,7 +128,7 @@ class HostPortGroupHandler(AbstractPortGroupHandler):
     def is_connected(self) -> bool:
         return bool(self._entity.port)
 
-    def destroy(self):
+    def destroy(self, logger: Logger):
         self._host.remove_port_group(self.name)
 
 

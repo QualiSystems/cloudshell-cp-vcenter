@@ -125,8 +125,7 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
 
         if remove_network:
             vm.connect_vnic_to_network(vnic, default_network, self._logger)
-            port_group = self._get_port_group(network, vm)
-            self._remove_port_group(port_group)
+            self._remove_port_group(network)
         msg = f"Removing VLAN {vlan_id} successfully completed"
         return ConnectivityActionResult.success_result_vm(action, msg, vnic.mac_address)
 
@@ -189,17 +188,9 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
                 return network
         raise NetworkNotFound(dc, name)
 
-    def _get_port_group(
-        self, network: DVPortGroupHandler | NetworkHandler, vm: VmHandler
-    ) -> DVPortGroupHandler | HostPortGroupHandler:
-        if isinstance(network, DVPortGroupHandler):
-            return network
-
-        with self._network_lock:
-            switch = vm.get_v_switch(self._resource_conf.default_dv_switch)
-            return switch.get_port_group(network.name)
-
-    def _remove_port_group(self, port_group: DVPortGroupHandler | HostPortGroupHandler):
+    def _remove_port_group(
+        self, port_group: DVPortGroupHandler | HostPortGroupHandler | NetworkHandler
+    ):
         with self._network_lock:
             if not port_group.is_connected:
-                port_group.destroy()
+                port_group.destroy(self._logger)
