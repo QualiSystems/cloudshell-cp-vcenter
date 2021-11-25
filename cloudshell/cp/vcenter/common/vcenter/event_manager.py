@@ -27,7 +27,8 @@ class EventManager:
         event_type_id_list,
         event_start_time: datetime | None = None,
     ):
-        time_filter = vim.event.EventFilterSpec.ByTime(event_start_time)
+        time_filter = vim.event.EventFilterSpec.ByTime()
+        time_filter.beginTime = event_start_time
 
         # noinspection PyUnresolvedReferences
         vm_events = vim.event.EventFilterSpec.ByEntity(entity=vm, recursion="self")
