@@ -159,3 +159,5 @@ class VSwitchHandler(AbstractSwitchHandler):
         network_policy.security.macChanges = False
         network_policy.security.forgedTransmits = True
         pg_spec.policy = network_policy
+
+        self._host.add_port_group(pg_spec)

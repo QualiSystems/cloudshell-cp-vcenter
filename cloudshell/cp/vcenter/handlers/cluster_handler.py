@@ -138,3 +138,6 @@ class HostHandler(BasicClusterHostHandler):
 
     def remove_port_group(self, name: str):
         self._entity.configManager.networkSystem.RemovePortGroup(name)
+
+    def add_port_group(self, port_group_spec):
+        self._entity.configManager.networkSystem.AddPortGroup(port_group_spec)

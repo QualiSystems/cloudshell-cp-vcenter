@@ -38,7 +38,7 @@ def get_available_vnic(
         ):
             break
     else:
-        if len(vm.vnics) >= 8:
+        if len(vm.vnics) >= 10:
             raise BaseVCenterException("Limit of vNICs per VM is 8")
         vnic = vm.create_vnic()
     return vnic
