@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from logging import Logger
 from threading import Lock
 
@@ -25,7 +26,11 @@ from cloudshell.cp.vcenter.handlers.network_handler import (
     PortGroupNotFound,
 )
 from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
-from cloudshell.cp.vcenter.handlers.switch_handler import DvSwitchNotFound
+from cloudshell.cp.vcenter.handlers.switch_handler import (
+    DvSwitchHandler,
+    DvSwitchNotFound,
+    VSwitchHandler,
+)
 from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
 from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 from cloudshell.cp.vcenter.utils.connectivity_helpers import (
@@ -69,18 +74,14 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         vm = dc.get_vm_by_uuid(action.custom_action_attrs.vm_uuid)
 
         dc.get_network(vc_conf.holding_network)  # validate that it exists
-        dv_port_name = generate_port_group_name(
+        port_group_name = generate_port_group_name(
             vc_conf.default_dv_switch,
             vlan_id,
             action.connection_params.mode.value,
         )
 
         port_group = self._get_or_create_port_group(
-            dc,
-            vm,
-            dv_port_name,
-            vlan_id,
-            action.connection_params.mode,
+            dc, vm, port_group_name, vlan_id, action.connection_params.mode
         )
         try:
             vnic = get_available_vnic(
@@ -132,7 +133,7 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         self,
         dc: DcHandler,
         vm: VmHandler,
-        dv_port_name: str,
+        port_group_name: str,
         vlan_range: str,
         port_mode: ConnectionModeEnum,
     ) -> AbstractPortGroupHandler:
@@ -143,17 +144,35 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
 
         with self._network_lock:
             try:
-                port_group = switch.get_port_group(dv_port_name)
+                port_group = switch.get_port_group(port_group_name)
             except PortGroupNotFound:
                 switch.create_port_group(
-                    dv_port_name,
+                    port_group_name,
                     vlan_range,
                     port_mode,
                     self._resource_conf.promiscuous_mode,
                     self._logger,
                 )
-                port_group = switch.get_port_group(dv_port_name)
+                port_group = self._wait_for_the_port_group_appears(
+                    switch, port_group_name
+                )
         return port_group
+
+    def _wait_for_the_port_group_appears(
+        self, switch: DvSwitchHandler | VSwitchHandler, port_name: str
+    ) -> AbstractPortGroupHandler:
+        delay = 2
+        timeout = 60 * 5
+        start_time = time.time()
+
+        while time.time() - start_time < timeout:
+            try:
+                pg = switch.get_port_group(port_name)
+            except PortGroupNotFound:
+                time.sleep(delay)
+            else:
+                return pg
+        raise PortGroupNotFound(switch, port_name)
 
     def _get_port_group(
         self, network: DVPortGroupHandler | NetworkHandler, vm: VmHandler
