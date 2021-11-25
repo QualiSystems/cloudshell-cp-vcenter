@@ -23,6 +23,7 @@ from cloudshell.cp.vcenter.handlers.network_handler import (
     DVPortGroupHandler,
     HostPortGroupHandler,
     NetworkHandler,
+    NetworkNotFound,
     PortGroupNotFound,
 )
 from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
@@ -93,7 +94,7 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
             if isinstance(port_group, DVPortGroupHandler):
                 vm.connect_vnic_to_port_group(vnic, port_group, self._logger)
             elif isinstance(port_group, HostPortGroupHandler):
-                network = dc.get_network(port_group.name)
+                network = self._wait_for_the_network_appears(dc, port_group.name)
                 vm.connect_vnic_to_network(vnic, network, self._logger)
         except Exception:
             self._remove_port_group(port_group)
@@ -173,6 +174,20 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
             else:
                 return pg
         raise PortGroupNotFound(switch, port_name)
+
+    def _wait_for_the_network_appears(self, dc: DcHandler, name: str) -> NetworkHandler:
+        delay = 2
+        timeout = 60 * 5
+        start_time = time.time()
+
+        while time.time() - start_time < timeout:
+            try:
+                network = dc.get_network(name)
+            except NetworkNotFound:
+                time.sleep(delay)
+            else:
+                return network
+        raise NetworkNotFound(dc, name)
 
     def _get_port_group(
         self, network: DVPortGroupHandler | NetworkHandler, vm: VmHandler
