@@ -26,7 +26,7 @@ class VCenterPowerFlow:
         vm = self._get_vm(si)
 
         self._logger.info(f"Powering On the {vm}")
-        spec_name = self._deployed_app.customization_spec
+        spec_name = vm.name
         spec = si.get_customization_spec(spec_name)
         if spec:
             self._logger.info(f"Adding Customization Spec to the {vm}")
