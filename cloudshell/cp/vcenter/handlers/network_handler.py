@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from logging import Logger
+from contextlib import suppress
 from typing import TYPE_CHECKING
 
 import attr
@@ -10,7 +10,6 @@ from typing_extensions import Protocol
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
 from cloudshell.cp.vcenter.handlers.managed_entity_handler import ManagedEntityHandler
 from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
-from cloudshell.cp.vcenter.utils.task_waiter import VcenterTaskWaiter
 
 if TYPE_CHECKING:
     from cloudshell.cp.vcenter.handlers.cluster_handler import HostHandler
@@ -47,14 +46,6 @@ class NetworkHandler(ManagedEntityHandler):
     def __str__(self) -> str:
         return f"Network '{self.name}'"
 
-    @property
-    def is_connected(self) -> bool:
-        return bool(self._entity.vm)
-
-    def destroy(self, logger: Logger):
-        task = self._entity.Destroy()
-        VcenterTaskWaiter(logger).wait_for_task(task)
-
 
 class AbstractPortGroupHandler(Protocol):
     @property
@@ -65,11 +56,7 @@ class AbstractPortGroupHandler(Protocol):
     def vlan_id(self) -> int:
         raise NotImplementedError
 
-    @property
-    def is_connected(self) -> bool:
-        raise NotImplementedError
-
-    def destroy(self, logger: Logger):
+    def destroy(self):
         raise NotImplementedError
 
 
@@ -91,13 +78,9 @@ class DVPortGroupHandler(ManagedEntityHandler, AbstractPortGroupHandler):
     def switch_uuid(self) -> str:
         return self._entity.config.distributedVirtualSwitch.uuid
 
-    @property
-    def is_connected(self) -> bool:
-        return bool(self._entity.vm)
-
-    def destroy(self, logger: Logger):
-        task = self._entity.Destroy()
-        VcenterTaskWaiter(logger).wait_for_task(task)
+    def destroy(self):
+        with suppress(vim.fault.ResourceInUse):
+            self._entity.Destroy()
 
 
 @attr.s(auto_attribs=True)
@@ -124,12 +107,9 @@ class HostPortGroupHandler(AbstractPortGroupHandler):
     def vlan_id(self) -> int:
         return self._entity.spec.vlanId
 
-    @property
-    def is_connected(self) -> bool:
-        return bool(self._entity.port)
-
-    def destroy(self, logger: Logger):
-        self._host.remove_port_group(self.name)
+    def destroy(self):
+        with suppress(vim.fault.ResourceInUse):
+            self._host.remove_port_group(self.name)
 
 
 def get_network_handler(
