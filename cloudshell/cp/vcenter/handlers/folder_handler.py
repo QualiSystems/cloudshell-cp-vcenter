@@ -9,7 +9,7 @@ from cloudshell.cp.vcenter.handlers.managed_entity_handler import ManagedEntityH
 from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
 from cloudshell.cp.vcenter.handlers.vcenter_path import VcenterPath
 from cloudshell.cp.vcenter.utils.task_waiter import VcenterTaskWaiter
-
+from pyVmomi import vim
 
 class FolderNotFound(BaseVCenterException):
     def __init__(self, vc_entity, name: str):
@@ -57,7 +57,12 @@ class FolderHandler(ManagedEntityHandler):
             try:
                 folder = folder.get_folder(name)
             except FolderNotFound:
-                folder = folder.create_folder(name)
+                # Try Except wrapper for cases when we have several simultaneous request,
+                # and one of them fails with duplicate error
+                try:
+                    folder = folder.create_folder(name)
+                except vim.fault.DuplicateName:
+                    folder = folder.get_folder(name)
 
         return folder
 
