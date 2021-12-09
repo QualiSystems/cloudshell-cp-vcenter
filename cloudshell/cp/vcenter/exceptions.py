@@ -40,3 +40,7 @@ class EmptyOVFToolResultException(BaseVCenterException):
 
 class DeployOVFToolException(BaseVCenterException):
     """Failed to deploy VM via OVF tool."""
+
+
+class TagFaultException(BaseVCenterException):
+    """Failed to create/find tag."""

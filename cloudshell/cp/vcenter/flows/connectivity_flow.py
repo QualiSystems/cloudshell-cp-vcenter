@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 from logging import Logger
 from threading import Lock
+from typing import TYPE_CHECKING
 
 from cloudshell.shell.flows.connectivity.basic_flow import AbstractConnectivityFlow
 from cloudshell.shell.flows.connectivity.models.connectivity_model import (
@@ -33,12 +34,16 @@ from cloudshell.cp.vcenter.handlers.switch_handler import (
     VSwitchHandler,
 )
 from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
+from cloudshell.cp.vcenter.handlers.vsphere_sdk_handler import VSphereSDKHandler
 from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 from cloudshell.cp.vcenter.utils.connectivity_helpers import (
     generate_port_group_name,
     get_available_vnic,
     is_network_generated_name,
 )
+
+if TYPE_CHECKING:
+    from cloudshell.cp.core.reservation_info import ReservationInfo
 
 
 class DvSwitchNameEmpty(BaseVCenterException):
@@ -51,12 +56,19 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
     def __init__(
         self,
         resource_conf: VCenterResourceConfig,
+        reservation_info: ReservationInfo,
         parse_connectivity_request_service: AbstractParseConnectivityService,
         logger: Logger,
     ):
         super().__init__(parse_connectivity_request_service, logger)
         self._resource_conf = resource_conf
+        self._reservation_info = reservation_info
         self._si = SiHandler.from_config(resource_conf, logger)
+        self._vsphere_client = VSphereSDKHandler.from_config(
+            resource_config=self._resource_conf,
+            reservation_info=self._reservation_info,
+            logger=self._logger,
+        )
         self._network_lock = Lock()
 
     def apply_connectivity(self, request: str) -> str:
@@ -157,6 +169,9 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
                 port_group = self._wait_for_the_port_group_appears(
                     switch, port_group_name
                 )
+                if self._vsphere_client is not None:
+                    self._vsphere_client.assign_tags(obj=port_group)
+
         return port_group
 
     def _wait_for_the_port_group_appears(

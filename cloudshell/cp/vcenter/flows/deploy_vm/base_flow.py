@@ -23,6 +23,7 @@ from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
 from cloudshell.cp.vcenter.handlers.snapshot_handler import SnapshotHandler
 from cloudshell.cp.vcenter.handlers.vcenter_path import VcenterPath
 from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
+from cloudshell.cp.vcenter.handlers.vsphere_sdk_handler import VSphereSDKHandler
 from cloudshell.cp.vcenter.models.custom_spec import get_custom_spec_params
 from cloudshell.cp.vcenter.utils.task_waiter import VcenterCancellationContextTaskWaiter
 from cloudshell.cp.vcenter.utils.vm_helpers import get_vm_folder_path
@@ -58,6 +59,11 @@ class AbstractVCenterDeployVMFlow(AbstractDeployFlow):
             cancellation_manager=cancellation_manager, logger=self._logger
         )
         self._si = SiHandler.from_config(resource_config, logger)
+        self._vsphere_client = VSphereSDKHandler.from_config(
+            resource_config=self._resource_config,
+            reservation_info=self._reservation_info,
+            logger=self._logger,
+        )
 
     @abstractmethod
     def _prepare_vm_details_data(
@@ -170,6 +176,8 @@ class AbstractVCenterDeployVMFlow(AbstractDeployFlow):
         with self._cancellation_manager:
             self._logger.info(f"Creating VM folders for path: {vm_folder_path}")
             vm_folder = dc.get_or_create_vm_folder(vm_folder_path)
+            if self._vsphere_client is not None:
+                self._vsphere_client.assign_tags(obj=vm_folder)
 
         with self._cancellation_manager:
             vm_storage_name = deploy_app.vm_storage or conf.vm_storage
@@ -186,6 +194,9 @@ class AbstractVCenterDeployVMFlow(AbstractDeployFlow):
                 vm_folder=vm_folder,
                 dc=dc,
             )
+
+            if self._vsphere_client is not None:
+                self._vsphere_client.assign_tags(obj=deployed_vm)
 
         self._logger.info(f"Preparing Deploy App result for the {deployed_vm}")
         return self._prepare_deploy_app_result(
