@@ -9,7 +9,7 @@ import attr
 import requests
 import urllib3
 from com.vmware.cis.tagging_client import CategoryModel
-from com.vmware.vapi.std.errors_client import AlreadyExists
+from com.vmware.vapi.std.errors_client import AlreadyExists, NotFound
 from com.vmware.vapi.std_client import DynamicID
 from packaging import version
 from vmware.vapi.vsphere.client import VsphereClient, create_vsphere_client
@@ -113,7 +113,7 @@ class VSphereSDKHandler:
 
         return category_id
 
-    def create_categories(self, custom_categories: list | None):
+    def create_categories(self, custom_categories: list | None = None):
         """Create all Default and Custom Tag Categories."""
         for tag_category in vars(VCenterTagsManager.DefaultTagNames):
             if not tag_category.startswith("__"):
@@ -166,7 +166,7 @@ class VSphereSDKHandler:
             tag_ids=tag_ids, object_id=dynamic_id
         )
 
-    def assign_tags(self, obj, tags: dict[str:str] | None):
+    def assign_tags(self, obj, tags: dict[str:str] | None = None):
         """Get/Create tags and assign to provided vCenter object."""
         if not tags:
             tags = self._tags_manager.get_default_tags()
@@ -193,14 +193,20 @@ class VSphereSDKHandler:
 
         User who invokes this API needs delete privilege on the tag category.
         """
-        self._vsphere_client.tagging.Category.delete(category_id)
+        try:
+            self._vsphere_client.tagging.Category.delete(category_id)
+        except NotFound:
+            self._logger.debug(f"Category {category_id} doesn't exist. ")
 
     def _delete_tag(self, tag_id):
         """Delete an existing tag.
 
         User who invokes this API needs delete privilege on the tag.
         """
-        self._vsphere_client.tagging.Tag.delete(tag_id)
+        try:
+            self._vsphere_client.tagging.Tag.delete(tag_id)
+        except NotFound:
+            self._logger.debug(f"Tag {tag_id} doesn't exist. ")
 
     def delete_tags(self, obj):
         """Delete tags if it used ONLY in current reservation."""

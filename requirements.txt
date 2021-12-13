@@ -15,3 +15,4 @@ packaging>=20.9
 netaddr==0.8.0
 jsonschema==4.1.0
 attrs~=21.0
+vSphere_Automation_SDK~=1.71
