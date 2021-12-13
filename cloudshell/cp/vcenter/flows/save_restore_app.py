@@ -24,7 +24,11 @@ from cloudshell.cp.vcenter.exceptions import BaseVCenterException
 from cloudshell.cp.vcenter.flows.deploy_vm.commands.clone_vm import CloneVMCommand
 from cloudshell.cp.vcenter.handlers.datastore_handler import DatastoreHandler
 from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
-from cloudshell.cp.vcenter.handlers.folder_handler import FolderHandler, FolderNotFound
+from cloudshell.cp.vcenter.handlers.folder_handler import (
+    FolderHandler,
+    FolderIsNotEmpty,
+    FolderNotFound,
+)
 from cloudshell.cp.vcenter.handlers.resource_pool import ResourcePoolHandler
 from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
 from cloudshell.cp.vcenter.handlers.vcenter_path import VcenterPath
@@ -231,6 +235,6 @@ class SaveRestoreAppFlow:
 
         for action in delete_saved_app_actions:
             sandbox_id = action.actionParams.savedSandboxId
-            with suppress(FolderNotFound):
+            with suppress(FolderNotFound, FolderIsNotEmpty):
                 folder = sandbox_folder.get_folder(sandbox_id)
                 folder.destroy(self._logger, self._task_waiter)

@@ -106,7 +106,7 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
             if isinstance(port_group, DVPortGroupHandler):
                 vm.connect_vnic_to_port_group(vnic, port_group, self._logger)
             elif isinstance(port_group, HostPortGroupHandler):
-                network = self._wait_for_the_network_appears(dc, port_group.name)
+                network = dc.get_network(port_group.name)
                 vm.connect_vnic_to_network(vnic, network, self._logger)
         except Exception:
             self._remove_port_group(port_group)
@@ -170,7 +170,8 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
                     switch, port_group_name
                 )
                 if self._vsphere_client is not None:
-                    self._vsphere_client.assign_tags(obj=port_group)
+                    net = self._wait_for_the_network_appears(dc, port_group_name)
+                    self._vsphere_client.assign_tags(obj=net)
 
         return port_group
 

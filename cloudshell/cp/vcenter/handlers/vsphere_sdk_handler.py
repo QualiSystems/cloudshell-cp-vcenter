@@ -1,7 +1,5 @@
-#!/usr/bin/python
 from __future__ import annotations
 
-import re
 import ssl
 from logging import Logger
 
@@ -241,16 +239,7 @@ class VSphereSDKHandler:
                 self._delete_tag(tag_id)
 
     def _get_object_id_and_type(self, obj):
-        match = re.match(
-            r"vim.(?P<object_type>\w+):(?P<object_id>\S+)", str(obj._entity).strip("'")
-        )
-        if match:
-            object_id = match.groupdict().get("object_id")
-            object_type = match.groupdict().get("object_type")
-        else:
-            raise TagFaultException(
-                f"Can not determine object type. Object: {obj._entity}"
-            )
-
+        object_id = obj._moId
+        object_type = obj._wsdl_name
         self._logger.debug(f"Object type: {object_type}, Object ID: {object_id}")
         return object_id, object_type

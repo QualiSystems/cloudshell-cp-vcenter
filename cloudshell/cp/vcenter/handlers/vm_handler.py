@@ -172,6 +172,10 @@ class VmHandler(ManagedEntityHandler):
         # avoid using this property
         return self._entity._moId
 
+    @property
+    def _wsdl_name(self) -> str:
+        return self._entity._wsdlName
+
     def _get_devices(self):
         return self._entity.config.hardware.device
 

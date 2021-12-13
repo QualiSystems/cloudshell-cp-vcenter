@@ -46,6 +46,15 @@ class NetworkHandler(ManagedEntityHandler):
     def __str__(self) -> str:
         return f"Network '{self.name}'"
 
+    @property
+    def _moId(self) -> str:
+        # avoid using this property
+        return self._entity._moId
+
+    @property
+    def _wsdl_name(self) -> str:
+        return self._entity._wsdlName
+
 
 class AbstractPortGroupHandler(Protocol):
     @property
@@ -78,8 +87,17 @@ class DVPortGroupHandler(ManagedEntityHandler, AbstractPortGroupHandler):
     def switch_uuid(self) -> str:
         return self._entity.config.distributedVirtualSwitch.uuid
 
+    @property
+    def _moId(self) -> str:
+        # avoid using this property
+        return self._entity._moId
+
+    @property
+    def _wsdl_name(self) -> str:
+        return self._entity._wsdlName
+
     def destroy(self):
-        with suppress(vim.fault.ResourceInUse):
+        with suppress(vim.fault.ResourceInUse, vim.fault.NotFound):
             self._entity.Destroy()
 
 
@@ -108,7 +126,7 @@ class HostPortGroupHandler(AbstractPortGroupHandler):
         return self._entity.spec.vlanId
 
     def destroy(self):
-        with suppress(vim.fault.ResourceInUse):
+        with suppress(vim.fault.ResourceInUse, vim.fault.NotFound):
             self._host.remove_port_group(self.name)
 
 
