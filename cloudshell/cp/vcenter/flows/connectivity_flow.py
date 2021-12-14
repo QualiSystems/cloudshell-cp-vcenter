@@ -109,7 +109,7 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
                 network = dc.get_network(port_group.name)
                 vm.connect_vnic_to_network(vnic, network, self._logger)
         except Exception:
-            self._remove_port_group(port_group)
+            port_group.destroy()
             raise
         msg = f"Setting VLAN {vlan_id} successfully completed"
         return ConnectivityActionResult.success_result_vm(action, msg, vnic.mac_address)
@@ -137,8 +137,11 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
 
         if remove_network:
             vm.connect_vnic_to_network(vnic, default_network, self._logger)
-            port_group = self._get_port_group(network, vm)
-            self._remove_port_group(port_group)
+            with self._network_lock:
+                if self._vsphere_client:
+                    self._vsphere_client.delete_tags(network)
+                port_group = self._get_port_group(network, vm)
+                port_group.destroy()
         msg = f"Removing VLAN {vlan_id} successfully completed"
         return ConnectivityActionResult.success_result_vm(action, msg, vnic.mac_address)
 
@@ -175,8 +178,9 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
 
         return port_group
 
+    @staticmethod
     def _wait_for_the_port_group_appears(
-        self, switch: DvSwitchHandler | VSwitchHandler, port_name: str
+        switch: DvSwitchHandler | VSwitchHandler, port_name: str
     ) -> AbstractPortGroupHandler:
         delay = 2
         timeout = 60 * 5
@@ -191,7 +195,8 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
                 return pg
         raise PortGroupNotFound(switch, port_name)
 
-    def _wait_for_the_network_appears(self, dc: DcHandler, name: str) -> NetworkHandler:
+    @staticmethod
+    def _wait_for_the_network_appears(dc: DcHandler, name: str) -> NetworkHandler:
         delay = 2
         timeout = 60 * 5
         start_time = time.time()
@@ -210,11 +215,5 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
     ) -> DVPortGroupHandler | HostPortGroupHandler:
         if isinstance(network, DVPortGroupHandler):
             return network
-
-        with self._network_lock:
-            switch = vm.get_v_switch(self._resource_conf.default_dv_switch)
-            return switch.get_port_group(network.name)
-
-    def _remove_port_group(self, port_group: DVPortGroupHandler | HostPortGroupHandler):
-        with self._network_lock:
-            port_group.destroy()
+        switch = vm.get_v_switch(self._resource_conf.default_dv_switch)
+        return switch.get_port_group(network.name)
