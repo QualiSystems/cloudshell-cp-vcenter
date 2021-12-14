@@ -44,11 +44,11 @@ def delete_instance(
     except VmNotFound:
         logger.warning(f"Trying to remove vm {vm_uuid} but it is not exists")
     else:
+        _delete_tags(vsphere_client, vm)
         si.delete_customization_spec(vm.name)
 
         soft = resource_conf.shutdown_method is ShutdownMethod.SOFT
         vm.power_off(soft=soft, logger=logger)
-        _delete_tags(vsphere_client, vm)
         vm.delete(logger)
 
     path = get_vm_folder_path(

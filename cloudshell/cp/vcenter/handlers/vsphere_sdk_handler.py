@@ -42,7 +42,8 @@ class VSphereSDKHandler:
         "Network",
         "HostNetwork",
         "OpaqueNetwork",
-        "DistributedVirtualPortgroup" "VirtualMachine",
+        "DistributedVirtualPortgroup",
+        "VirtualMachine",
         "Folder",
     ]
 
@@ -223,6 +224,7 @@ class VSphereSDKHandler:
         """Delete tags if it used ONLY in current reservation."""
         tag_to_objects_mapping = {}
         pattern_objects_list = None
+        get_attached = self._vsphere_client.tagging.TagAssociation.list_attached_objects
         for tag_id in self._get_attached_tags(obj=obj):
             tag_model = self._vsphere_client.tagging.Tag.get(tag_id)
             category_model = self._vsphere_client.tagging.Category.get(
@@ -230,21 +232,11 @@ class VSphereSDKHandler:
             )
             self._logger.debug(f"TagID: {tag_id}, Category: {category_model.name}")
             if category_model.name == VCenterTagsManager.DefaultTagNames.sandbox_id:
-                pattern_objects_list = (
-                    self._vsphere_client.tagging.TagAssociation.list_attached_objects(
-                        tag_id=tag_id
-                    )
-                )
+                pattern_objects_list = get_attached(tag_id=tag_id)
                 self._logger.debug(f"TagID to delete: {tag_id}")
                 self._delete_tag(tag_id)
             else:
-                tag_to_objects_mapping.update(
-                    {
-                        tag_id: self._vsphere_client.tagging.TagAssociation.list_attached_objects(  # noqa: E501
-                            tag_id=tag_id
-                        )
-                    }
-                )
+                tag_to_objects_mapping[tag_id] = get_attached(tag_id=tag_id)
 
         for tag_id, objects_list in tag_to_objects_mapping.items():
             if objects_list == pattern_objects_list:
