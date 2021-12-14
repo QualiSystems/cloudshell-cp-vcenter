@@ -58,7 +58,7 @@ class FolderHandler(ManagedEntityHandler):
         return self._entity._wsdlName
 
     def is_empty(self) -> bool:
-        return bool(self._entity.childEntity)
+        return not bool(self._entity.childEntity)
 
     def get_folder(self, path: str | VcenterPath) -> FolderHandler:
         return self.get_folder_from_parent(self._entity, path, self._si)

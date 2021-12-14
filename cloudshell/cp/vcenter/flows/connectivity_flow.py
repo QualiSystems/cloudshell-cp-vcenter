@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from contextlib import suppress
 from logging import Logger
 from threading import Lock
 from typing import TYPE_CHECKING
@@ -23,6 +24,7 @@ from cloudshell.cp.vcenter.handlers.network_handler import (
     AbstractPortGroupHandler,
     DVPortGroupHandler,
     HostPortGroupHandler,
+    HostPortGroupNotFound,
     NetworkHandler,
     NetworkNotFound,
     PortGroupNotFound,
@@ -137,9 +139,9 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
 
         if remove_network:
             vm.connect_vnic_to_network(vnic, default_network, self._logger)
-            with self._network_lock:
-                if self._vsphere_client:
-                    self._vsphere_client.delete_tags(network)
+            if self._vsphere_client:
+                self._vsphere_client.delete_tags(network)
+            with suppress(HostPortGroupNotFound):
                 port_group = self._get_port_group(network, vm)
                 port_group.destroy()
         msg = f"Removing VLAN {vlan_id} successfully completed"
