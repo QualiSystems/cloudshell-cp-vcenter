@@ -220,11 +220,10 @@ class VSphereSDKHandler:
         except NotFound:
             self._logger.debug(f"Tag {tag_id} doesn't exist. ")
 
-    def delete_tags(self, obj: OBJECTS_WITH_TAGS) -> None:
+    def delete_tags(self, obj):
         """Delete tags if it used ONLY in current reservation."""
         tag_to_objects_mapping = {}
         pattern_objects_list = None
-        get_attached = self._vsphere_client.tagging.TagAssociation.list_attached_objects
         for tag_id in self._get_attached_tags(obj=obj):
             tag_model = self._vsphere_client.tagging.Tag.get(tag_id)
             category_model = self._vsphere_client.tagging.Category.get(
@@ -232,11 +231,23 @@ class VSphereSDKHandler:
             )
             self._logger.debug(f"TagID: {tag_id}, Category: {category_model.name}")
             if category_model.name == VCenterTagsManager.DefaultTagNames.sandbox_id:
-                pattern_objects_list = get_attached(tag_id=tag_id)
-                self._logger.debug(f"TagID to delete: {tag_id}")
-                self._delete_tag(tag_id)
+                try:
+                    pattern_objects_list = self._vsphere_client.tagging.TagAssociation.list_attached_objects(  # noqa: E501
+                        tag_id=tag_id
+                    )
+                    self._logger.debug(f"TagID to delete: {tag_id}")
+                    self._delete_tag(tag_id)
+                except NotFound:
+                    self._logger.debug(f"Pattern TagID {tag_id} doesn't exist.")
+                    break
             else:
-                tag_to_objects_mapping[tag_id] = get_attached(tag_id=tag_id)
+                try:
+                    candidate_objects_list = self._vsphere_client.tagging.TagAssociation.list_attached_objects(  # noqa: E501
+                        tag_id=tag_id
+                    )
+                    tag_to_objects_mapping.update({tag_id: candidate_objects_list})
+                except NotFound:
+                    self._logger.debug(f"Candidate TagID {tag_id} doesn't exist.")
 
         for tag_id, objects_list in tag_to_objects_mapping.items():
             if objects_list == pattern_objects_list:
