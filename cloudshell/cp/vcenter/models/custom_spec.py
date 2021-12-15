@@ -160,9 +160,6 @@ class WindowsServerDomain:
     password: str = field(default=Empty, repr=False)
 
 
-license()
-
-
 @dataclass
 class WindowsCustomizationSpecParams(CustomizationSpecParams):
     networks: NetworksList = field(default_factory=NetworksList)
