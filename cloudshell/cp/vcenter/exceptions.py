@@ -42,5 +42,17 @@ class DeployOVFToolException(BaseVCenterException):
     """Failed to deploy VM via OVF tool."""
 
 
+class VSphereAPIConnectionException(BaseVCenterException):
+    """Failed to create API client due to some specific reason."""
+
+
+class VSphereAPINotFoundException(BaseVCenterException):
+    """Indicates that a specified element could not be found."""
+
+
+class VSphereAPIAlreadyExistsException(BaseVCenterException):
+    """Indicates that an attempt was made to create an entity that already exists."""
+
+
 class TagFaultException(BaseVCenterException):
-    """Failed to create/find tag."""
+    """Failed to create/find tag or category."""
