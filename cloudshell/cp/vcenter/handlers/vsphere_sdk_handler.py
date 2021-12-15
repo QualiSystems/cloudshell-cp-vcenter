@@ -129,7 +129,7 @@ class VSphereSDKHandler:
                     self._logger.debug(
                         f"TagName: {tag_info['name']}, TagID: {tag_info['id']}"
                     )
-                    result.update({tag_info["name"]: tag_info["id'"]})
+                    result.update({tag_info["name"]: tag_info["id"]})
             else:
                 self._logger.info("No Tag Found...")
         except VSphereAPINotFoundException as err:

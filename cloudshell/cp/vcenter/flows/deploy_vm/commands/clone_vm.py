@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import suppress
 from logging import Logger
 
 from cloudshell.cp.core.cancellation_manager import CancellationContextManager
@@ -7,7 +8,10 @@ from cloudshell.cp.core.rollback import RollbackCommand, RollbackCommandsManager
 
 from cloudshell.cp.vcenter.handlers.config_spec_handler import ConfigSpecHandler
 from cloudshell.cp.vcenter.handlers.datastore_handler import DatastoreHandler
-from cloudshell.cp.vcenter.handlers.folder_handler import FolderHandler
+from cloudshell.cp.vcenter.handlers.folder_handler import (
+    FolderHandler,
+    FolderIsNotEmpty,
+)
 from cloudshell.cp.vcenter.handlers.resource_pool import ResourcePoolHandler
 from cloudshell.cp.vcenter.handlers.snapshot_handler import SnapshotHandler
 from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
@@ -60,3 +64,5 @@ class CloneVMCommand(RollbackCommand):
     def rollback(self):
         if self._cloned_vm:
             self._cloned_vm.delete(self._logger)
+            with suppress(FolderIsNotEmpty):
+                self._vm_folder.destroy(self._logger)
