@@ -46,10 +46,7 @@ def get_vm_web_console(
     dc = DcHandler.get_dc(resource_conf.default_datacenter, si)
     vm = dc.get_vm_by_uuid(deployed_app.vmdetails.uid)
 
-    # noinspection PyUnresolvedReferences
-    ssl._create_default_https_context = ssl._create_unverified_context
-    vc_cert = ssl.get_server_certificate((resource_conf.address, HTTPS_PORT))
-    # noinspection PyTypeChecker
+    vc_cert = ssl.get_server_certificate((resource_conf.address, HTTPS_PORT)).encode()
     vc_pem = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, vc_cert)
     thumbprint = vc_pem.digest("sha1")
 
