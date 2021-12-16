@@ -83,10 +83,10 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
 
     def _set_vlan(self, action: ConnectivityActionModel) -> ConnectivityActionResult:
         vlan_id = action.connection_params.vlan_id
-        self._logger.info(f"Start setting vlan {vlan_id}")
         vc_conf = self._resource_conf
         dc = DcHandler.get_dc(vc_conf.default_datacenter, self._si)
         vm = dc.get_vm_by_uuid(action.custom_action_attrs.vm_uuid)
+        self._logger.info(f"Start setting vlan {vlan_id} for the {vm}")
 
         dc.get_network(vc_conf.holding_network)  # validate that it exists
         port_group_name = generate_port_group_name(
@@ -99,17 +99,18 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
             dc, vm, port_group_name, vlan_id, action.connection_params.mode
         )
         try:
-            vnic = get_available_vnic(
-                vm,
-                vc_conf.holding_network,
-                vc_conf.reserved_networks,
-                action.custom_action_attrs.vnic,
-            )
-            if isinstance(port_group, DVPortGroupHandler):
-                vm.connect_vnic_to_port_group(vnic, port_group, self._logger)
-            elif isinstance(port_group, HostPortGroupHandler):
-                network = dc.get_network(port_group.name)
-                vm.connect_vnic_to_network(vnic, network, self._logger)
+            with self._network_lock:
+                vnic = get_available_vnic(
+                    vm,
+                    vc_conf.holding_network,
+                    vc_conf.reserved_networks,
+                    action.custom_action_attrs.vnic,
+                )
+                if isinstance(port_group, DVPortGroupHandler):
+                    vm.connect_vnic_to_port_group(vnic, port_group, self._logger)
+                elif isinstance(port_group, HostPortGroupHandler):
+                    network = dc.get_network(port_group.name)
+                    vm.connect_vnic_to_network(vnic, network, self._logger)
         except Exception:
             port_group.destroy()
             raise
