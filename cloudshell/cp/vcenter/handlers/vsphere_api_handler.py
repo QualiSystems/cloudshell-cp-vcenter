@@ -8,6 +8,7 @@ import requests
 import urllib3
 
 from cloudshell.cp.vcenter.exceptions import (
+    TagFaultException,
     VSphereAPIAlreadyExistsException,
     VSphereAPIConnectionException,
     VSphereAPINotFoundException,
@@ -113,6 +114,8 @@ class VSphereAutomationAPI(BaseAPIClient):
                 raise VSphereAPIAlreadyExistsException(
                     f"Category {name} already exists."
                 )
+            elif err.response.status_code == 403:
+                raise TagFaultException("Not enough privileges to create a category.")
         else:
             return res
 
@@ -134,7 +137,9 @@ class VSphereAutomationAPI(BaseAPIClient):
         try:
             res = self._do_get(path=f"tagging/category/id:{category_id}")
         except requests.exceptions.HTTPError as err:
-            if err.response.status_code == 404:
+            if err.response.status_code == 403:
+                raise TagFaultException("Not enough privileges to read the category.")
+            elif err.response.status_code == 404:
                 raise VSphereAPINotFoundException(
                     f"Category with ID {category_id} doesn't exist."
                 )
@@ -149,7 +154,11 @@ class VSphereAutomationAPI(BaseAPIClient):
         try:
             self._do_delete(path=f"tagging/category/id:{category_id}")
         except requests.exceptions.HTTPError as err:
-            if err.response.status_code == 404:
+            if err.response.status_code == 401:
+                raise TagFaultException("User can not be authenticated..")
+            elif err.response.status_code == 403:
+                raise TagFaultException("Not enough privileges to delete the category.")
+            elif err.response.status_code == 404:
                 raise VSphereAPINotFoundException(
                     f"Category with ID {category_id} doesn't exist."
                 )
@@ -170,6 +179,8 @@ class VSphereAutomationAPI(BaseAPIClient):
                 raise VSphereAPIAlreadyExistsException(
                     f"Tag {name} already exists in Category ID {category_id}."
                 )
+            elif err.response.status_code == 403:
+                raise TagFaultException("Not enough privileges to create tag.")
             elif err.response.status_code == 404:
                 raise VSphereAPINotFoundException(
                     f"Category with ID {category_id} doesn't exist."
@@ -190,7 +201,9 @@ class VSphereAutomationAPI(BaseAPIClient):
             )
 
         except requests.exceptions.HTTPError as err:
-            if err.response.status_code == 404:
+            if err.response.status_code == 403:
+                raise TagFaultException("Not enough privileges to read the category.")
+            elif err.response.status_code == 404:
                 raise VSphereAPINotFoundException(
                     f"Category with ID {category_id} doesn't exist."
                 )
@@ -206,7 +219,9 @@ class VSphereAutomationAPI(BaseAPIClient):
         try:
             res = self._do_get(path=f"tagging/tag/id:{tag_id}")
         except requests.exceptions.HTTPError as err:
-            if err.response.status_code == 404:
+            if err.response.status_code == 403:
+                raise TagFaultException("Not enough privileges to read the tag.")
+            elif err.response.status_code == 404:
                 raise VSphereAPINotFoundException(
                     f"Tag with ID {tag_id} doesn't exist."
                 )
@@ -225,10 +240,18 @@ class VSphereAutomationAPI(BaseAPIClient):
             "object_id": {"id": obj_id, "type": obj_type},
             "tag_ids": tag_ids,
         }
-        self._do_post(
-            path="tagging/tag-association?~action=attach-multiple-tags-to-object",
-            json=create_association,
-        )
+        try:
+            self._do_post(
+                path="tagging/tag-association?~action=attach-multiple-tags-to-object",
+                json=create_association,
+            )
+        except requests.exceptions.HTTPError as err:
+            if err.response.status_code == 401:
+                raise TagFaultException("User can not be authenticated..")
+            elif err.response.status_code == 403:
+                raise TagFaultException(
+                    f"Not enough privileges to read the object {obj_type}."
+                )
 
     @Decorators.get_data
     def list_attached_tags(self, obj_id: str, obj_type: str):
@@ -238,11 +261,21 @@ class VSphereAutomationAPI(BaseAPIClient):
               The list will only contain those tags
               for which you have the read privileges.
         """
-        get_association = {"object_id": {"id": obj_id, "type": obj_type}}
-        return self._do_post(
-            path="tagging/tag-association?~action=list-attached-tags",
-            json=get_association,
-        )
+        try:
+            get_association = {"object_id": {"id": obj_id, "type": obj_type}}
+            res = self._do_post(
+                path="tagging/tag-association?~action=list-attached-tags",
+                json=get_association,
+            )
+        except requests.exceptions.HTTPError as err:
+            if err.response.status_code == 401:
+                raise TagFaultException("User can not be authenticated..")
+            elif err.response.status_code == 403:
+                raise TagFaultException(
+                    f"Not enough privileges to read the object {obj_type}."
+                )
+        else:
+            return res
 
     @Decorators.get_data
     def list_attached_objects(self, tag_id: str):
@@ -256,7 +289,11 @@ class VSphereAutomationAPI(BaseAPIClient):
                 path=f"tagging/tag-association/id:{tag_id}?~action=list-attached-objects",  # noqa: E501
             )
         except requests.exceptions.HTTPError as err:
-            if err.response.status_code == 404:
+            if err.response.status_code == 401:
+                raise TagFaultException("User can not be authenticated..")
+            elif err.response.status_code == 403:
+                raise TagFaultException("Not enough privileges to read the tag.")
+            elif err.response.status_code == 404:
                 raise VSphereAPINotFoundException(
                     f"Tag with ID {tag_id} doesn't exist."
                 )
@@ -271,7 +308,11 @@ class VSphereAutomationAPI(BaseAPIClient):
         try:
             self._do_delete(path=f"tagging/tag/id:{tag_id}")
         except requests.exceptions.HTTPError as err:
-            if err.response.status_code == 404:
+            if err.response.status_code == 401:
+                raise TagFaultException("User can not be authenticated..")
+            elif err.response.status_code == 403:
+                raise TagFaultException("Not enough privileges to delete the tag.")
+            elif err.response.status_code == 404:
                 raise VSphereAPINotFoundException(
                     f"Tag with ID {tag_id} doesn't exist."
                 )
