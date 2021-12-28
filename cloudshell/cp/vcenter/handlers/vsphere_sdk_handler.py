@@ -34,7 +34,7 @@ class VSphereSDKHandler:
     _logger: Logger
 
     # From this version vCenter has vSphere Automation API that allows to work with tags
-    VCENTER_VERSION = "6.0.0"
+    VCENTER_VERSION = "6.5.0"
 
     POSSIBLE_TYPES = [
         "Network",
