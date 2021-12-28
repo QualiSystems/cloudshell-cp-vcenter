@@ -64,7 +64,6 @@ jobs:
         run: |
           python -m pip install pip -U
           pip install tox
-          pip install "virtualenv<20.11"
       - name: Run pre-commit
         env:
           TOXENV: pre-commit
