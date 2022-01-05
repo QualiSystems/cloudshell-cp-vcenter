@@ -3,6 +3,7 @@ from __future__ import annotations
 import ipaddress
 import re
 import time
+from contextlib import nullcontext
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -27,7 +28,7 @@ class VMNetworkActions:
         self,
         resource_conf: VCenterResourceConfig,
         logger: Logger,
-        cancellation_manager: CancellationContextManager,
+        cancellation_manager: CancellationContextManager | nullcontext = nullcontext(),
     ):
         self._resource_conf = resource_conf
         self._logger = logger
