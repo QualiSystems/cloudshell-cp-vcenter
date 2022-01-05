@@ -3,7 +3,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Union
 
-from cloudshell.api.cloudshell_api import CloudShellAPISession
+from cloudshell.api.cloudshell_api import CloudShellAPISession, ResourceInfo
 from cloudshell.shell.core.driver_context import (
     AutoLoadCommandContext,
     ResourceCommandContext,
@@ -110,4 +110,25 @@ class VCenterResourceConfig(GenericResourceConfig):
         # return type is VCenterResourceConfig not GenericResourceConfig
         return super().from_context(
             context=context, shell_name=shell_name, api=api, supported_os=supported_os
+        )
+
+    @classmethod
+    def from_cs_resource_details(
+        cls,
+        details: ResourceInfo,
+        shell_name: str = SHELL_NAME,
+        api=None,
+        supported_os=None,
+    ) -> VCenterResourceConfig:
+        attrs = {attr.Name: attr.Value for attr in details.ResourceAttributes}
+        return cls(
+            shell_name=shell_name,
+            name=details.Name,
+            fullname=details.Name,
+            address=details.Address,
+            family_name=details.ResourceFamilyName,
+            attributes=attrs,
+            supported_os=supported_os,
+            api=api,
+            cs_resource_id=details.UniqeIdentifier,
         )
