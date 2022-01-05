@@ -14,3 +14,4 @@ cryptography>=2.9.2,<3.3 ; python_version <= "3.7"
 cryptography>=3.3,<37 ; python_version > "3.7"
 pyOpenSSL>19,<21 ; python_version <= "3.7"
 pyOpenSSL~=21.0 ; python_version > "3.7"
+typing_extensions~=3.0
