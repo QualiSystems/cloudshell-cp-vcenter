@@ -1,4 +1,5 @@
 SHELL_NAME = "VMware vCenter Cloud Provider 2G"
+STATIC_SHELL_NAME = "Generic Static vCenter VM 2G"
 
 VM_FROM_VM_DEPLOYMENT_PATH = f"{SHELL_NAME}.vCenter VM From VM 2G"
 VM_FROM_TEMPLATE_DEPLOYMENT_PATH = f"{SHELL_NAME}.vCenter VM From Template 2G"
