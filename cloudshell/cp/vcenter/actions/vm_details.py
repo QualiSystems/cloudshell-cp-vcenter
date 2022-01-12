@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import functools
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 
 from cloudshell.cp.core.request_actions.models import (
     VmDetailsData,
@@ -21,6 +20,7 @@ from cloudshell.cp.vcenter.models.deploy_app import (
 )
 from cloudshell.cp.vcenter.models.deployed_app import (
     BaseVCenterDeployedApp,
+    StaticVCenterDeployedApp,
     VMFromImageDeployedApp,
     VMFromLinkedCloneDeployedApp,
     VMFromTemplateDeployedApp,
@@ -36,16 +36,9 @@ if TYPE_CHECKING:
     from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 
 
-def handle_vm_details_error(func):
-    @functools.wraps(func)
-    def wrapper(self, virtual_machine, *args, **kwargs):
-        try:
-            return func(self, virtual_machine, *args, **kwargs)
-        except Exception as e:
-            self._logger.exception("Failed to created VM Details:")
-            return VmDetailsData(appName=virtual_machine.name, errorMessage=str(e))
-
-    return wrapper
+APP_MODEL_TYPES = Union[
+    BaseVCenterDeployApp, BaseVCenterDeployedApp, StaticVCenterDeployedApp
+]
 
 
 class VMDetailsActions(VMNetworkActions):
@@ -70,14 +63,18 @@ class VMDetailsActions(VMNetworkActions):
         ]
 
     def _prepare_vm_network_data(
-        self, vm: VmHandler, deploy_app: BaseVCenterDeployApp | BaseVCenterDeployedApp
+        self,
+        vm: VmHandler,
+        app_model: APP_MODEL_TYPES,
     ) -> list[VmDetailsNetworkInterface]:
         """Prepare VM Network data."""
         self._logger.info(f"Preparing VM Details network data for the {vm}")
         network_interfaces = []
 
-        if deploy_app.wait_for_ip and vm.power_state is PowerState.ON:
-            primary_ip = self.get_vm_ip(vm._entity, ip_regex=deploy_app.ip_regex)
+        if getattr(app_model, "wait_for_ip", None) and vm.power_state is PowerState.ON:
+            primary_ip = self.get_vm_ip(vm._entity, ip_regex=app_model.ip_regex)
+        elif isinstance(app_model, StaticVCenterDeployedApp):
+            primary_ip = self.get_vm_ip(vm._entity)
         else:
             primary_ip = None
 
@@ -109,51 +106,33 @@ class VMDetailsActions(VMNetworkActions):
 
         return network_interfaces
 
-    @handle_vm_details_error
+    @staticmethod
     def prepare_vm_from_vm_details(
-        self, vm: VmHandler, deploy_app: VMFromVMDeployApp | VMFromVMDeployedApp
-    ) -> VmDetailsData:
-        vm_instance_data = [
+        deploy_app: VMFromVMDeployApp | VMFromVMDeployedApp,
+    ) -> list[VmDetailsProperty]:
+        return [
             VmDetailsProperty(
                 key="Cloned VM Name",
                 value=deploy_app.vcenter_vm,
             ),
-        ] + self._prepare_common_vm_instance_data(vm)
+        ]
 
-        vm_network_data = self._prepare_vm_network_data(vm, deploy_app)
-        return VmDetailsData(
-            appName=vm.name,
-            vmInstanceData=vm_instance_data,
-            vmNetworkData=vm_network_data,
-        )
-
-    @handle_vm_details_error
+    @staticmethod
     def prepare_vm_from_template_details(
-        self,
-        vm: VmHandler,
         deploy_app: VMFromTemplateDeployApp | VMFromTemplateDeployedApp,
-    ) -> VmDetailsData:
-        vm_instance_data = [
+    ) -> list[VmDetailsProperty]:
+        return [
             VmDetailsProperty(
                 key="Template Name",
                 value=deploy_app.vcenter_template,
             ),
-        ] + self._prepare_common_vm_instance_data(vm)
+        ]
 
-        vm_network_data = self._prepare_vm_network_data(vm, deploy_app)
-        return VmDetailsData(
-            appName=vm.name,
-            vmInstanceData=vm_instance_data,
-            vmNetworkData=vm_network_data,
-        )
-
-    @handle_vm_details_error
+    @staticmethod
     def prepare_vm_from_clone_details(
-        self,
-        vm: VmHandler,
         deploy_app: VMFromLinkedCloneDeployApp | VMFromLinkedCloneDeployedApp,
-    ) -> VmDetailsData:
-        vm_instance_data = [
+    ) -> list[VmDetailsProperty]:
+        return [
             VmDetailsProperty(
                 key="Cloned VM Name",
                 value=(
@@ -161,49 +140,63 @@ class VMDetailsActions(VMNetworkActions):
                     f"(snapshot: {deploy_app.vcenter_vm_snapshot})"
                 ),
             ),
-        ] + self._prepare_common_vm_instance_data(vm)
+        ]
 
-        vm_network_data = self._prepare_vm_network_data(vm, deploy_app)
-        return VmDetailsData(
-            appName=vm.name,
-            vmInstanceData=vm_instance_data,
-            vmNetworkData=vm_network_data,
-        )
-
-    @handle_vm_details_error
+    @staticmethod
     def prepare_vm_from_image_details(
-        self, vm: VmHandler, deploy_app: VMFromImageDeployApp | VMFromImageDeployedApp
-    ) -> VmDetailsData:
-        vm_instance_data = [
+        deploy_app: VMFromImageDeployApp | VMFromImageDeployedApp,
+    ) -> list[VmDetailsProperty]:
+        return [
             VmDetailsProperty(
                 key="Base Image Name",
                 value=deploy_app.vcenter_image.split("/")[-1],
             ),
-        ] + self._prepare_common_vm_instance_data(vm)
+        ]
 
-        vm_network_data = self._prepare_vm_network_data(vm, deploy_app)
-        return VmDetailsData(
-            appName=vm.name,
-            vmInstanceData=vm_instance_data,
-            vmNetworkData=vm_network_data,
-        )
+    @staticmethod
+    def prepare_static_vm_details(
+        deployed_app: StaticVCenterDeployedApp,
+    ) -> list[VmDetailsProperty]:
+        return []
 
-    def create(
-        self, vm: VmHandler, app_model: BaseVCenterDeployApp | BaseVCenterDeployedApp
-    ) -> VmDetailsData:
+    def _get_extra_instance_details(
+        self, app_model: APP_MODEL_TYPES
+    ) -> list[VmDetailsProperty]:
         if isinstance(app_model, (VMFromVMDeployApp, VMFromVMDeployedApp)):
-            res = self.prepare_vm_from_vm_details(vm, app_model)
+            res = self.prepare_vm_from_vm_details(app_model)
         elif isinstance(
             app_model, (VMFromTemplateDeployApp, VMFromTemplateDeployedApp)
         ):
-            res = self.prepare_vm_from_template_details(vm, app_model)
+            res = self.prepare_vm_from_template_details(app_model)
         elif isinstance(
             app_model, (VMFromLinkedCloneDeployApp, VMFromLinkedCloneDeployedApp)
         ):
-            res = self.prepare_vm_from_clone_details(vm, app_model)
+            res = self.prepare_vm_from_clone_details(app_model)
         elif isinstance(app_model, (VMFromImageDeployApp, VMFromImageDeployedApp)):
-            res = self.prepare_vm_from_image_details(vm, app_model)
+            res = self.prepare_vm_from_image_details(app_model)
+        elif isinstance(app_model, StaticVCenterDeployedApp):
+            res = self.prepare_static_vm_details(app_model)
         else:
             raise NotImplementedError(f"Not supported type {type(app_model)}")
-        self._logger.info(f"VM Details: {res}")
         return res
+
+    def create(
+        self,
+        vm: VmHandler,
+        app_model: APP_MODEL_TYPES,
+    ) -> VmDetailsData:
+        try:
+            instance_details = self._prepare_common_vm_instance_data(vm)
+            instance_details.extend(self._get_extra_instance_details(app_model))
+            network_details = self._prepare_vm_network_data(vm, app_model)
+        except Exception as e:
+            self._logger.exception("Failed to created VM Details:")
+            details = VmDetailsData(appName=app_model.name, errorMessage=str(e))
+        else:
+            details = VmDetailsData(
+                appName=app_model.name,
+                vmInstanceData=instance_details,
+                vmNetworkData=network_details,
+            )
+        self._logger.info(f"VM Details: {details}")
+        return details

@@ -12,6 +12,7 @@ from cloudshell.cp.vcenter.models.base_deployment_app import (
     ResourceFloatAttrRODeploymentPath,
     ResourceIntAttrRODeploymentPath,
     ResourceListAttrRODeploymentPath,
+    StaticVCenterDeploymentAppAttributeNames,
     VCenterDeploymentAppAttributeNames,
     VCenterVMFromCloneDeployAppAttributeNames,
     VCenterVMFromImageDeploymentAppAttributeNames,
@@ -73,6 +74,16 @@ class VMFromLinkedCloneDeployedApp(VMFromVMDeployedApp):
 
     DEPLOYMENT_PATH = constants.VM_FROM_LINKED_CLONE_DEPLOYMENT_PATH
     vcenter_vm_snapshot = ResourceAttrRODeploymentPath(ATTR_NAMES.vcenter_vm_snapshot)
+
+
+class StaticVCenterDeployedApp(DeployedApp):
+    ATTR_NAMES = StaticVCenterDeploymentAppAttributeNames
+
+    DEPLOYMENT_PATH = constants.STATIC_SHELL_NAME
+    vm_name = ResourceAttrRODeploymentPath(ATTR_NAMES.vm_name)
+    vcenter_resource_name = ResourceAttrRODeploymentPath(
+        ATTR_NAMES.vcenter_resource_name
+    )
 
 
 class VCenterGetVMDetailsRequestActions(GetVMDetailsRequestActions):
