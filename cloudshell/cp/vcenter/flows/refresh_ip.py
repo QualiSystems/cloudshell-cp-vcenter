@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from logging import Logger
 
 from cloudshell.cp.core.cancellation_manager import CancellationContextManager
@@ -5,12 +7,15 @@ from cloudshell.cp.core.cancellation_manager import CancellationContextManager
 from cloudshell.cp.vcenter.actions.vm_network import VMNetworkActions
 from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
 from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
-from cloudshell.cp.vcenter.models.deployed_app import BaseVCenterDeployedApp
+from cloudshell.cp.vcenter.models.deployed_app import (
+    BaseVCenterDeployedApp,
+    StaticVCenterDeployedApp,
+)
 from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 
 
 def refresh_ip(
-    deployed_app: BaseVCenterDeployedApp,
+    deployed_app: BaseVCenterDeployedApp | StaticVCenterDeployedApp,
     resource_conf: VCenterResourceConfig,
     cancellation_manager: CancellationContextManager,
     logger: Logger,
@@ -22,8 +27,8 @@ def refresh_ip(
     ip = VMNetworkActions(resource_conf, logger, cancellation_manager).get_vm_ip(
         vm._entity,
         default_net._entity,
-        deployed_app.ip_regex,
-        deployed_app.refresh_ip_timeout,
+        getattr(deployed_app, "ip_regex", None),
+        getattr(deployed_app, "refresh_ip_timeout", None),
     )
     if ip != deployed_app.private_ip:
         deployed_app.update_private_ip(deployed_app.name, ip)
