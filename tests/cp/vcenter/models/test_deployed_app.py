@@ -13,46 +13,7 @@ def test_static_deploy_app(cs_api):
     requests = {
         "items": [
             {
-                "appRequestJson": {
-                    "name": "win-static",
-                    "description": None,
-                    "logicalResource": {
-                        "family": None,
-                        "model": None,
-                        "driver": None,
-                        "description": None,
-                        "attributes": [],
-                    },
-                    "deploymentService": {
-                        "cloudProviderName": None,
-                        "name": "win-static",
-                        "model": STATIC_SHELL_NAME,
-                        "driver": STATIC_SHELL_NAME,
-                        "attributes": [
-                            {
-                                "name": f"{STATIC_SHELL_NAME}.VM Name",
-                                "value": vm_name,
-                            },
-                            {
-                                "name": f"{STATIC_SHELL_NAME}.vCenter Resource Name",
-                                "value": vcenter_name,
-                            },
-                            {
-                                "name": f"{STATIC_SHELL_NAME}.User",
-                                "value": "",
-                            },
-                            {
-                                "name": f"{STATIC_SHELL_NAME}.Password",
-                                "value": "",
-                            },
-                            {
-                                "name": f"{STATIC_SHELL_NAME}.Public IP",
-                                "value": "",
-                            },
-                            {"name": "Execution Server Selector", "value": ""},
-                        ],
-                    },
-                },
+                "appRequestJson": "",
                 "deployedAppJson": {
                     "name": "win-static",
                     "family": "CS_GenericAppFamily",
