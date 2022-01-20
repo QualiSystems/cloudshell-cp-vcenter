@@ -1,7 +1,7 @@
 cloudshell-automation-api~=2021.0
 cloudshell-shell-core~=5.1
 cloudshell-shell-standards~=1.2
-cloudshell-cp-core~=2.3
+cloudshell-cp-core~=2.4
 cloudshell-logging~=1.1
 cloudshell-shell-connectivity-flow~=3.0
 requests~=2.26.0
