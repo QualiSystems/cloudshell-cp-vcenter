@@ -186,15 +186,20 @@ class VMDetailsActions(VMNetworkActions):
         app_model: APP_MODEL_TYPES,
     ) -> VmDetailsData:
         try:
+            app_name = app_model.app_name  # DeployApp
+        except AttributeError:
+            app_name = app_model.name  # DeployedApp
+
+        try:
             instance_details = self._prepare_common_vm_instance_data(vm)
             instance_details.extend(self._get_extra_instance_details(app_model))
             network_details = self._prepare_vm_network_data(vm, app_model)
         except Exception as e:
             self._logger.exception("Failed to created VM Details:")
-            details = VmDetailsData(appName=app_model.name, errorMessage=str(e))
+            details = VmDetailsData(appName=app_name, errorMessage=str(e))
         else:
             details = VmDetailsData(
-                appName=app_model.name,
+                appName=app_name,
                 vmInstanceData=instance_details,
                 vmNetworkData=network_details,
             )
