@@ -37,10 +37,7 @@ class VCenterDeployVMFromImageFlow(AbstractVCenterDeployVMFlow):
             self._logger,
             self._cancellation_manager,
         )
-        return vm_details_actions.prepare_vm_from_image_details(
-            virtual_machine=deployed_vm,
-            deploy_app=deploy_app,
-        )
+        return vm_details_actions.create(deployed_vm, deploy_app)
 
     def _create_vm(
         self,
