@@ -234,7 +234,8 @@ class AbstractVCenterDeployVMFromTemplateFlow(AbstractVCenterDeployVMFlow):
 
         if spec:
             num_of_nics = len(vm_template.vnics)
-            spec.set_custom_spec_params(custom_spec_params, num_of_nics)
+            if custom_spec_params:
+                spec.set_custom_spec_params(custom_spec_params, num_of_nics)
 
             if deploy_app.customization_spec:
                 self._si.overwrite_customization_spec(spec)
