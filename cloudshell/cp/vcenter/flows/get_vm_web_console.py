@@ -14,7 +14,7 @@ CONSOLE_PORT = 9443
 HTTPS_PORT = 443
 VCENTER_FQDN_KEY = "VirtualCenter.FQDN"
 
-VCENTER_NEW_CONSOLE_LINK_VERSION = "6.7.0"
+VCENTER_NEW_CONSOLE_LINK_VERSION = "6.5.0"
 
 VM_WEB_CONSOLE_OLD_LINK_TPL = (
     "https://{vcenter_ip}:9443/vsphere-client/webconsole.html?"
