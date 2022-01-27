@@ -255,14 +255,18 @@ class VmHandler(ManagedEntityHandler):
         if self._entity.guest.toolsStatus != vim.vm.GuestInfo.ToolsStatus.toolsOk:
             raise VMWareToolsNotInstalled(self)
 
-    def power_on(self, logger: Logger, task_waiter: VcenterTaskWaiter | None = None):
+    def power_on(
+        self, logger: Logger, task_waiter: VcenterTaskWaiter | None = None
+    ) -> datetime:
         if self.power_state is PowerState.ON:
             logger.info("VM already powered on")
+            return datetime.now()
         else:
             logger.info(f"Powering on the {self}")
             task = self._entity.PowerOn()
             task_waiter = task_waiter or VcenterTaskWaiter(logger)
             task_waiter.wait_for_task(task)
+            return task.info.completeTime
 
     def power_off(
         self, soft: bool, logger: Logger, task_waiter: VcenterTaskWaiter | None = None
