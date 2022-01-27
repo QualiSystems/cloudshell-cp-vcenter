@@ -247,6 +247,8 @@ class CustomLinuxSpecHandler(CustomSpecHandler):
         if not isinstance(custom_spec_params, LinuxCustomizationSpecParams):
             raise WrongCustomSpecParams(custom_spec_params, self)
 
+        super().set_custom_spec_params(custom_spec_params, num_vm_nics)
+
         if custom_spec_params.computer_name is not Empty:
             self.spec.spec.identity.hostName = vim.vm.customization.FixedName(
                 name=custom_spec_params.computer_name
