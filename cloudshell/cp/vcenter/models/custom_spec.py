@@ -135,7 +135,7 @@ class LinuxCustomizationSpecParams(CustomizationSpecParams):
 
         if "." in deploy_app.hostname:
             params.computer_name, params.domain_name = deploy_app.hostname.split(".", 1)
-        else:
+        elif deploy_app.hostname:
             params.computer_name = deploy_app.hostname
 
         if deploy_app.private_ip:
