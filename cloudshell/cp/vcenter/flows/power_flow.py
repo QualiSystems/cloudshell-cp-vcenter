@@ -1,4 +1,3 @@
-from datetime import datetime
 from logging import Logger
 
 import attr
@@ -34,11 +33,10 @@ class VCenterPowerFlow:
         else:
             self._logger.info(f"No VM Customization Spec found, powering on the {vm}")
 
-        begin_time = datetime.now()
-        vm.power_on(self._logger)
+        powered_time = vm.power_on(self._logger)
 
         if spec:
-            vm.wait_for_customization_ready(begin_time, self._logger)
+            vm.wait_for_customization_ready(powered_time, self._logger)
             si.delete_customization_spec(spec_name)
 
     def power_off(self):
