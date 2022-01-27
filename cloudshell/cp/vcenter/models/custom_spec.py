@@ -205,7 +205,7 @@ def get_custom_spec_params_class(
     vm: VmHandler,
 ) -> type[WindowsCustomizationSpecParams | LinuxCustomizationSpecParams]:
     spec_type = SpecType.from_os_name(vm.guest_id)
-    if spec_type.WINDOWS:
+    if spec_type is spec_type.WINDOWS:
         return WindowsCustomizationSpecParams
     else:
         return LinuxCustomizationSpecParams
