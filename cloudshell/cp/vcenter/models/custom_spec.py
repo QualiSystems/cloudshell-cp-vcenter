@@ -3,8 +3,9 @@ from __future__ import annotations
 from abc import abstractmethod
 from dataclasses import dataclass, field, fields, is_dataclass
 from enum import Enum
-from ipaddress import IPv4Network
 from typing import TYPE_CHECKING
+
+from netaddr import IPNetwork
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
 
@@ -85,23 +86,23 @@ class Network:
     def from_str(cls, ip: str) -> Network:
         """Create instance from str.
 
-        Example, 192.168.1.0/24  - GW would be 192.168.1.1
-                 192.168.1.0/24:192.168.1.2  - GW is specified 192.168.1.2
+        Example, 192.168.1.15/24  - GW would be 192.168.1.1
+                 192.168.1.23/24:192.168.1.2  - GW is specified 192.168.1.2
         """
         try:
             ip, gateway = ip.split(":")
         except ValueError:
             gateway = None
-        ip = IPv4Network(ip)
+        ip = IPNetwork(ip)
 
         if not gateway:
             # presume Gateway is the .1 of the same subnet as the IP
-            ip_octets = str(ip.network_address).split(".")
+            ip_octets = str(ip.ip).split(".")
             ip_octets[-1] = "1"
             gateway = ".".join(ip_octets)
 
         return cls(
-            ipv4_address=str(ip.network_address),
+            ipv4_address=str(ip.ip),
             subnet_mask=str(ip.netmask),
             default_gateway=gateway,
         )
