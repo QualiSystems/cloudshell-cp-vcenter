@@ -143,7 +143,7 @@ class VmHandler(ManagedEntityHandler):
 
     @property
     def guest_id(self) -> str | None:
-        return self._entity.guest.guestId
+        return self._entity.guest.guestId or self._entity.config.guestId
 
     @property
     def current_snapshot(self) -> SnapshotHandler | None:
