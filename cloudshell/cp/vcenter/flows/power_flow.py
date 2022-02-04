@@ -3,7 +3,7 @@ from logging import Logger
 import attr
 
 from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
-from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
+from cloudshell.cp.vcenter.handlers.si_handler import CustomSpecNotFound, SiHandler
 from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
 from cloudshell.cp.vcenter.models.deployed_app import BaseVCenterDeployedApp
 from cloudshell.cp.vcenter.resource_config import ShutdownMethod, VCenterResourceConfig
@@ -26,12 +26,14 @@ class VCenterPowerFlow:
 
         self._logger.info(f"Powering On the {vm}")
         spec_name = vm.name
-        spec = si.get_customization_spec(spec_name)
-        if spec:
+        spec = None
+        try:
+            spec = si.get_customization_spec(spec_name)
+        except CustomSpecNotFound:
+            self._logger.info(f"No VM Customization Spec found, powering on the {vm}")
+        else:
             self._logger.info(f"Adding Customization Spec to the {vm}")
             vm.add_customization_spec(spec, self._logger)
-        else:
-            self._logger.info(f"No VM Customization Spec found, powering on the {vm}")
 
         powered_time = vm.power_on(self._logger)
 
