@@ -21,7 +21,7 @@ from cloudshell.cp.core.rollback import RollbackCommandsManager
 
 from cloudshell.cp.vcenter.constants import VM_FROM_LINKED_CLONE_DEPLOYMENT_PATH
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
-from cloudshell.cp.vcenter.flows.deploy_vm.commands.clone_vm import CloneVMCommand
+from cloudshell.cp.vcenter.flows.deploy_vm.commands import CloneVMCommand
 from cloudshell.cp.vcenter.handlers.datastore_handler import DatastoreHandler
 from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
 from cloudshell.cp.vcenter.handlers.folder_handler import (
