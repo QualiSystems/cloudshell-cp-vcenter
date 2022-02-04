@@ -2,9 +2,14 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from typing import TYPE_CHECKING
+from urllib.parse import urlencode
 
 from cloudshell.cp.core.flows.deploy import AbstractDeployFlow
-from cloudshell.cp.core.request_actions.models import DeployAppResult, VmDetailsData
+from cloudshell.cp.core.request_actions.models import (
+    Attribute,
+    DeployAppResult,
+    VmDetailsData,
+)
 from cloudshell.cp.core.rollback import RollbackCommandsManager
 from cloudshell.cp.core.utils.name_generator import generate_name
 
@@ -25,6 +30,7 @@ from cloudshell.cp.vcenter.handlers.vcenter_path import VcenterPath
 from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
 from cloudshell.cp.vcenter.handlers.vsphere_sdk_handler import VSphereSDKHandler
 from cloudshell.cp.vcenter.models.custom_spec import get_custom_spec_params
+from cloudshell.cp.vcenter.utils.get_vm_web_console import get_vm_console_link
 from cloudshell.cp.vcenter.utils.task_waiter import VcenterCancellationContextTaskWaiter
 from cloudshell.cp.vcenter.utils.vm_helpers import get_vm_folder_path
 
@@ -97,6 +103,26 @@ class AbstractVCenterDeployVMFlow(AbstractDeployFlow):
         validation_actions.validate_deploy_app(deploy_app)
         validation_actions.validate_deploy_app_dc_objects(deploy_app)
 
+    def _prepare_app_attrs(
+        self, deploy_app: BaseVCenterDeployApp, vm: VmHandler
+    ) -> list[Attribute]:
+        attrs = []
+
+        web_console_attr_name = "VM Console Link"
+        if web_console_attr_name in deploy_app.attributes:
+            link = get_vm_console_link(
+                self._resource_config.address, vm._si, vm, new_version=True
+            )
+            params = {
+                "username": self._resource_config.user,
+                "password": self._resource_config.password,
+                "link": link,
+            }
+            query = urlencode(params)
+            attrs.append(Attribute(web_console_attr_name, query))
+
+        return attrs
+
     def _prepare_deploy_app_result(
         self,
         deployed_vm: VmHandler,
@@ -121,6 +147,7 @@ class AbstractVCenterDeployVMFlow(AbstractDeployFlow):
                 "auto_power_off": deploy_app.auto_power_off,
                 "auto_delete": deploy_app.auto_delete,
             },
+            deployedAppAttributes=self._prepare_app_attrs(deploy_app, deployed_vm),
         )
 
     def _get_vm_resource_pool(
