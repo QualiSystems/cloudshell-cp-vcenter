@@ -6,12 +6,18 @@ from typing import Any
 import attr
 from pyVmomi import vim
 
+from cloudshell.cp.vcenter.exceptions import BaseVCenterException
 from cloudshell.cp.vcenter.handlers.custom_spec_handler import (
     CustomSpecHandler,
     get_custom_spec_from_vim_spec,
 )
 from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 from cloudshell.cp.vcenter.utils.client_helpers import get_si
+
+
+class CustomSpecNotFound(BaseVCenterException):
+    def __init__(self, name: str):
+        super().__init__(f"Customization spec with name {name} not found.")
 
 
 @attr.s(auto_attribs=True, slots=True, frozen=True)
@@ -74,15 +80,18 @@ class SiHandler:
         try:
             spec = self._si.content.customizationSpecManager.GetCustomizationSpec(name)
         except vim.fault.NotFound:
-            return None
+            raise CustomSpecNotFound(name)
 
         custom_spec_handler = get_custom_spec_from_vim_spec(spec)
         return custom_spec_handler
 
     def duplicate_customization_spec(self, original_name: str, new_name: str):
-        self._si.content.customizationSpecManager.DuplicateCustomizationSpec(
-            name=original_name, newName=new_name
-        )
+        try:
+            self._si.content.customizationSpecManager.DuplicateCustomizationSpec(
+                name=original_name, newName=new_name
+            )
+        except vim.fault.NotFound:
+            raise CustomSpecNotFound(original_name)
 
     def overwrite_customization_spec(self, spec: CustomSpecHandler):
         self._si.content.customizationSpecManager.OverwriteCustomizationSpec(spec.spec)
