@@ -14,12 +14,13 @@ from cloudshell.cp.core.rollback import RollbackCommandsManager
 from cloudshell.cp.core.utils.name_generator import generate_name
 
 from cloudshell.cp.vcenter.actions.validation import ValidationActions
-from cloudshell.cp.vcenter.flows.deploy_vm.commands.clone_vm import CloneVMCommand
-from cloudshell.cp.vcenter.handlers.config_spec_handler import ConfigSpecHandler
-from cloudshell.cp.vcenter.handlers.custom_spec_handler import (
-    CustomSpecHandler,
-    create_custom_spec_from_spec_params,
+from cloudshell.cp.vcenter.flows.deploy_vm.commands import (
+    CloneVMCommand,
+    CreateVmCustomSpec,
+    CreateVmFolder,
 )
+from cloudshell.cp.vcenter.handlers.config_spec_handler import ConfigSpecHandler
+from cloudshell.cp.vcenter.handlers.custom_spec_handler import CustomSpecHandler
 from cloudshell.cp.vcenter.handlers.datastore_handler import DatastoreHandler
 from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
 from cloudshell.cp.vcenter.handlers.folder_handler import FolderHandler
@@ -29,7 +30,6 @@ from cloudshell.cp.vcenter.handlers.snapshot_handler import SnapshotHandler
 from cloudshell.cp.vcenter.handlers.vcenter_path import VcenterPath
 from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
 from cloudshell.cp.vcenter.handlers.vsphere_sdk_handler import VSphereSDKHandler
-from cloudshell.cp.vcenter.models.custom_spec import get_custom_spec_params
 from cloudshell.cp.vcenter.utils.get_vm_web_console import get_vm_console_link
 from cloudshell.cp.vcenter.utils.task_waiter import VcenterCancellationContextTaskWaiter
 from cloudshell.cp.vcenter.utils.vm_helpers import get_vm_folder_path
@@ -176,6 +176,18 @@ class AbstractVCenterDeployVMFlow(AbstractDeployFlow):
             deploy_app, self._resource_config, self._reservation_info.reservation_id
         )
 
+    def _get_or_create_vm_folder(
+        self, folder_path: VcenterPath, dc: DcHandler
+    ) -> FolderHandler:
+        return CreateVmFolder(
+            self._rollback_manager,
+            self._cancellation_manager,
+            dc,
+            folder_path,
+            self._vsphere_client,
+            self._logger,
+        ).execute()
+
     def _deploy(self, request_actions: DeployVMRequestActions) -> DeployAppResult:
         """Deploy VCenter VM."""
         conf = self._resource_config
@@ -204,17 +216,13 @@ class AbstractVCenterDeployVMFlow(AbstractDeployFlow):
         self._logger.info(f"Received VM resource pool: {vm_resource_pool}")
 
         with self._cancellation_manager:
-            self._logger.info(f"Creating VM folders for path: {vm_folder_path}")
-            vm_folder = dc.get_or_create_vm_folder(vm_folder_path)
-            if self._vsphere_client is not None:
-                self._vsphere_client.assign_tags(obj=vm_folder)
-
-        with self._cancellation_manager:
             vm_storage_name = deploy_app.vm_storage or conf.vm_storage
             self._logger.info(f"Getting VM storage {vm_storage_name}")
             vm_storage = dc.get_datastore(vm_storage_name)
 
         with self._rollback_manager:
+            vm_folder = self._get_or_create_vm_folder(vm_folder_path, dc)
+
             self._logger.info(f"Creating VM {vm_name}")
             deployed_vm = self._create_vm(
                 deploy_app=deploy_app,
@@ -247,28 +255,14 @@ class AbstractVCenterDeployVMFromTemplateFlow(AbstractVCenterDeployVMFlow):
     def _create_vm_customization_spec(
         self, deploy_app: BaseVCenterDeployApp, vm_template: VmHandler, vm_name: str
     ) -> CustomSpecHandler:
-        custom_spec_params = get_custom_spec_params(deploy_app, vm_template)
-
-        spec = None
-        if deploy_app.customization_spec:
-            if deploy_app.customization_spec != vm_name:
-                self._si.duplicate_customization_spec(
-                    deploy_app.customization_spec, vm_name
-                )
-            spec = self._si.get_customization_spec(vm_name)
-        elif custom_spec_params:
-            spec = create_custom_spec_from_spec_params(custom_spec_params, vm_name)
-
-        if spec:
-            num_of_nics = len(vm_template.vnics)
-            if custom_spec_params:
-                spec.set_custom_spec_params(custom_spec_params, num_of_nics)
-
-            if deploy_app.customization_spec:
-                self._si.overwrite_customization_spec(spec)
-            else:
-                self._si.create_customization_spec(spec)
-        return spec
+        return CreateVmCustomSpec(
+            self._rollback_manager,
+            self._cancellation_manager,
+            self._si,
+            deploy_app,
+            vm_template,
+            vm_name,
+        ).execute()
 
     def _get_vm_snapshot(
         self, deploy_app: BaseVCenterDeployApp, vm_template: VmHandler

@@ -1,0 +1,60 @@
+from contextlib import suppress
+
+from cloudshell.cp.core.cancellation_manager import CancellationContextManager
+from cloudshell.cp.core.rollback import RollbackCommand, RollbackCommandsManager
+
+from cloudshell.cp.vcenter.handlers.custom_spec_handler import (
+    CustomSpecHandler,
+    create_custom_spec_from_spec_params,
+)
+from cloudshell.cp.vcenter.handlers.si_handler import CustomSpecNotFound, SiHandler
+from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
+from cloudshell.cp.vcenter.models.custom_spec import get_custom_spec_params
+from cloudshell.cp.vcenter.models.deploy_app import BaseVCenterDeployApp
+
+
+class CreateVmCustomSpec(RollbackCommand):
+    def __init__(
+        self,
+        rollback_manager: RollbackCommandsManager,
+        cancellation_manager: CancellationContextManager,
+        si: SiHandler,
+        deploy_app: BaseVCenterDeployApp,
+        vm_template: VmHandler,
+        vm_name: str,
+    ):
+        super().__init__(rollback_manager, cancellation_manager)
+        self._si = si
+        self._deploy_app = deploy_app
+        self._vm_template = vm_template
+        self._vm_name = vm_name
+
+    def _execute(self, *args, **kwargs) -> CustomSpecHandler:
+        custom_spec_params = get_custom_spec_params(self._deploy_app, self._vm_template)
+
+        spec = None
+        if self._deploy_app.customization_spec:
+            if self._deploy_app.customization_spec != self._vm_name:
+                self._si.duplicate_customization_spec(
+                    self._deploy_app.customization_spec, self._vm_name
+                )
+            spec = self._si.get_customization_spec(self._vm_name)
+        elif custom_spec_params:
+            spec = create_custom_spec_from_spec_params(
+                custom_spec_params, self._vm_name
+            )
+
+        if spec:
+            num_of_nics = len(self._vm_template.vnics)
+            if custom_spec_params:
+                spec.set_custom_spec_params(custom_spec_params, num_of_nics)
+
+            if self._deploy_app.customization_spec:
+                self._si.overwrite_customization_spec(spec)
+            else:
+                self._si.create_customization_spec(spec)
+        return spec
+
+    def rollback(self):
+        with suppress(CustomSpecNotFound):
+            self._si.delete_customization_spec(self._vm_name)

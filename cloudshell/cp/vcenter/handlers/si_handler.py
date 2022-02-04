@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import suppress
 from logging import Logger
 from typing import Any
 
@@ -100,10 +101,8 @@ class SiHandler:
         self._si.content.customizationSpecManager.CreateCustomizationSpec(spec.spec)
 
     def delete_customization_spec(self, name: str):
-        try:
+        with suppress(vim.fault.NotFound):
             self._si.content.customizationSpecManager.DeleteCustomizationSpec(name=name)
-        except vim.fault.NotFound:
-            pass
 
     def query_event(self, filter_spec: vim.event.EventFilterSpec):
         # noinspection PyUnresolvedReferences

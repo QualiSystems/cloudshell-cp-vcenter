@@ -3,9 +3,7 @@ from cloudshell.cp.core.request_actions.models import VmDetailsData
 from cloudshell.cp.vcenter.actions.validation import ValidationActions
 from cloudshell.cp.vcenter.actions.vm_details import VMDetailsActions
 from cloudshell.cp.vcenter.flows.deploy_vm.base_flow import AbstractVCenterDeployVMFlow
-from cloudshell.cp.vcenter.flows.deploy_vm.commands.deploy_vm_from_image import (
-    DeployVMFromImageCommand,
-)
+from cloudshell.cp.vcenter.flows.deploy_vm.commands import DeployVMFromImageCommand
 from cloudshell.cp.vcenter.handlers.datastore_handler import DatastoreHandler
 from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
 from cloudshell.cp.vcenter.handlers.folder_handler import FolderHandler
