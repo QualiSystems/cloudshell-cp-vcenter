@@ -81,6 +81,12 @@ class SnapshotNotFoundByPath(BaseVCenterException):
         super().__init__(f"Snapshot with path '{snapshot_path}' not found for the {vm}")
 
 
+class VmIsNotPowered(BaseVCenterException):
+    def __init__(self, vm: VmHandler):
+        self.vm = vm
+        super().__init__(f"The {vm} is not powered On")
+
+
 class PowerState(Enum):
     ON = "poweredOn"
     OFF = "poweredOff"
