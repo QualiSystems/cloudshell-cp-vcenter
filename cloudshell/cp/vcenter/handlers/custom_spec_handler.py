@@ -55,6 +55,10 @@ class CustomSpecHandler(Protocol):
     def create(cls: type[T], name: str) -> T:
         ...
 
+    @property
+    def name(self) -> str:
+        return self.spec.info.name
+
     def _populate_nics(self, total_if_num: int):
         """Adding missing interfaces with DHCP."""
         for _ in range(total_if_num - len(self.spec.spec.nicSettingMap)):
