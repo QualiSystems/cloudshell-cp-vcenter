@@ -37,7 +37,10 @@ class ShutdownMethodAttrRO(ResourceAttrRO):
         val = super().__get__(instance, owner)
         if val is self:
             return val
-        return ShutdownMethod(val)
+        try:
+            return ShutdownMethod(val)
+        except ValueError:
+            return ShutdownMethod.HARD
 
 
 CONTEXT_TYPES = Union[
