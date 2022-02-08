@@ -9,10 +9,10 @@ from .from_vm import VCenterDeployVMFromVMFlow
 from cloudshell.cp.vcenter.models import deploy_app
 
 DEPLOY_APP_TO_FLOW = (
+    (deploy_app.VMFromLinkedCloneDeployApp, VCenterDeployVMFromLinkedCloneFlow),
     (deploy_app.VMFromVMDeployApp, VCenterDeployVMFromVMFlow),
     (deploy_app.VMFromImageDeployApp, VCenterDeployVMFromImageFlow),
     (deploy_app.VMFromTemplateDeployApp, VCenterDeployVMFromTemplateFlow),
-    (deploy_app.VMFromLinkedCloneDeployApp, VCenterDeployVMFromLinkedCloneFlow),
 )
 
 
