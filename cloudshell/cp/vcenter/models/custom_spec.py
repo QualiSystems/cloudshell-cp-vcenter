@@ -93,6 +93,10 @@ class Network:
             ip, gateway = ip.split(":")
         except ValueError:
             gateway = None
+        try:
+            ip.index("/")
+        except ValueError:
+            ip = f"{ip}/24"
         ip = IPNetwork(ip)
 
         if not gateway:
