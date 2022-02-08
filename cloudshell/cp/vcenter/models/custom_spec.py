@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import json
+import pkgutil
 from abc import abstractmethod
+from collections.abc import Mapping
 from dataclasses import dataclass, field, fields, is_dataclass
 from enum import Enum
-from typing import TYPE_CHECKING
+from logging import Logger
+from typing import TYPE_CHECKING, TypeVar
 
+import jsonschema
 from netaddr import IPNetwork
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
@@ -14,10 +19,44 @@ if TYPE_CHECKING:
     from cloudshell.cp.vcenter.models.deploy_app import BaseVCenterDeployApp
 
 
+T = TypeVar("T")
+
+
+def set_instance_attributes(instance, data):
+    for key, val in data.items():
+        instance_field = getattr(instance, key)
+
+        if isinstance(val, Mapping):
+            set_instance_attributes(
+                instance=instance_field,
+                data=val,
+            )
+        elif isinstance(instance_field, ObjectsList):
+            if val:
+                for obj_data in val:
+                    obj_instance = instance_field.OBJECT_CLASS()
+                    set_instance_attributes(
+                        instance=obj_instance,
+                        data=obj_data,
+                    )
+                    instance_field.append(obj_instance)
+            else:
+                setattr(instance, key, Empty)
+        else:
+            setattr(instance, key, val)
+
+
 class CustomSpecNotSupportedForOs(BaseVCenterException):
     def __init__(self, os_name: str):
         self.os_name = os_name
         msg = f"Customization specification is not supported for the OS {os_name}"
+        super().__init__(msg)
+
+
+class CustomSpecJsonParamsInvalid(BaseVCenterException):
+    def __init__(self, e_msg: str):
+        self.e_msg = e_msg
+        msg = f"Invalid Customization Spec JSON data. Validating error: {e_msg}"
         super().__init__(msg)
 
 
@@ -72,6 +111,12 @@ class CustomizationSpecParams:
         cls, deploy_app: BaseVCenterDeployApp
     ) -> CustomizationSpecParams:
         raise NotImplementedError
+
+    @classmethod
+    def from_dict(cls: type[T], custom_params: dict) -> T:
+        inst = cls()
+        set_instance_attributes(inst, custom_params)
+        return inst
 
 
 @dataclass
@@ -225,3 +270,27 @@ def get_custom_spec_params(
         class_ = get_custom_spec_params_class(vm)
         custom_spec = class_.from_deploy_app_model(deploy_app)
     return custom_spec
+
+
+def get_custom_spec_params_from_json(
+    custom_spec_params: str, vm: VmHandler, logger: Logger
+) -> WindowsCustomizationSpecParams | LinuxCustomizationSpecParams | None:
+    if not custom_spec_params:
+        return None
+
+    logger.info("Validating Customization spec JSON data")
+    spec_param_class = get_custom_spec_params_class(vm)
+
+    if issubclass(spec_param_class, WindowsCustomizationSpecParams):
+        schema_path = "../json_schemas/windows_custom_spec.json"
+    else:
+        schema_path = "../json_schemas/linux_custom_spec.json"
+
+    schema = pkgutil.get_data(__name__, schema_path)
+    instance = json.loads(custom_spec_params)
+    try:
+        jsonschema.validate(instance, json.loads(schema))
+    except jsonschema.ValidationError as e:
+        raise CustomSpecJsonParamsInvalid(e.message)
+
+    return spec_param_class.from_dict(instance)
