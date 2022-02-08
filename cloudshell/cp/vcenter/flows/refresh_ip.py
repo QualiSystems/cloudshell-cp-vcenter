@@ -7,6 +7,7 @@ from cloudshell.cp.core.cancellation_manager import CancellationContextManager
 from cloudshell.cp.vcenter.actions.vm_network import VMNetworkActions
 from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
 from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
+from cloudshell.cp.vcenter.handlers.vm_handler import VmIsNotPowered
 from cloudshell.cp.vcenter.models.deployed_app import (
     BaseVCenterDeployedApp,
     StaticVCenterDeployedApp,
@@ -24,6 +25,9 @@ def refresh_ip(
     dc = DcHandler.get_dc(resource_conf.default_datacenter, si)
     vm = dc.get_vm_by_uuid(deployed_app.vmdetails.uid)
     default_net = dc.get_network(resource_conf.holding_network)
+    if vm.power_state is not vm.power_state.ON:
+        raise VmIsNotPowered(vm)
+
     ip = VMNetworkActions(resource_conf, logger, cancellation_manager).get_vm_ip(
         vm._entity,
         default_net._entity,
