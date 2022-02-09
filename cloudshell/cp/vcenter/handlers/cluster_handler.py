@@ -65,7 +65,7 @@ class ClusterHandler(BasicClusterHostHandler):
             capacity=format_hertz(capacity, prefix=PREFIX_MHZ),
             used=format_hertz(used, prefix=PREFIX_MHZ),
             free=format_hertz(capacity - used, prefix=PREFIX_MHZ),
-            used_percentage=str(round(usage / capacity * 100)),
+            used_percentage=str(round(used / capacity * 100)),
         )
 
     @property
