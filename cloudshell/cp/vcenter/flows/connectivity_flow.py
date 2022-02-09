@@ -139,12 +139,16 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
             remove_network = is_network_generated_name(network.name)
 
         if remove_network:
-            vm.connect_vnic_to_network(vnic, default_network, self._logger)
+            if isinstance(default_network, DVPortGroupHandler):
+                vm.connect_vnic_to_port_group(vnic, default_network, self._logger)
+            else:
+                vm.connect_vnic_to_network(vnic, default_network, self._logger)
+
             if self._vsphere_client:
                 self._vsphere_client.delete_tags(network)
-            with suppress(HostPortGroupNotFound):
-                port_group = self._get_port_group(network, vm)
-                port_group.destroy()
+
+            self._remove_port_group(network, vm)
+
         msg = f"Removing VLAN {vlan_id} successfully completed"
         return ConnectivityActionResult.success_result_vm(action, msg, vnic.mac_address)
 
@@ -220,3 +224,14 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
             return network
         switch = vm.get_v_switch(self._resource_conf.default_dv_switch)
         return switch.get_port_group(network.name)
+
+    def _remove_port_group(
+        self, network: DVPortGroupHandler | NetworkHandler, vm: VmHandler
+    ):
+        if isinstance(network, DVPortGroupHandler):
+            network.destroy()
+        else:
+            switch = vm.get_v_switch(self._resource_conf.default_dv_switch)
+            with suppress(HostPortGroupNotFound):
+                pg = switch.get_port_group(network.name)
+                pg.destroy()
