@@ -367,12 +367,13 @@ class VmHandler(ManagedEntityHandler):
     def remove_snapshot(
         self,
         snapshot_path: str | VcenterPath,
+        remove_child: bool,
         logger: Logger,
         task_waiter: VcenterTaskWaiter | None = None,
     ) -> None:
         logger.info(f"Removing snapshot '{snapshot_path}' from the {self}")
         snapshot = self.get_snapshot_by_path(snapshot_path)
-        task = snapshot.remove_snapshot_task()
+        task = snapshot.remove_snapshot_task(remove_child)
         task_waiter = task_waiter or VcenterTaskWaiter(logger)
         task_waiter.wait_for_task(task)
 

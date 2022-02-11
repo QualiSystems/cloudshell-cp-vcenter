@@ -85,5 +85,5 @@ class SnapshotHandler:
     def revert_to_snapshot_task(self):
         return self._snapshot.RevertToSnapshot_Task()
 
-    def remove_snapshot_task(self):
-        return self._snapshot.RemoveSnapshot_Task(removeChildren=True)
+    def remove_snapshot_task(self, remove_child: bool):
+        return self._snapshot.RemoveSnapshot_Task(removeChildren=remove_child)
