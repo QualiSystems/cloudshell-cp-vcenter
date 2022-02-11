@@ -88,6 +88,7 @@ class SnapshotFlow:
 
         self.restore_from_snapshot(cs_api, snapshot_path)
 
-    def remove_snapshot(self, snapshot_name: str) -> None:
+    def remove_snapshot(self, snapshot_name: str, remove_child: str) -> None:
+        remove_child = remove_child.lower() == "yes"
         vm = self._get_vm()
-        vm.remove_snapshot(snapshot_name, self._logger)
+        vm.remove_snapshot(snapshot_name, remove_child, self._logger)
