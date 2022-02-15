@@ -10,7 +10,7 @@ class OVFToolScript:
         "vi://{username}:{password}@{host}/{datacenter}/host/{cluster}{resource_pool}"
     )
     RESOURCE_POOL_TPL = "/Resources/{}"
-    HIDEN_PASSWORD_TPL = "<hidden_password>"
+    HIDDEN_PASSWORD_TPL = "<hidden_password>"
 
     class KwArgs:
         NO_SSL = "--noSSLVerify"
@@ -112,7 +112,7 @@ class OVFToolScript:
         )
 
         password = (
-            OVFToolScript.HIDEN_PASSWORD_TPL if sensitive else self._vcenter_password
+            OVFToolScript.HIDDEN_PASSWORD_TPL if sensitive else self._vcenter_password
         )
 
         return self.OVF_DESTINATION_TPL.format(
