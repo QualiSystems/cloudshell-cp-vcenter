@@ -208,10 +208,15 @@ class VSphereSDKHandler:
         tag_to_objects_mapping = {}
         pattern_objects_list = None
         for tag_id in self._get_attached_tags(obj=obj):
-            tag_info = self._vsphere_client.get_tag_info(tag_id)
-            category_info = self._vsphere_client.get_category_info(
-                tag_info["category_id"]
-            )
+            try:
+                tag_info = self._vsphere_client.get_tag_info(tag_id)
+                category_info = self._vsphere_client.get_category_info(
+                    tag_info["category_id"]
+                )
+            except VSphereAPINotFoundException:
+                self._logger.debug(f"Tag {tag_id} already removede")
+                continue
+
             self._logger.debug(f"TagID: {tag_id}, Category: {category_info['name']}")
             if category_info["name"] == VCenterTagsManager.DefaultTagNames.sandbox_id:
                 try:
