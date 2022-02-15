@@ -51,7 +51,7 @@ class DeployVMFromImageCommand(RollbackCommand):
             vm_cluster=self._resource_conf.vm_cluster,
             vm_storage=self._vm_storage.name,
             vm_folder=str(self._vm_folder_path),
-            vm_resource_pool=self._vm_resource_pool.name,
+            vm_resource_pool=self._resource_conf.vm_resource_pool,
             vm_name=self._vm_name,
             vcenter_image=self._vcenter_image,
             custom_args=self._vcenter_image_arguments,
