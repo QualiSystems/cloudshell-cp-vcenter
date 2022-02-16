@@ -104,6 +104,7 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
                     vm,
                     vc_conf.holding_network,
                     vc_conf.reserved_networks,
+                    self._logger,
                     action.custom_action_attrs.vnic,
                 )
                 if isinstance(port_group, DVPortGroupHandler):
