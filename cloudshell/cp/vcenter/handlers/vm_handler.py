@@ -22,6 +22,7 @@ from cloudshell.cp.vcenter.handlers.network_handler import (
     get_network_handler,
 )
 from cloudshell.cp.vcenter.handlers.resource_pool import ResourcePoolHandler
+from cloudshell.cp.vcenter.handlers.si_handler import CustomSpecNotFound
 from cloudshell.cp.vcenter.handlers.snapshot_handler import (
     SnapshotHandler,
     SnapshotNotFoundInSnapshotTree,
@@ -185,12 +186,26 @@ class VmHandler(ManagedEntityHandler):
     def _get_devices(self):
         return self._entity.config.hardware.device
 
-    def create_vnic(self) -> VnicHandler:
+    def create_vnic(self, logger: Logger) -> VnicHandler:
+        logger.info(f"Adding a new vNIC for the {self}")
         try:
             vnic_type = self.vnics[0].vnic_type
             vnic = VnicHandler.create_new(vnic_type)
         except IndexError:
             vnic = VnicHandler.create_new()
+
+        try:
+            custom_spec = self._si.get_customization_spec(self.name)
+        except CustomSpecNotFound:
+            pass
+        else:
+            # we need to have the same number of interfaces on the VM and in the
+            # customization spec
+            logger.info(f"Adding a new vNIC to the customization spec for the {self}")
+            if custom_spec.number_of_vnics > 0:
+                custom_spec.add_new_vnic()
+                self._si.overwrite_customization_spec(custom_spec)
+
         return vnic
 
     def get_network_from_vnic(

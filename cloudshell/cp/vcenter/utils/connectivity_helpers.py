@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from logging import Logger
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
 from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
@@ -21,7 +22,11 @@ def is_network_generated_name(net_name: str):
 
 
 def get_available_vnic(
-    vm: VmHandler, default_net_name: str, reserved_networks: list[str], vnic_name=None
+    vm: VmHandler,
+    default_net_name: str,
+    reserved_networks: list[str],
+    logger: Logger,
+    vnic_name=None,
 ) -> VnicHandler:
     for vnic in vm.vnics:
         if vnic_name and vnic_name != vnic.label:
@@ -40,5 +45,5 @@ def get_available_vnic(
     else:
         if len(vm.vnics) >= 10:
             raise BaseVCenterException("Limit of vNICs per VM is 10")
-        vnic = vm.create_vnic()
+        vnic = vm.create_vnic(logger)
     return vnic

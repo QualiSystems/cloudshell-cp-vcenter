@@ -59,6 +59,10 @@ class CustomSpecHandler(Protocol):
     def name(self) -> str:
         return self.spec.info.name
 
+    @property
+    def number_of_vnics(self) -> int:
+        return len(self.spec.spec.nicSettingMap)
+
     def _populate_nics(self, total_if_num: int):
         """Adding missing interfaces with DHCP."""
         for _ in range(total_if_num - len(self.spec.spec.nicSettingMap)):
@@ -99,6 +103,13 @@ class CustomSpecHandler(Protocol):
         self, custom_spec_params: CUSTOM_SPEC_PARAM_TYPES, num_vm_nics: int
     ):
         self._set_network_params(custom_spec_params.networks, num_vm_nics)
+
+    def add_new_vnic(self):
+        adapter = vim.vm.customization.IPSettings(
+            ip=vim.vm.customization.DhcpIpGenerator()
+        )
+        adapter_mapping = vim.vm.customization.AdapterMapping(adapter=adapter)
+        self.spec.spec.nicSettingMap.append(adapter_mapping)
 
 
 class CustomWindowsSpecHandler(CustomSpecHandler):
