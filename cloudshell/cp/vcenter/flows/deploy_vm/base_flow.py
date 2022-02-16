@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from typing import TYPE_CHECKING
-from urllib.parse import urlencode
 
 from cloudshell.cp.core.flows.deploy import AbstractDeployFlow
 from cloudshell.cp.core.request_actions.models import (
@@ -30,8 +29,10 @@ from cloudshell.cp.vcenter.handlers.snapshot_handler import SnapshotHandler
 from cloudshell.cp.vcenter.handlers.vcenter_path import VcenterPath
 from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
 from cloudshell.cp.vcenter.handlers.vsphere_sdk_handler import VSphereSDKHandler
-from cloudshell.cp.vcenter.utils.get_vm_web_console import get_vm_console_link
 from cloudshell.cp.vcenter.utils.task_waiter import VcenterCancellationContextTaskWaiter
+from cloudshell.cp.vcenter.utils.vm_console_link_attr import (
+    get_deploy_app_vm_console_link_attr,
+)
 from cloudshell.cp.vcenter.utils.vm_helpers import get_vm_folder_path
 
 if TYPE_CHECKING:
@@ -108,18 +109,11 @@ class AbstractVCenterDeployVMFlow(AbstractDeployFlow):
     ) -> list[Attribute]:
         attrs = []
 
-        web_console_attr_name = "VM Console Link"
-        if web_console_attr_name in deploy_app.attributes:
-            link = get_vm_console_link(
-                self._resource_config.address, vm._si, vm, new_version=True
-            )
-            params = {
-                "username": self._resource_config.user,
-                "password": self._resource_config.password,
-                "link": link,
-            }
-            query = urlencode(params)
-            attrs.append(Attribute(web_console_attr_name, query))
+        link_attr = get_deploy_app_vm_console_link_attr(
+            deploy_app, self._resource_config, vm, vm._si
+        )
+        if link_attr:
+            attrs.append(link_attr)
 
         return attrs
 

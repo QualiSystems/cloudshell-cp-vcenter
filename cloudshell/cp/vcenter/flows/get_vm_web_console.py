@@ -12,6 +12,9 @@ from cloudshell.cp.vcenter.utils.get_vm_web_console import (
     VCENTER_NEW_CONSOLE_LINK_VERSION,
     get_vm_console_link,
 )
+from cloudshell.cp.vcenter.utils.vm_console_link_attr import (
+    set_deployed_app_vm_console_link_attr,
+)
 
 
 def get_vm_web_console(
@@ -27,4 +30,6 @@ def get_vm_web_console(
     new_version = version.parse(si.vc_version) >= version.parse(
         VCENTER_NEW_CONSOLE_LINK_VERSION
     )
-    return get_vm_console_link(resource_conf.address, si, vm, new_version)
+    link = get_vm_console_link(resource_conf.address, si, vm, new_version)
+    set_deployed_app_vm_console_link_attr(deployed_app, resource_conf, vm, si)
+    return link
