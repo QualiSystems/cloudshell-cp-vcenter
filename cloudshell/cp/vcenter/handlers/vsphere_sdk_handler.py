@@ -125,17 +125,36 @@ class VSphereSDKHandler:
             if len(tags) > 0:
                 self._logger.debug("List of all existing tags user has access to...")
                 for tag_id in tags:
-                    tag_info = self._vsphere_client.get_tag_info(tag_id)
-                    self._logger.debug(
-                        f"TagName: {tag_info['name']}, TagID: {tag_info['id']}"
-                    )
-                    result.update({tag_info["name"]: tag_info["id"]})
+                    try:
+                        tag_info = self._vsphere_client.get_tag_info(tag_id)
+                    except VSphereAPINotFoundException:
+                        continue  # tag already removed, skip it
+                    else:
+                        self._logger.debug(
+                            f"TagName: {tag_info['name']}, TagID: {tag_info['id']}"
+                        )
+                        result.update({tag_info["name"]: tag_info["id"]})
             else:
                 self._logger.info("No Tag Found...")
         except VSphereAPINotFoundException as err:
             raise TagFaultException(err)
         else:
             return result
+
+    def _get_tag_id(self, name: str, category_id: str) -> str:
+        for tag_id in self._vsphere_client.get_all_category_tags(category_id):
+            try:
+                tag_info = self._vsphere_client.get_tag_info(tag_id)
+            except VSphereAPINotFoundException:
+                continue  # tag already removed, skip it
+            else:
+                if tag_info["name"] == name:
+                    break
+        else:
+            msg = f"Tag with name '{name}' not found in the category id '{category_id}'"
+            raise VSphereAPINotFoundException(msg)
+
+        return tag_info["id"]
 
     def _get_or_create_tag(self, name: str, category_id: str) -> str:
         """Create a Tag."""
@@ -145,7 +164,7 @@ class VSphereSDKHandler:
                 raise TagFaultException("Error during tag creation.")
         except VSphereAPIAlreadyExistsException as err:
             self._logger.debug(err)
-            tag_id = self._get_all_tags(category_id=category_id).get(name)
+            tag_id = self._get_tag_id(name, category_id=category_id)
         except VSphereAPINotFoundException as err:
             raise TagFaultException(err)
 
