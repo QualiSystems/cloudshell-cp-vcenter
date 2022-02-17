@@ -190,7 +190,7 @@ class VSphereAutomationAPI(BaseAPIClient):
 
     @Decorators.get_data
     def get_all_category_tags(self, category_id: str):
-        """Get all tags for the given category.
+        """Get all tags ids for the given category.
 
         Note: you need the read privilege on the given category
               and the individual tags in that category.
