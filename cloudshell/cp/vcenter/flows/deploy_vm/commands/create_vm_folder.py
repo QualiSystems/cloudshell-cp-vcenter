@@ -36,7 +36,12 @@ class CreateVmFolder(RollbackCommand):
         self._logger.info(f"Creating VM folders for path: {self._vm_folder_path}")
         vm_folder = self._dc.get_or_create_vm_folder(self._vm_folder_path)
         if self._vsphere_client is not None:
-            self._vsphere_client.assign_tags(obj=vm_folder)
+            try:
+                self._vsphere_client.assign_tags(obj=vm_folder)
+            except Exception:
+                with suppress(FolderIsNotEmpty, FolderNotFound):
+                    vm_folder.destroy(self._logger)
+                raise
         return vm_folder
 
     def rollback(self):
