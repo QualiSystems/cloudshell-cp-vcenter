@@ -223,6 +223,11 @@ class CustomWindowsSpecHandler(CustomSpecHandler):
             )
             self.spec.spec.identity.identification.joinWorkgroup = None
 
+        if custom_spec_params.windows_server_domain.username is not Empty:
+            self.spec.spec.identity.identification.joinDomain = (
+                custom_spec_params.windows_server_domain.username
+            )
+
         if custom_spec_params.windows_server_domain.password is not Empty:
             self.spec.spec.identity.identification.domainAdminPassword = (
                 vim.vm.customization.Password(
