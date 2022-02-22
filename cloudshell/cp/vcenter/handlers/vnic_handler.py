@@ -32,6 +32,9 @@ class VnicHandler(VirtualDeviceHandler):
     def create_new(cls, vnic_type=vim.vm.device.VirtualEthernetCard) -> VnicHandler:
         return cls(vnic_type(), is_new_vnic=True)
 
+    def __str__(self) -> str:
+        return f"vNIC '{self.label}'"
+
     @property
     def vnic_type(self) -> type[vim.vm.device.VirtualDevice]:
         return type(self._device)

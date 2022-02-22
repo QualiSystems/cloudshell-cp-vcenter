@@ -1,3 +1,5 @@
+from abc import abstractmethod
+
 import attr
 from pyVmomi import vim
 
@@ -21,3 +23,7 @@ class VirtualDeviceHandler:
     @property
     def label(self) -> str:
         return self._device.deviceInfo.label
+
+    @abstractmethod
+    def __str__(self) -> str:
+        raise NotImplementedError("Should return - Entity 'label'")
