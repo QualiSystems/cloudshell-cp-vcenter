@@ -182,7 +182,11 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
                 )
                 if self._vsphere_client is not None:
                     net = self._wait_for_the_network_appears(dc, port_group_name)
-                    self._vsphere_client.assign_tags(obj=net)
+                    try:
+                        self._vsphere_client.assign_tags(obj=net)
+                    except Exception:
+                        port_group.destroy()
+                        raise
 
         return port_group
 
