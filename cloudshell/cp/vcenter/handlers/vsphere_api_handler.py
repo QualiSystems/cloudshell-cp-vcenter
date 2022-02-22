@@ -112,7 +112,7 @@ class VSphereAutomationAPI(BaseAPIClient):
         except requests.exceptions.HTTPError as err:
             if err.response.status_code == 400:
                 raise VSphereAPIAlreadyExistsException(
-                    f"Category {name} already exists."
+                    f"Category '{name}' already exists."
                 )
             elif err.response.status_code == 403:
                 raise TagFaultException("Not enough privileges to create a category.")
@@ -141,7 +141,7 @@ class VSphereAutomationAPI(BaseAPIClient):
                 raise TagFaultException("Not enough privileges to read the category.")
             elif err.response.status_code == 404:
                 raise VSphereAPINotFoundException(
-                    f"Category with ID {category_id} doesn't exist."
+                    f"Category with ID '{category_id}' doesn't exist."
                 )
         else:
             return res
@@ -177,13 +177,13 @@ class VSphereAutomationAPI(BaseAPIClient):
         except requests.exceptions.HTTPError as err:
             if err.response.status_code == 400:
                 raise VSphereAPIAlreadyExistsException(
-                    f"Tag {name} already exists in Category ID {category_id}."
+                    f"Tag '{name}' already exists in Category ID {category_id}."
                 )
             elif err.response.status_code == 403:
                 raise TagFaultException("Not enough privileges to create tag.")
             elif err.response.status_code == 404:
                 raise VSphereAPINotFoundException(
-                    f"Category with ID {category_id} doesn't exist."
+                    f"Category with ID '{category_id}' doesn't exist."
                 )
         else:
             return res
@@ -205,7 +205,7 @@ class VSphereAutomationAPI(BaseAPIClient):
                 raise TagFaultException("Not enough privileges to read the category.")
             elif err.response.status_code == 404:
                 raise VSphereAPINotFoundException(
-                    f"Category with ID {category_id} doesn't exist."
+                    f"Category with ID '{category_id}' doesn't exist."
                 )
         else:
             return res
@@ -223,7 +223,7 @@ class VSphereAutomationAPI(BaseAPIClient):
                 raise TagFaultException("Not enough privileges to read the tag.")
             elif err.response.status_code == 404:
                 raise VSphereAPINotFoundException(
-                    f"Tag with ID {tag_id} doesn't exist."
+                    f"Tag with ID '{tag_id}' doesn't exist."
                 )
         else:
             return res
@@ -295,7 +295,7 @@ class VSphereAutomationAPI(BaseAPIClient):
                 raise TagFaultException("Not enough privileges to read the tag.")
             elif err.response.status_code == 404:
                 raise VSphereAPINotFoundException(
-                    f"Tag with ID {tag_id} doesn't exist."
+                    f"Tag with ID '{tag_id}' doesn't exist."
                 )
         else:
             return res
@@ -314,5 +314,5 @@ class VSphereAutomationAPI(BaseAPIClient):
                 raise TagFaultException("Not enough privileges to delete the tag.")
             elif err.response.status_code == 404:
                 raise VSphereAPINotFoundException(
-                    f"Tag with ID {tag_id} doesn't exist."
+                    f"Tag with ID '{tag_id}' doesn't exist."
                 )
