@@ -37,6 +37,12 @@ class SwitchNotFound(BaseVCenterException):
         super().__init__(f"Neither dvSwitch nor vSwitch with name {name} not found")
 
 
+class HostNotPresentInCluster(BaseVCenterException):
+    def __init__(self, cluster: ClusterHandler):
+        self.cluster = cluster
+        super().__init__(f"There aren't hosts in the {cluster}")
+
+
 # todo move this validation to the model
 BEHAVIOURS_DURING_SAVE = ("Remain Powered On", "Power Off")
 
@@ -74,6 +80,7 @@ class ValidationActions:
             dc.get_vm_folder(conf.vm_location)
         if conf.vm_cluster:
             cluster = dc.get_cluster(conf.vm_cluster)
+            self.validate_cluster(cluster)
         if conf.vm_storage:
             dc.get_datastore(conf.vm_storage)
         if conf.saved_sandbox_storage:
@@ -160,6 +167,10 @@ class ValidationActions:
         self._logger.info("Validating OVF Tool")
         _is_not_empty(ovf_tool_path, self._resource_conf.ATTR_NAMES.ovf_tool_path)
         _is_valid_url(ovf_tool_path, self._resource_conf.ATTR_NAMES.ovf_tool_path)
+
+    def validate_cluster(self, cluster: ClusterHandler) -> None:
+        if not cluster.hosts:
+            raise HostNotPresentInCluster(cluster)
 
     def _validate_switch(self, dc: DcHandler, cluster: ClusterHandler | None):
         switch_name = self._resource_conf.default_dv_switch
