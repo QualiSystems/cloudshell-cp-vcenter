@@ -30,10 +30,19 @@ class VnicHandler(VirtualDeviceHandler):
 
     @classmethod
     def create_new(cls, vnic_type=vim.vm.device.VirtualEthernetCard) -> VnicHandler:
+        """The vNIC is not connected to the VM yet!."""
         return cls(vnic_type(), is_new_vnic=True)
 
     def __str__(self) -> str:
         return f"vNIC '{self.label}'"
+
+    @property
+    def label(self) -> str:
+        if self._is_new_vnic:
+            label = "<new>"
+        else:
+            label = super().label
+        return label
 
     @property
     def vnic_type(self) -> type[vim.vm.device.VirtualDevice]:
