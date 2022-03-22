@@ -187,6 +187,7 @@ class VmHandler(ManagedEntityHandler):
         return self._entity.config.hardware.device
 
     def create_vnic(self, logger: Logger) -> VnicHandler:
+        """The vNIC is not connected to the VM yet!."""
         logger.info(f"Adding a new vNIC for the {self}")
         try:
             vnic_type = self.vnics[0].vnic_type
