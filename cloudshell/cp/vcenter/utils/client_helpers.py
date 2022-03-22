@@ -5,7 +5,19 @@ from pyVim.connect import Disconnect, SmartConnect
 from pyVmomi import vim  # noqa
 from retrying import retry
 
-from cloudshell.cp.vcenter.exceptions import LoginException
+from cloudshell.cp.vcenter.exceptions import BaseVCenterException, LoginException
+
+
+class ApiConnectionError(BaseVCenterException):
+    def __init__(self, host: str):
+        self.host = host
+        super().__init__(f"Cannot connect to the vCenter {host} API")
+
+
+class VcenterConnectionError(BaseVCenterException):
+    def __init__(self, host: str):
+        self.host = host
+        super().__init__(f"Cannot connect to the vCenter {host}")
 
 
 def _get_si_tls_v1(host: str, user: str, password: str, port: int):
@@ -52,10 +64,14 @@ def _retry_on_login_failed(exc: Exception) -> bool:
 )
 def get_si(host: str, user: str, password: str, port: int = 443):
     funcs = (_get_si_tls_v1_2, _get_si_tls_v1, _get_si_without_ssl)
+    connect_issue = False
     for func in funcs:
         try:
             si = func(host, user, password, port)
-        except (ssl.SSLEOFError, vim.fault.HostConnectFault, ssl.SSLError, OSError):
+        except (ssl.SSLEOFError, ssl.SSLError):
+            continue
+        except (vim.fault.HostConnectFault, OSError):
+            connect_issue = True
             continue
         except vim.fault.InvalidLogin:
             raise LoginException("Cannot connect to the vCenter. Invalid user/password")
@@ -63,5 +79,8 @@ def get_si(host: str, user: str, password: str, port: int = 443):
             atexit.register(Disconnect, si)
             break
     else:
-        raise LoginException("Cannot login with TLSv1_2, TLSv1 and without ssl")
+        if connect_issue:
+            raise VcenterConnectionError(host)
+        else:
+            raise ApiConnectionError(host)
     return si
