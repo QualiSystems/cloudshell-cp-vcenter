@@ -13,7 +13,7 @@ from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
 
 if TYPE_CHECKING:
     from cloudshell.cp.vcenter.handlers.cluster_handler import HostHandler
-    from cloudshell.cp.vcenter.handlers.switch_handler import VSwitchHandler
+    from cloudshell.cp.vcenter.handlers.switch_handler import AbstractSwitchHandler
 
 
 class NetworkNotFound(BaseVCenterException):
@@ -26,7 +26,7 @@ class NetworkNotFound(BaseVCenterException):
 class PortGroupNotFound(BaseVCenterException):
     MSG = ""
 
-    def __init__(self, entity: ManagedEntityHandler | VSwitchHandler, name: str):
+    def __init__(self, entity: ManagedEntityHandler | AbstractSwitchHandler, name: str):
         self.name = name
         self.entity = entity
         super().__init__(self.MSG.format(entity=entity, name=name))
@@ -57,6 +57,10 @@ class NetworkHandler(ManagedEntityHandler):
 
 
 class AbstractPortGroupHandler(Protocol):
+    @property
+    def name(self) -> str:
+        raise NotImplementedError
+
     @property
     def key(self) -> str:
         raise NotImplementedError
