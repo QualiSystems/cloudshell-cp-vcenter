@@ -57,6 +57,10 @@ def get_vlan_spec(port_mode: ConnectionModeEnum, vlan_range: str):
 
 
 class AbstractSwitchHandler(Protocol):
+    @property
+    def name(self) -> str:
+        raise NotImplementedError
+
     def get_port_group(self, name: str) -> AbstractPortGroupHandler:
         raise NotImplementedError
 
