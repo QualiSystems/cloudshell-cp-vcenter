@@ -49,7 +49,7 @@ class VSphereSDKHandler:
     def from_config(
         cls,
         resource_config: VCenterResourceConfig,
-        reservation_info: ReservationInfo,
+        reservation_info: ReservationInfo | None,
         logger: Logger,
     ) -> VSphereSDKHandler | None:
         si = SiHandler.from_config(resource_config, logger)
