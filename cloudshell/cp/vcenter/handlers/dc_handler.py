@@ -4,6 +4,7 @@ from pyVmomi import vim
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
 from cloudshell.cp.vcenter.handlers.cluster_handler import (
+    BasicComputeEntityHandler,
     ClusterHandler,
     ClusterHostNotFound,
     HostHandler,
@@ -92,7 +93,7 @@ class DcHandler(ManagedEntityHandler):
             vm_folder = vm_folder.get_or_create_folder(path)
         return vm_folder
 
-    def get_cluster(self, name: str) -> ClusterHandler | HostHandler:
+    def get_compute_entity(self, name: str) -> BasicComputeEntityHandler:
         for vc_cluster in self._si.find_items(
             [vim.ComputeResource, vim.ClusterComputeResource],
             container=self._entity.hostFolder,
@@ -113,7 +114,7 @@ class DcHandler(ManagedEntityHandler):
 
         datastore_name = path.pop()
         if path:
-            entity = self.get_cluster(str(path))
+            entity = self.get_compute_entity(str(path))
         else:
             entity = self
 

@@ -10,7 +10,10 @@ from cloudshell.cp.vcenter.exceptions import (
     BaseVCenterException,
     InvalidAttributeException,
 )
-from cloudshell.cp.vcenter.handlers.cluster_handler import ClusterHandler
+from cloudshell.cp.vcenter.handlers.cluster_handler import (
+    BasicComputeEntityHandler,
+    ClusterHandler,
+)
 from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
 from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
 from cloudshell.cp.vcenter.handlers.switch_handler import (
@@ -75,18 +78,19 @@ class ValidationActions:
         conf = self._resource_conf
         dc = self._get_dc()
         dc.get_network(conf.holding_network)
-        cluster = None
+        compute_entity = None
         if conf.vm_location:
             dc.get_vm_folder(conf.vm_location)
         if conf.vm_cluster:
-            cluster = dc.get_cluster(conf.vm_cluster)
-            self.validate_cluster(cluster)
+            compute_entity = dc.get_compute_entity(conf.vm_cluster)
+            if isinstance(compute_entity, ClusterHandler):
+                self.validate_cluster(compute_entity)
         if conf.vm_storage:
             dc.get_datastore(conf.vm_storage)
         if conf.saved_sandbox_storage:
             dc.get_datastore(conf.saved_sandbox_storage)
         if conf.default_dv_switch:
-            self._validate_switch(dc, cluster)
+            self._validate_switch(dc, compute_entity)
         if conf.vm_resource_pool:
             dc.get_resource_pool(conf.vm_resource_pool)
 
@@ -103,7 +107,7 @@ class ValidationActions:
         if vm_location:
             dc.get_vm_folder(vm_location)
         if vm_cluster:
-            dc.get_cluster(vm_cluster)
+            dc.get_compute_entity(vm_cluster)
         if vm_storage:
             dc.get_datastore(vm_storage)
 
@@ -168,19 +172,20 @@ class ValidationActions:
         _is_not_empty(ovf_tool_path, self._resource_conf.ATTR_NAMES.ovf_tool_path)
         _is_valid_url(ovf_tool_path, self._resource_conf.ATTR_NAMES.ovf_tool_path)
 
-    def validate_cluster(self, cluster: ClusterHandler) -> None:
+    @staticmethod
+    def validate_cluster(cluster: ClusterHandler) -> None:
         if not cluster.hosts:
             raise HostNotPresentInCluster(cluster)
 
-    def _validate_switch(self, dc: DcHandler, cluster: ClusterHandler | None):
+    def _validate_switch(
+        self, dc: DcHandler, compute_entity: BasicComputeEntityHandler
+    ) -> None:
         switch_name = self._resource_conf.default_dv_switch
         try:
             dc.get_dv_switch(switch_name)
         except DvSwitchNotFound:
-            if not cluster:
-                raise SwitchNotFound(switch_name)
             try:
-                cluster.get_v_switch(switch_name)
+                compute_entity.get_v_switch(switch_name)
             except VSwitchNotFound:
                 raise SwitchNotFound(switch_name)
 
