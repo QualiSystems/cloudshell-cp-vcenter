@@ -47,9 +47,9 @@ def get_vlan_spec(port_mode: ConnectionModeEnum, vlan_range: str):
         vlan_id = int(vlan_range)
     else:
         spec = vim.dvs.VmwareDistributedVirtualSwitch.TrunkVlanSpec
-        parts = list(map(int, vlan_range.split("-")))
+        parts = sorted(map(int, vlan_range.split("-")))
         if len(parts) == 1:
-            start = end = next(parts)
+            start = end = parts[0]
         else:
             start, end = parts
         vlan_id = [vim.NumericRange(start=start, end=end)]
