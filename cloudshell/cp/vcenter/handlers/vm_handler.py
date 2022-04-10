@@ -115,7 +115,7 @@ class VmHandler(ManagedEntityHandler):
         return [get_network_handler(net, self._si) for net in self._entity.network]
 
     @property
-    def gv_port_groups(self) -> list[DVPortGroupHandler]:
+    def dv_port_groups(self) -> list[DVPortGroupHandler]:
         return list(filter(lambda x: isinstance(x, DVPortGroupHandler), self.networks))
 
     @property
@@ -216,7 +216,7 @@ class VmHandler(ManagedEntityHandler):
             vc_network = vnic.vc_network
             network = NetworkHandler(vc_network, self._si)
         except ValueError:
-            for pg in self.gv_port_groups:
+            for pg in self.dv_port_groups:
                 with suppress(ValueError):
                     if pg.key == vnic.port_group_key:
                         network = pg
