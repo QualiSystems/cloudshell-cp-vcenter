@@ -15,13 +15,13 @@ def get_cluster_usage(
 ):
     si = SiHandler.from_config(resource_conf, logger)
     dc = DcHandler.get_dc(resource_conf.default_datacenter, si)
-    cluster = dc.get_cluster(resource_conf.vm_cluster)
+    compute_entity = dc.get_compute_entity(resource_conf.vm_cluster)
     datastore = dc.get_datastore(datastore_name)
-    logger.info(f"Found {cluster}")
+    logger.info(f"Found {compute_entity}")
     return json.dumps(
         {
             "datastore": datastore.usage_info.to_dict(),
-            "cpu": cluster.cpu_usage.to_dict(),
-            "ram": cluster.ram_usage.to_dict(),
+            "cpu": compute_entity.cpu_usage.to_dict(),
+            "ram": compute_entity.ram_usage.to_dict(),
         }
     )

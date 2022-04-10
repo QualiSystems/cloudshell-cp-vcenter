@@ -29,7 +29,7 @@ class ClusterHostNotFound(BaseVCenterException):
         super().__init__(f"Cluster or Host with name '{name}' not found in {entity}")
 
 
-class BasicClusterHostHandler(ManagedEntityHandler):
+class BasicComputeEntityHandler(ManagedEntityHandler):
     @property
     def datastores(self) -> list[DatastoreHandler]:
         return [DatastoreHandler(store, self._si) for store in self._entity.datastore]
@@ -52,7 +52,7 @@ class BasicClusterHostHandler(ManagedEntityHandler):
         ...
 
 
-class ClusterHandler(BasicClusterHostHandler):
+class ClusterHandler(BasicComputeEntityHandler):
     def __str__(self) -> str:
         return f"Cluster '{self.name}'"
 
@@ -95,7 +95,7 @@ class ClusterHandler(BasicClusterHostHandler):
         raise VSwitchNotFound(self, name)
 
 
-class HostHandler(BasicClusterHostHandler):
+class HostHandler(BasicComputeEntityHandler):
     def __str__(self) -> str:
         return f"Host '{self.name}'"
 

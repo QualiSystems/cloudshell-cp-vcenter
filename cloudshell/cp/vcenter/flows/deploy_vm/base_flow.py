@@ -160,8 +160,8 @@ class AbstractVCenterDeployVMFlow(AbstractDeployFlow):
             self._logger.info(
                 f"Getting resource pool from the VM cluster: {vm_cluster_name}"
             )
-            vm_cluster = dc.get_cluster(vm_cluster_name)
-            resource_pool = vm_cluster.get_resource_pool()
+            compute_entity = dc.get_compute_entity(vm_cluster_name)
+            resource_pool = compute_entity.get_resource_pool()
         return resource_pool
 
     def _prepare_vm_folder_path(self, deploy_app: BaseVCenterDeployApp) -> VcenterPath:
