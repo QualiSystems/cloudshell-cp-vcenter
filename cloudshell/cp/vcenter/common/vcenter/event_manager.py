@@ -62,8 +62,9 @@ class EventManager:
             )
 
             if events:
-                logger.info(f"Found VM '{vm.name}' events: {events}")
-                return next(iter(events))
+                event = next(iter(events))
+                logger.info(f"Found VM '{vm.name}' event: {event.fullFormattedMessage}")
+                return event
 
             time.sleep(wait_time)
 
