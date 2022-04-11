@@ -50,7 +50,9 @@ class VMNetworkActions:
 
     def get_vm_ip_from_vnic(self, vm, vnic):
         """Get VM IP address from the vNIC."""
-        self._logger.info(f"Getting IPv4 address from the vNIC {vnic}")
+        # todo work with handlers
+        vnic_label = vnic.deviceInfo.label
+        self._logger.info(f"Getting IPv4 address from the vNIC {vnic_label}")
         for net in vm.guest.net:
             if str(net.deviceConfigId) == str(vnic.key):
                 for ip_address in net.ipAddress:
