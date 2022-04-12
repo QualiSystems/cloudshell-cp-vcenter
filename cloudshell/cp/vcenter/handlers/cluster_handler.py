@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from abc import abstractmethod
 
+from pyVmomi import vim
+
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
 from cloudshell.cp.vcenter.handlers.datastore_handler import DatastoreHandler
 from cloudshell.cp.vcenter.handlers.managed_entity_handler import ManagedEntityHandler
 from cloudshell.cp.vcenter.handlers.network_handler import HostPortGroupHandler
 from cloudshell.cp.vcenter.handlers.resource_pool import ResourcePoolHandler
+from cloudshell.cp.vcenter.handlers.si_handler import ResourceInUse
 from cloudshell.cp.vcenter.handlers.switch_handler import (
     VSwitchHandler,
     VSwitchNotFound,
@@ -53,6 +56,8 @@ class BasicComputeEntityHandler(ManagedEntityHandler):
 
 
 class ClusterHandler(BasicComputeEntityHandler):
+    _entity: vim.ComputeResource | vim.ClusterComputeResource
+
     def __str__(self) -> str:
         return f"Cluster '{self.name}'"
 
@@ -96,6 +101,8 @@ class ClusterHandler(BasicComputeEntityHandler):
 
 
 class HostHandler(BasicComputeEntityHandler):
+    _entity: vim.HostSystem
+
     def __str__(self) -> str:
         return f"Host '{self.name}'"
 
@@ -137,7 +144,12 @@ class HostHandler(BasicComputeEntityHandler):
         raise VSwitchNotFound(self, name)
 
     def remove_port_group(self, name: str):
-        self._entity.configManager.networkSystem.RemovePortGroup(name)
+        try:
+            self._entity.configManager.networkSystem.RemovePortGroup(name)
+        except vim.fault.NotFound:
+            pass
+        except vim.fault.ResourceInUse:
+            raise ResourceInUse(name)
 
     def add_port_group(self, port_group_spec):
         self._entity.configManager.networkSystem.AddPortGroup(port_group_spec)

@@ -21,6 +21,12 @@ class CustomSpecNotFound(BaseVCenterException):
         super().__init__(f"Customization spec with name {name} not found.")
 
 
+class ResourceInUse(BaseVCenterException):
+    def __init__(self, name):
+        self.name = name
+        super().__init__(f"{name} is in use")
+
+
 @attr.s(auto_attribs=True, slots=True, frozen=True)
 class SiHandler:
     _si: vim.ServiceInstance
