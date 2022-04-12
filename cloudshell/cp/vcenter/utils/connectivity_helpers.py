@@ -1,11 +1,20 @@
 from __future__ import annotations
 
 import re
+import time
 from logging import Logger
 
+from cloudshell.shell.flows.connectivity.models.connectivity_model import (
+    ConnectivityActionModel,
+)
+
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
+from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
 from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
 from cloudshell.cp.vcenter.handlers.vnic_handler import VnicHandler
+from cloudshell.cp.vcenter.models.connectivity_action_model import (
+    VcenterConnectivityActionModel,
+)
 
 MAX_DVSWITCH_LENGTH = 60
 QS_NAME_PREFIX = "QS"
@@ -47,3 +56,35 @@ def get_available_vnic(
             raise BaseVCenterException("Limit of vNICs per VM is 10")
         vnic = vm.create_vnic(logger)
     return vnic
+
+
+def get_existed_port_group_name(
+    action: ConnectivityActionModel | VcenterConnectivityActionModel,
+) -> str | None:
+    # From vCenter Shell 4.2.1 and 5.0.1 we support "vCenter VLAN Port Group"
+    # service that allows to connect to the existed Port Group. Before that we would
+    # receive ConnectivityActionModel that know nothing about port_group_name
+    pg_name = getattr(
+        action.connection_params.vlan_service_attrs, "port_group_name", None
+    )
+    return pg_name
+
+
+def should_remove_port_group(
+    name: str, action: ConnectivityActionModel | VcenterConnectivityActionModel
+) -> bool:
+    return not bool(get_existed_port_group_name(action)) or is_network_generated_name(
+        name
+    )
+
+
+def wait_network_become_free(
+    dc: DcHandler, name: str, delay: int = 5, timeout: int = 60
+) -> bool:
+    start = time.time()
+    while time.time() < start + timeout:
+        if not dc.get_network(name).in_use:
+            return True
+        time.sleep(delay)
+    else:
+        return False

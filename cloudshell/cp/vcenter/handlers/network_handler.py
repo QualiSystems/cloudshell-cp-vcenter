@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from contextlib import suppress
 from typing import TYPE_CHECKING
 
 import attr
@@ -9,7 +8,7 @@ from typing_extensions import Protocol
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
 from cloudshell.cp.vcenter.handlers.managed_entity_handler import ManagedEntityHandler
-from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
+from cloudshell.cp.vcenter.handlers.si_handler import ResourceInUse, SiHandler
 
 if TYPE_CHECKING:
     from cloudshell.cp.vcenter.handlers.cluster_handler import HostHandler
@@ -40,12 +39,7 @@ class HostPortGroupNotFound(PortGroupNotFound):
     MSG = "Host Port Group with name {name} not found in {entity}"
 
 
-class NetworkHandler(ManagedEntityHandler):
-    _entity: vim.Network
-
-    def __str__(self) -> str:
-        return f"Network '{self.name}'"
-
+class AbstractNetwork(ManagedEntityHandler):
     @property
     def _moId(self) -> str:
         # avoid using this property
@@ -54,6 +48,17 @@ class NetworkHandler(ManagedEntityHandler):
     @property
     def _wsdl_name(self) -> str:
         return self._entity._wsdlName
+
+    @property
+    def in_use(self) -> bool:
+        return bool(self._entity.vm)
+
+
+class NetworkHandler(AbstractNetwork):
+    _entity: vim.Network
+
+    def __str__(self) -> str:
+        return f"Network '{self.name}'"
 
 
 class AbstractPortGroupHandler(Protocol):
@@ -73,7 +78,7 @@ class AbstractPortGroupHandler(Protocol):
         raise NotImplementedError
 
 
-class DVPortGroupHandler(ManagedEntityHandler, AbstractPortGroupHandler):
+class DVPortGroupHandler(AbstractNetwork, AbstractPortGroupHandler):
     _entity: vim.dvs.DistributedVirtualPortgroup
 
     def __str__(self) -> str:
@@ -91,18 +96,13 @@ class DVPortGroupHandler(ManagedEntityHandler, AbstractPortGroupHandler):
     def switch_uuid(self) -> str:
         return self._entity.config.distributedVirtualSwitch.uuid
 
-    @property
-    def _moId(self) -> str:
-        # avoid using this property
-        return self._entity._moId
-
-    @property
-    def _wsdl_name(self) -> str:
-        return self._entity._wsdlName
-
     def destroy(self):
-        with suppress(vim.fault.ResourceInUse, vim.fault.NotFound):
+        try:
             self._entity.Destroy()
+        except vim.fault.NotFound:
+            pass
+        except vim.fault.ResourceInUse:
+            raise ResourceInUse(self.name)
 
 
 @attr.s(auto_attribs=True)
@@ -130,8 +130,7 @@ class HostPortGroupHandler(AbstractPortGroupHandler):
         return self._entity.spec.vlanId
 
     def destroy(self):
-        with suppress(vim.fault.ResourceInUse, vim.fault.NotFound):
-            self._host.remove_port_group(self.name)
+        self._host.remove_port_group(self)
 
 
 def get_network_handler(
