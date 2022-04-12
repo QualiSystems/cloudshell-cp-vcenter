@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 
 from cloudshell.shell.flows.connectivity.basic_flow import AbstractConnectivityFlow
 from cloudshell.shell.flows.connectivity.models.connectivity_model import (
-    ConnectionModeEnum,
     ConnectivityActionModel,
 )
 from cloudshell.shell.flows.connectivity.models.driver_response import (
@@ -21,27 +20,30 @@ from cloudshell.shell.flows.connectivity.parse_request_service import (
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
 from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
 from cloudshell.cp.vcenter.handlers.network_handler import (
+    AbstractNetwork,
     AbstractPortGroupHandler,
     DVPortGroupHandler,
-    HostPortGroupHandler,
-    HostPortGroupNotFound,
     NetworkHandler,
     NetworkNotFound,
     PortGroupNotFound,
 )
 from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
 from cloudshell.cp.vcenter.handlers.switch_handler import (
-    DvSwitchHandler,
+    AbstractSwitchHandler,
     DvSwitchNotFound,
-    VSwitchHandler,
 )
 from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
 from cloudshell.cp.vcenter.handlers.vsphere_sdk_handler import VSphereSDKHandler
+from cloudshell.cp.vcenter.models.connectivity_action_model import (
+    VcenterConnectivityActionModel,
+)
 from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 from cloudshell.cp.vcenter.utils.connectivity_helpers import (
     generate_port_group_name,
     get_available_vnic,
-    is_network_generated_name,
+    get_existed_port_group_name,
+    should_remove_port_group,
+    wait_network_become_free,
 )
 
 if TYPE_CHECKING:
@@ -81,118 +83,112 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         if not self._resource_conf.default_dv_switch:
             raise DvSwitchNameEmpty
 
-    def _set_vlan(self, action: ConnectivityActionModel) -> ConnectivityActionResult:
+    def _set_vlan(
+        self, action: ConnectivityActionModel | VcenterConnectivityActionModel
+    ) -> ConnectivityActionResult:
         vlan_id = action.connection_params.vlan_id
         vc_conf = self._resource_conf
         dc = DcHandler.get_dc(vc_conf.default_datacenter, self._si)
         vm = dc.get_vm_by_uuid(action.custom_action_attrs.vm_uuid)
         self._logger.info(f"Start setting vlan {vlan_id} for the {vm}")
 
-        dc.get_network(vc_conf.holding_network)  # validate that it exists
-        port_group_name = generate_port_group_name(
-            vc_conf.default_dv_switch,
-            vlan_id,
-            action.connection_params.mode.value,
-        )
-
-        port_group = self._get_or_create_port_group(
-            dc, vm, port_group_name, vlan_id, action.connection_params.mode
-        )
-        try:
-            with self._network_lock:
-                vnic = get_available_vnic(
-                    vm,
-                    vc_conf.holding_network,
-                    vc_conf.reserved_networks,
-                    self._logger,
-                    action.custom_action_attrs.vnic,
-                )
-                if isinstance(port_group, DVPortGroupHandler):
-                    vm.connect_vnic_to_port_group(vnic, port_group, self._logger)
-                elif isinstance(port_group, HostPortGroupHandler):
-                    network = dc.get_network(port_group.name)
+        switch = self._get_switch(dc, vm)
+        with self._network_lock:
+            vnic = get_available_vnic(
+                vm,
+                vc_conf.holding_network,
+                vc_conf.reserved_networks,
+                self._logger,
+                action.custom_action_attrs.vnic,
+            )
+            network = self._get_or_create_network(dc, switch, action)
+            try:
+                if isinstance(network, DVPortGroupHandler):
+                    vm.connect_vnic_to_dv_port_group(vnic, network, self._logger)
+                else:
                     vm.connect_vnic_to_network(vnic, network, self._logger)
-        except Exception:
-            port_group.destroy()
-            raise
+            except Exception:
+                if should_remove_port_group(network.name, action):
+                    self._remove_network(network, vm, dc)
+                raise
         msg = f"Setting VLAN {vlan_id} successfully completed"
         return ConnectivityActionResult.success_result_vm(action, msg, vnic.mac_address)
 
     def _remove_vlan(self, action: ConnectivityActionModel) -> ConnectivityActionResult:
-        vlan_id = action.connection_params.vlan_id
-        self._logger.info(f"Start removing vlan {vlan_id}")
-
         vc_conf = self._resource_conf
         dc = DcHandler.get_dc(vc_conf.default_datacenter, self._si)
         vm = dc.get_vm_by_uuid(action.custom_action_attrs.vm_uuid)
         default_network = dc.get_network(vc_conf.holding_network)
         vnic = vm.get_vnic_by_mac(action.connector_attrs.interface, self._logger)
         network = vm.get_network_from_vnic(vnic)
+        self._logger.info(f"Start disconnecting {network} from the {vnic}")
 
-        if vlan_id:
-            expected_dv_port_name = generate_port_group_name(
-                vc_conf.default_dv_switch,
-                vlan_id,
-                action.connection_params.mode.value,
-            )
-            remove_network = expected_dv_port_name == network.name
+        if isinstance(default_network, DVPortGroupHandler):
+            vm.connect_vnic_to_dv_port_group(vnic, default_network, self._logger)
         else:
-            remove_network = is_network_generated_name(network.name)
+            vm.connect_vnic_to_network(vnic, default_network, self._logger)
 
-        if remove_network:
-            if isinstance(default_network, DVPortGroupHandler):
-                vm.connect_vnic_to_port_group(vnic, default_network, self._logger)
-            else:
-                vm.connect_vnic_to_network(vnic, default_network, self._logger)
-
+        if should_remove_port_group(network.name, action):
             if self._vsphere_client:
                 self._vsphere_client.delete_tags(network)
+            self._remove_network(network, vm, dc)
 
-            self._remove_port_group(network, vm)
-
-        msg = f"Removing VLAN {vlan_id} successfully completed"
+        msg = "Removing VLAN successfully completed"
         return ConnectivityActionResult.success_result_vm(action, msg, vnic.mac_address)
 
-    def _get_or_create_port_group(
-        self,
-        dc: DcHandler,
-        vm: VmHandler,
-        port_group_name: str,
-        vlan_range: str,
-        port_mode: ConnectionModeEnum,
-    ) -> AbstractPortGroupHandler:
+    def _get_switch(self, dc: DcHandler, vm: VmHandler) -> AbstractSwitchHandler:
         try:
             switch = dc.get_dv_switch(self._resource_conf.default_dv_switch)
         except DvSwitchNotFound:
             switch = vm.get_v_switch(self._resource_conf.default_dv_switch)
+        return switch
 
-        with self._network_lock:
-            try:
-                port_group = switch.get_port_group(port_group_name)
-            except PortGroupNotFound:
-                switch.create_port_group(
-                    port_group_name,
-                    vlan_range,
-                    port_mode,
-                    self._resource_conf.promiscuous_mode,
-                    self._logger,
-                )
-                port_group = self._wait_for_the_port_group_appears(
-                    switch, port_group_name
-                )
-                if self._vsphere_client is not None:
-                    net = self._wait_for_the_network_appears(dc, port_group_name)
-                    try:
-                        self._vsphere_client.assign_tags(obj=net)
-                    except Exception:
-                        port_group.destroy()
-                        raise
+    def _get_or_create_network(
+        self,
+        dc: DcHandler,
+        switch: AbstractSwitchHandler,
+        action: ConnectivityActionModel | VcenterConnectivityActionModel,
+    ) -> NetworkHandler | DVPortGroupHandler:
+        pg_name = get_existed_port_group_name(action)
+        if pg_name:
+            network = dc.get_network(pg_name)
+        else:
+            network = self._create_network_based_on_vlan_id(dc, switch, action)
+        return network
 
-        return port_group
+    def _create_network_based_on_vlan_id(
+        self,
+        dc: DcHandler,
+        switch: AbstractSwitchHandler,
+        action: ConnectivityActionModel | VcenterConnectivityActionModel,
+    ) -> AbstractNetwork:
+        port_mode = action.connection_params.mode.value
+        vlan_id = action.connection_params.vlan_id
+        pg_name = generate_port_group_name(switch.name, vlan_id, port_mode)
+
+        try:
+            network = dc.get_network(pg_name)
+        except NetworkNotFound:
+            switch.create_port_group(
+                pg_name,
+                vlan_id,
+                port_mode,
+                self._resource_conf.promiscuous_mode,
+                self._logger,
+            )
+            port_group = self._wait_for_the_port_group_appears(switch, pg_name)
+            network = self._wait_for_the_network_appears(dc, pg_name)
+            if self._vsphere_client:
+                try:
+                    self._vsphere_client.assign_tags(obj=network)
+                except Exception:
+                    port_group.destroy()
+                    raise
+        return network
 
     @staticmethod
     def _wait_for_the_port_group_appears(
-        switch: DvSwitchHandler | VSwitchHandler, port_name: str
+        switch: AbstractSwitchHandler, port_name: str
     ) -> AbstractPortGroupHandler:
         delay = 2
         timeout = 60 * 5
@@ -222,21 +218,13 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
                 return network
         raise NetworkNotFound(dc, name)
 
-    def _get_port_group(
-        self, network: DVPortGroupHandler | NetworkHandler, vm: VmHandler
-    ) -> DVPortGroupHandler | HostPortGroupHandler:
-        if isinstance(network, DVPortGroupHandler):
-            return network
-        switch = vm.get_v_switch(self._resource_conf.default_dv_switch)
-        return switch.get_port_group(network.name)
-
-    def _remove_port_group(
-        self, network: DVPortGroupHandler | NetworkHandler, vm: VmHandler
+    @staticmethod
+    def _remove_network(
+        network: DVPortGroupHandler | NetworkHandler, vm: VmHandler, dc: DcHandler
     ):
-        if isinstance(network, DVPortGroupHandler):
-            network.destroy()
-        else:
-            switch = vm.get_v_switch(self._resource_conf.default_dv_switch)
-            with suppress(HostPortGroupNotFound):
-                pg = switch.get_port_group(network.name)
-                pg.destroy()
+        with suppress(NetworkNotFound):
+            if wait_network_become_free(dc, network.name):
+                if isinstance(network, DVPortGroupHandler):
+                    network.destroy()
+                else:
+                    vm.host.remove_port_group(network.name)

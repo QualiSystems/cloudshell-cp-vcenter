@@ -226,7 +226,7 @@ class VmHandler(ManagedEntityHandler):
 
         return network
 
-    def connect_vnic_to_port_group(
+    def connect_vnic_to_dv_port_group(
         self,
         vnic: VnicHandler,
         port_group: DVPortGroupHandler,

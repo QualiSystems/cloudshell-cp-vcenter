@@ -66,7 +66,11 @@ class ValidationActions:
         _is_not_empty(conf.user, conf.ATTR_NAMES.user)
         _is_not_empty(conf.password, conf.ATTR_NAMES.password)
         _is_not_empty(conf.default_datacenter, conf.ATTR_NAMES.default_datacenter)
+        _is_not_empty(conf.vm_cluster, conf.ATTR_NAMES.vm_cluster)
+        _is_not_empty(conf.vm_storage, conf.ATTR_NAMES.vm_storage)
+        _is_not_empty(conf.saved_sandbox_storage, conf.ATTR_NAMES.saved_sandbox_storage)
         _is_not_empty(conf.vm_location, conf.ATTR_NAMES.vm_location)
+        _is_not_empty(conf.default_dv_switch, conf.ATTR_NAMES.default_dv_switch)
         _is_value_in(
             conf.behavior_during_save,
             BEHAVIOURS_DURING_SAVE,
@@ -77,20 +81,16 @@ class ValidationActions:
         self._logger.info("Validating resource config objects on the vCenter")
         conf = self._resource_conf
         dc = self._get_dc()
+
+        compute_entity = dc.get_compute_entity(conf.vm_cluster)
+        if isinstance(compute_entity, ClusterHandler):
+            self.validate_cluster(compute_entity)
+
         dc.get_network(conf.holding_network)
-        compute_entity = None
-        if conf.vm_location:
-            dc.get_vm_folder(conf.vm_location)
-        if conf.vm_cluster:
-            compute_entity = dc.get_compute_entity(conf.vm_cluster)
-            if isinstance(compute_entity, ClusterHandler):
-                self.validate_cluster(compute_entity)
-        if conf.vm_storage:
-            dc.get_datastore(conf.vm_storage)
-        if conf.saved_sandbox_storage:
-            dc.get_datastore(conf.saved_sandbox_storage)
-        if conf.default_dv_switch:
-            self._validate_switch(dc, compute_entity)
+        dc.get_vm_folder(conf.vm_location)
+        dc.get_datastore(conf.vm_storage)
+        dc.get_datastore(conf.saved_sandbox_storage)
+        self._validate_switch(dc, compute_entity)
         if conf.vm_resource_pool:
             dc.get_resource_pool(conf.vm_resource_pool)
 
