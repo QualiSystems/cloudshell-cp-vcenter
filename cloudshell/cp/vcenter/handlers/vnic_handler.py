@@ -49,12 +49,8 @@ class VnicHandler(VirtualDeviceHandler):
         return type(self._device)
 
     @property
-    def mac_address(self) -> str | None:
-        try:
-            mac = self._device.macAddress
-        except AttributeError:
-            mac = None
-        return mac
+    def mac_address(self) -> str:
+        return self._device.macAddress
 
     @property
     def network_name(self) -> str:

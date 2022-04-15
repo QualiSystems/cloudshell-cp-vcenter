@@ -90,13 +90,14 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         vc_conf = self._resource_conf
         dc = DcHandler.get_dc(vc_conf.default_datacenter, self._si)
         vm = dc.get_vm_by_uuid(action.custom_action_attrs.vm_uuid)
+        default_network = dc.get_network(vc_conf.holding_network)
         self._logger.info(f"Start setting vlan {vlan_id} for the {vm}")
 
         switch = self._get_switch(dc, vm)
         with self._network_lock:
             vnic = get_available_vnic(
                 vm,
-                vc_conf.holding_network,
+                default_network,
                 vc_conf.reserved_networks,
                 self._logger,
                 action.custom_action_attrs.vnic,
@@ -220,11 +221,9 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         raise NetworkNotFound(dc, name)
 
     @staticmethod
-    def _remove_network(
-        network: DVPortGroupHandler | NetworkHandler, vm: VmHandler, dc: DcHandler
-    ):
+    def _remove_network(network: DVPortGroupHandler | NetworkHandler, vm: VmHandler):
         with suppress(NetworkNotFound):
-            if wait_network_become_free(dc, network.name):
+            if wait_network_become_free(network):
                 if isinstance(network, DVPortGroupHandler):
                     network.destroy()
                 else:
