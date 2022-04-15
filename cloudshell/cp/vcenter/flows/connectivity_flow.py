@@ -121,7 +121,7 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         default_network = dc.get_network(vc_conf.holding_network)
         vnic = vm.get_vnic_by_mac(action.connector_attrs.interface, self._logger)
         network = vm.get_network_from_vnic(vnic)
-        self._logger.info(f"Start disconnecting {network} from the {vnic}")
+        self._logger.info(f"Start disconnecting {network} from the {vnic} on the {vm}")
 
         if isinstance(default_network, DVPortGroupHandler):
             vm.connect_vnic_to_dv_port_group(vnic, default_network, self._logger)

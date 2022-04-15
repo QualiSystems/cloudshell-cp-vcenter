@@ -233,7 +233,7 @@ class VmHandler(ManagedEntityHandler):
         logger: Logger,
         task_waiter: VcenterTaskWaiter | None = None,
     ) -> None:
-        logger.info(f"Connecting {vnic} to the {port_group}")
+        logger.info(f"Connecting {vnic} of the {self} to the {port_group}")
         nic_spec = vnic.create_spec_for_connection_port_group(port_group)
         config_spec = vim.vm.ConfigSpec(deviceChange=[nic_spec])
         task = self._entity.ReconfigVM_Task(config_spec)
@@ -247,7 +247,7 @@ class VmHandler(ManagedEntityHandler):
         logger: Logger,
         task_waiter: VcenterTaskWaiter | None = None,
     ) -> None:
-        logger.info(f"Connecting {vnic} to the {network}")
+        logger.info(f"Connecting {vnic} of the {self} to the {network}")
         nic_spec = vnic.create_spec_for_connection_network(network)
         config_spec = vim.vm.ConfigSpec(deviceChange=[nic_spec])
         task = self._entity.ReconfigVM_Task(config_spec)
