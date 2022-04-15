@@ -4,12 +4,19 @@ import re
 import time
 from logging import Logger
 
+from pyVmomi import vmodl
+
 from cloudshell.shell.flows.connectivity.models.connectivity_model import (
     ConnectivityActionModel,
 )
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
-from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
+from cloudshell.cp.vcenter.handlers.network_handler import (
+    AbstractNetwork,
+    DVPortGroupHandler,
+    NetworkHandler,
+    NetworkNotFound,
+)
 from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
 from cloudshell.cp.vcenter.handlers.vnic_handler import VnicHandler
 from cloudshell.cp.vcenter.models.connectivity_action_model import (
@@ -32,7 +39,7 @@ def is_network_generated_name(net_name: str):
 
 def get_available_vnic(
     vm: VmHandler,
-    default_net_name: str,
+    default_network: AbstractNetwork,
     reserved_networks: list[str],
     logger: Logger,
     vnic_name=None,
@@ -44,7 +51,7 @@ def get_available_vnic(
         network = vm.get_network_from_vnic(vnic)
         if (
             not network.name
-            or network.name == default_net_name
+            or network.name == default_network.name
             or (
                 not is_network_generated_name(network.name)
                 and network.name not in reserved_networks
@@ -55,6 +62,15 @@ def get_available_vnic(
         if len(vm.vnics) >= 10:
             raise BaseVCenterException("Limit of vNICs per VM is 10")
         vnic = vm.create_vnic(logger)
+        if isinstance(default_network, DVPortGroupHandler):
+            vm.connect_vnic_to_dv_port_group(vnic, default_network, logger)
+        elif isinstance(default_network, NetworkHandler):
+            vm.connect_vnic_to_network(vnic, default_network, logger)
+
+        # we need to update vnic object to fill all attributes, e.g. mac_address
+        vnic = vm.vnics[-1]
+        assert vnic.network_name == default_network.name
+
     return vnic
 
 
@@ -79,12 +95,17 @@ def should_remove_port_group(
 
 
 def wait_network_become_free(
-    dc: DcHandler, name: str, delay: int = 5, timeout: int = 60
+    network: AbstractNetwork, delay: int = 5, timeout: int = 60
 ) -> bool:
     start = time.time()
     while time.time() < start + timeout:
-        if not dc.get_network(name).in_use:
-            return True
+        try:
+            in_use = network.in_use
+        except vmodl.fault.ManagedObjectNotFound:
+            raise NetworkNotFound(network, "")
+        else:
+            if not in_use:
+                return True
         time.sleep(delay)
     else:
         return False
