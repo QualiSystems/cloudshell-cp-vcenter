@@ -110,7 +110,7 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
                     vm.connect_vnic_to_network(vnic, network, self._logger)
             except Exception:
                 if should_remove_port_group(network.name, action):
-                    self._remove_network(network, vm, dc)
+                    self._remove_network(network, vm)
                 raise
         msg = f"Setting VLAN {vlan_id} successfully completed"
         return ConnectivityActionResult.success_result_vm(action, msg, vnic.mac_address)
@@ -133,7 +133,7 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
             with self._network_lock:
                 if self._vsphere_client:
                     self._vsphere_client.delete_tags(network)
-                self._remove_network(network, vm, dc)
+                self._remove_network(network, vm)
 
         msg = "Removing VLAN successfully completed"
         return ConnectivityActionResult.success_result_vm(action, msg, vnic.mac_address)
