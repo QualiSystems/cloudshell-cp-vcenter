@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from typing import TYPE_CHECKING
 
 import attr
@@ -7,7 +8,10 @@ from pyVmomi import vim
 from typing_extensions import Protocol
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
-from cloudshell.cp.vcenter.handlers.managed_entity_handler import ManagedEntityHandler
+from cloudshell.cp.vcenter.handlers.managed_entity_handler import (
+    ManagedEntityHandler,
+    ManagedEntityNotFound,
+)
 from cloudshell.cp.vcenter.handlers.si_handler import ResourceInUse, SiHandler
 
 if TYPE_CHECKING:
@@ -52,6 +56,24 @@ class AbstractNetwork(ManagedEntityHandler):
     @property
     def in_use(self) -> bool:
         return bool(self._entity.vm)
+
+    def wait_network_become_free(self, delay: int = 2, timeout: int = 30) -> bool:
+        """Will wait for empty list of VMs."""
+        end_time = time.time() + timeout
+        while self.in_use and time.time() < end_time:
+            time.sleep(delay)
+        return not self.in_use
+
+    def wait_network_disappears(self, delay: int = 2, timeout: int = 60 * 2) -> bool:
+        end_time = time.time() + timeout
+        while time.time() < end_time:
+            try:
+                _ = self.name
+            except ManagedEntityNotFound:
+                return True
+            else:
+                time.sleep(delay)
+        return False
 
 
 class NetworkHandler(AbstractNetwork):
