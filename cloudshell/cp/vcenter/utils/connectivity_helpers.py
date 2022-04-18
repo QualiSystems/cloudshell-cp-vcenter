@@ -1,10 +1,7 @@
 from __future__ import annotations
 
 import re
-import time
 from logging import Logger
-
-from pyVmomi import vmodl
 
 from cloudshell.shell.flows.connectivity.models.connectivity_model import (
     ConnectivityActionModel,
@@ -15,7 +12,6 @@ from cloudshell.cp.vcenter.handlers.network_handler import (
     AbstractNetwork,
     DVPortGroupHandler,
     NetworkHandler,
-    NetworkNotFound,
 )
 from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
 from cloudshell.cp.vcenter.handlers.vnic_handler import VnicHandler
@@ -92,20 +88,3 @@ def should_remove_port_group(
     return not bool(get_existed_port_group_name(action)) or is_network_generated_name(
         name
     )
-
-
-def wait_network_become_free(
-    network: AbstractNetwork, delay: int = 5, timeout: int = 60
-) -> bool:
-    start = time.time()
-    while time.time() < start + timeout:
-        try:
-            in_use = network.in_use
-        except vmodl.fault.ManagedObjectNotFound:
-            raise NetworkNotFound(network, "")
-        else:
-            if not in_use:
-                return True
-        time.sleep(delay)
-    else:
-        return False

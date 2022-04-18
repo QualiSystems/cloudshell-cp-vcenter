@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from logging import Logger
 from typing import TYPE_CHECKING
 
@@ -19,6 +20,7 @@ from cloudshell.cp.vcenter.handlers.network_handler import (
     DVPortGroupNotFound,
     HostPortGroupHandler,
     HostPortGroupNotFound,
+    PortGroupNotFound,
 )
 from cloudshell.cp.vcenter.utils.task_waiter import VcenterTaskWaiter
 
@@ -60,6 +62,19 @@ class AbstractSwitchHandler(Protocol):
     @property
     def name(self) -> str:
         raise NotImplementedError
+
+    def wait_port_group_appears(
+        self, name: str, delay: int = 2, timeout: int = 60 * 5
+    ) -> AbstractPortGroupHandler:
+        end_time = time.time() + timeout
+        while time.time() < end_time:
+            try:
+                pg = self.get_port_group(name)
+            except PortGroupNotFound:
+                time.sleep(delay)
+            else:
+                return pg
+        raise PortGroupNotFound(self, name)
 
     def get_port_group(self, name: str) -> AbstractPortGroupHandler:
         raise NotImplementedError

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import time
 from contextlib import suppress
 from logging import Logger
 from threading import Lock
@@ -19,13 +18,12 @@ from cloudshell.shell.flows.connectivity.parse_request_service import (
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
 from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
+from cloudshell.cp.vcenter.handlers.managed_entity_handler import ManagedEntityNotFound
 from cloudshell.cp.vcenter.handlers.network_handler import (
     AbstractNetwork,
-    AbstractPortGroupHandler,
     DVPortGroupHandler,
     NetworkHandler,
     NetworkNotFound,
-    PortGroupNotFound,
 )
 from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
 from cloudshell.cp.vcenter.handlers.switch_handler import (
@@ -33,6 +31,9 @@ from cloudshell.cp.vcenter.handlers.switch_handler import (
     DvSwitchNotFound,
 )
 from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
+from cloudshell.cp.vcenter.handlers.vsphere_api_handler import (
+    NoPrivilegesForListEntityTags,
+)
 from cloudshell.cp.vcenter.handlers.vsphere_sdk_handler import VSphereSDKHandler
 from cloudshell.cp.vcenter.models.connectivity_action_model import (
     VcenterConnectivityActionModel,
@@ -43,7 +44,6 @@ from cloudshell.cp.vcenter.utils.connectivity_helpers import (
     get_available_vnic,
     get_existed_port_group_name,
     should_remove_port_group,
-    wait_network_become_free,
 )
 
 if TYPE_CHECKING:
@@ -129,10 +129,9 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         else:
             vm.connect_vnic_to_network(vnic, default_network, self._logger)
 
-        if should_remove_port_group(network.name, action):
-            with self._network_lock:
-                if self._vsphere_client:
-                    self._vsphere_client.delete_tags(network)
+        with suppress(ManagedEntityNotFound):  # network can be already removed
+            if should_remove_port_group(network.name, action):
+                self._remove_network_tags(network)
                 self._remove_network(network, vm)
 
         msg = "Removing VLAN successfully completed"
@@ -178,8 +177,8 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
                 self._resource_conf.promiscuous_mode,
                 self._logger,
             )
-            port_group = self._wait_for_the_port_group_appears(switch, pg_name)
-            network = self._wait_for_the_network_appears(dc, pg_name)
+            port_group = switch.wait_port_group_appears(pg_name)
+            network = dc.wait_network_appears(pg_name)
             if self._vsphere_client:
                 try:
                     self._vsphere_client.assign_tags(obj=network)
@@ -189,42 +188,22 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         return network
 
     @staticmethod
-    def _wait_for_the_port_group_appears(
-        switch: AbstractSwitchHandler, port_name: str
-    ) -> AbstractPortGroupHandler:
-        delay = 2
-        timeout = 60 * 5
-        start_time = time.time()
-
-        while time.time() - start_time < timeout:
-            try:
-                pg = switch.get_port_group(port_name)
-            except PortGroupNotFound:
-                time.sleep(delay)
-            else:
-                return pg
-        raise PortGroupNotFound(switch, port_name)
-
-    @staticmethod
-    def _wait_for_the_network_appears(dc: DcHandler, name: str) -> NetworkHandler:
-        delay = 2
-        timeout = 60 * 5
-        start_time = time.time()
-
-        while time.time() - start_time < timeout:
-            try:
-                network = dc.get_network(name)
-            except NetworkNotFound:
-                time.sleep(delay)
-            else:
-                return network
-        raise NetworkNotFound(dc, name)
-
-    @staticmethod
     def _remove_network(network: DVPortGroupHandler | NetworkHandler, vm: VmHandler):
-        with suppress(NetworkNotFound):
-            if wait_network_become_free(network):
-                if isinstance(network, DVPortGroupHandler):
-                    network.destroy()
-                else:
-                    vm.host.remove_port_group(network.name)
+        if network.wait_network_become_free():
+            if isinstance(network, DVPortGroupHandler):
+                network.destroy()
+            else:
+                vm.host.remove_port_group(network.name)
+
+    def _remove_network_tags(self, network: AbstractNetwork):
+        """Remove network's tags.
+
+        NoPrivilegesForListEntityTags error can mean that the network can be already
+        removed. But we ought to check, if it isn't removed reraise the Tag's error.
+        """
+        if self._vsphere_client:
+            try:
+                self._vsphere_client.delete_tags(network)
+            except NoPrivilegesForListEntityTags:
+                if not network.wait_network_disappears():
+                    raise

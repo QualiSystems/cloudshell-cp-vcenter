@@ -16,6 +16,17 @@ from cloudshell.cp.vcenter.exceptions import (
 from cloudshell.cp.vcenter.models.vsphere_tagging import CategorySpec, TagSpec
 
 
+class NoPrivilegesForListEntityTags(TagFaultException):
+    def __init__(self, entity_id: str, entity_type: str):
+        self.entity_id = entity_id
+        self.entity_type = entity_type
+        msg = (
+            f"Cannot list tags of the object '{entity_type}' with id '{entity_id}'. "
+            f"Not enough privileges."
+        )
+        super().__init__(msg)
+
+
 @attr.s(auto_attribs=True, slots=True, frozen=True)
 class BaseAPIClient:
     address: str
@@ -269,11 +280,9 @@ class VSphereAutomationAPI(BaseAPIClient):
             )
         except requests.exceptions.HTTPError as err:
             if err.response.status_code == 401:
-                raise TagFaultException("User can not be authenticated..")
+                raise TagFaultException("User can not be authenticated..") from err
             elif err.response.status_code == 403:
-                raise TagFaultException(
-                    f"Not enough privileges to read the object {obj_type}."
-                )
+                raise NoPrivilegesForListEntityTags(obj_id, obj_type) from err
         else:
             return res
 
