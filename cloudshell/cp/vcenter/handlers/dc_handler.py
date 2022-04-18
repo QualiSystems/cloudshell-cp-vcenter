@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import time
+from contextlib import suppress
+
 from pyVmomi import vim
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
@@ -14,7 +17,10 @@ from cloudshell.cp.vcenter.handlers.datastore_handler import (
     DatastoreNotFound,
 )
 from cloudshell.cp.vcenter.handlers.folder_handler import FolderHandler
-from cloudshell.cp.vcenter.handlers.managed_entity_handler import ManagedEntityHandler
+from cloudshell.cp.vcenter.handlers.managed_entity_handler import (
+    ManagedEntityHandler,
+    ManagedEntityNotFound,
+)
 from cloudshell.cp.vcenter.handlers.network_handler import (
     DVPortGroupHandler,
     NetworkHandler,
@@ -52,16 +58,28 @@ class DcHandler(ManagedEntityHandler):
         return f"Datacenter '{self.name}'"
 
     @property
-    def networks(self) -> list[NetworkHandler | DVPortGroupHandler]:
-        return [get_network_handler(net, self._si) for net in self._entity.network]
-
-    @property
     def datastores(self) -> list[DatastoreHandler]:
         return [DatastoreHandler(store, self._si) for store in self._entity.datastore]
 
     def get_network(self, name: str) -> NetworkHandler | DVPortGroupHandler:
-        for network in self.networks:
-            if network.name == name:
+        networks = (get_network_handler(net, self._si) for net in self._entity.network)
+        for network in networks:
+            with suppress(ManagedEntityNotFound):
+                # We can get the error if the resource has been removed...
+                if network.name == name:
+                    return network
+        raise NetworkNotFound(self, name)
+
+    def wait_network_appears(
+        self, name: str, delay: int = 2, timeout: int = 60 * 5
+    ) -> NetworkHandler | DVPortGroupHandler:
+        end_time = time.time() + timeout
+        while time.time() < end_time:
+            try:
+                network = self.get_network(name)
+            except NetworkNotFound:
+                time.sleep(delay)
+            else:
                 return network
         raise NetworkNotFound(self, name)
 
