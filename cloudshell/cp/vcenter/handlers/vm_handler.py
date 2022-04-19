@@ -4,7 +4,9 @@ from contextlib import suppress
 from datetime import datetime
 from enum import Enum
 from logging import Logger
+from threading import Lock
 
+import attr
 from pyVmomi import vim
 
 from cloudshell.cp.vcenter.common.vcenter.event_manager import EventManager
@@ -22,7 +24,7 @@ from cloudshell.cp.vcenter.handlers.network_handler import (
     get_network_handler,
 )
 from cloudshell.cp.vcenter.handlers.resource_pool import ResourcePoolHandler
-from cloudshell.cp.vcenter.handlers.si_handler import CustomSpecNotFound
+from cloudshell.cp.vcenter.handlers.si_handler import CustomSpecNotFound, SiHandler
 from cloudshell.cp.vcenter.handlers.snapshot_handler import (
     SnapshotHandler,
     SnapshotNotFoundInSnapshotTree,
@@ -100,8 +102,14 @@ def _get_dc(entity):
     return entity.parent
 
 
+@attr.s(auto_attribs=True, slots=True)
 class VmHandler(ManagedEntityHandler):
     _entity: vim.VirtualMachine
+    _si: SiHandler
+    _reconfig_vm_lock: Lock = attr.ib(None, init=False)
+
+    def __attrs_post_init__(self):
+        self._reconfig_vm_lock = Lock()
 
     def __str__(self):
         return f"VM '{self.name}'"
@@ -186,6 +194,17 @@ class VmHandler(ManagedEntityHandler):
     def _get_devices(self):
         return self._entity.config.hardware.device
 
+    def _reconfigure(
+        self,
+        config_spec: vim.vm.ConfigSpec,
+        logger,
+        task_waiter: VcenterTaskWaiter | None = None,
+    ):
+        with self._reconfig_vm_lock:
+            task = self._entity.ReconfigVM_Task(config_spec)
+            task_waiter = task_waiter or VcenterTaskWaiter(logger)
+            task_waiter.wait_for_task(task)
+
     def create_vnic(self, logger: Logger) -> VnicHandler:
         """The vNIC is not connected to the VM yet!."""
         logger.info(f"Adding a new vNIC for the {self}")
@@ -236,9 +255,7 @@ class VmHandler(ManagedEntityHandler):
         logger.info(f"Connecting {vnic} of the {self} to the {port_group}")
         nic_spec = vnic.create_spec_for_connection_port_group(port_group)
         config_spec = vim.vm.ConfigSpec(deviceChange=[nic_spec])
-        task = self._entity.ReconfigVM_Task(config_spec)
-        task_waiter = task_waiter or VcenterTaskWaiter(logger)
-        task_waiter.wait_for_task(task)
+        self._reconfigure(config_spec, logger, task_waiter)
 
     def connect_vnic_to_network(
         self,
@@ -250,9 +267,7 @@ class VmHandler(ManagedEntityHandler):
         logger.info(f"Connecting {vnic} of the {self} to the {network}")
         nic_spec = vnic.create_spec_for_connection_network(network)
         config_spec = vim.vm.ConfigSpec(deviceChange=[nic_spec])
-        task = self._entity.ReconfigVM_Task(config_spec)
-        task_waiter = task_waiter or VcenterTaskWaiter(logger)
-        task_waiter.wait_for_task(task)
+        self._reconfigure(config_spec, logger, task_waiter)
 
     def get_vnic_by_mac(self, mac_address: str, logger: Logger) -> VnicHandler:
         logger.info(f"Searching for vNIC of the {self} with mac {mac_address}")
@@ -336,9 +351,7 @@ class VmHandler(ManagedEntityHandler):
         task_waiter: VcenterTaskWaiter | None = None,
     ):
         spec = config_spec.get_spec_for_vm(self._entity)
-        task = self._entity.ReconfigVM_Task(spec)
-        task_waiter = task_waiter or VcenterTaskWaiter(logger)
-        task_waiter.wait_for_task(task)
+        self._reconfigure(spec, logger, task_waiter)
 
     def create_snapshot(
         self,
