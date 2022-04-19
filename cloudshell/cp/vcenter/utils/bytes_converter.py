@@ -1,4 +1,4 @@
-BASE_10 = 2 ** 10
+BASE_10 = 2**10
 PREFIX_B = "B"
 PREFIX_KB = "KB"
 PREFIX_MB = "MB"
