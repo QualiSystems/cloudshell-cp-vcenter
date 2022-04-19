@@ -8,11 +8,6 @@ from packaging import version
 
 from cloudshell.cp.core.reservation_info import ReservationInfo
 
-from cloudshell.cp.vcenter.exceptions import (
-    TagFaultException,
-    VSphereAPIAlreadyExistsException,
-    VSphereAPINotFoundException,
-)
 from cloudshell.cp.vcenter.handlers.folder_handler import FolderHandler
 from cloudshell.cp.vcenter.handlers.network_handler import (
     DVPortGroupHandler,
@@ -21,7 +16,16 @@ from cloudshell.cp.vcenter.handlers.network_handler import (
 from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
 from cloudshell.cp.vcenter.handlers.vcenter_tag_handler import VCenterTagsManager
 from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
-from cloudshell.cp.vcenter.handlers.vsphere_api_handler import VSphereAutomationAPI
+from cloudshell.cp.vcenter.handlers.vsphere_api_handler import (
+    CategoryAlreadyExists,
+    CategoryIdDoesntExists,
+    CategoryNameDoesntExists,
+    TagAlreadyExists,
+    TagApiException,
+    TagIdDoesntExists,
+    TagNameDoesntExists,
+    VSphereAutomationAPI,
+)
 from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 
 OBJECTS_WITH_TAGS = Union[VmHandler, FolderHandler, NetworkHandler, DVPortGroupHandler]
@@ -81,7 +85,7 @@ class VSphereSDKHandler:
             for category_id in categories:
                 try:
                     category_info = self._vsphere_client.get_category_info(category_id)
-                except VSphereAPINotFoundException:
+                except CategoryIdDoesntExists:
                     continue
                 else:
                     self._logger.debug(
@@ -98,13 +102,13 @@ class VSphereSDKHandler:
         for category_id in self._vsphere_client.get_category_list():
             try:
                 category_info = self._vsphere_client.get_category_info(category_id)
-            except VSphereAPINotFoundException:
+            except CategoryIdDoesntExists:
                 continue
             else:
                 if category_info["name"].lower() == name.lower():
                     break
         else:
-            raise VSphereAPINotFoundException(f"Category with name '{name}' not found")
+            raise CategoryNameDoesntExists(name)
 
         return category_info["id"]
 
@@ -115,7 +119,7 @@ class VSphereSDKHandler:
         """
         try:
             category_id = self._vsphere_client.create_category(name)
-        except VSphereAPIAlreadyExistsException:
+        except CategoryAlreadyExists:
             self._logger.debug(f"Tag Category {name} already exists.")
             category_id = self._get_category_id(name)
 
@@ -136,39 +140,34 @@ class VSphereSDKHandler:
     def _get_all_tags(self, category_id: str) -> dict[str:str]:
         """Get all existing tags for the given category.."""
         result = {}
-        try:
-            tags = self._vsphere_client.get_all_category_tags(category_id=category_id)
-            if len(tags) > 0:
-                self._logger.debug("List of all existing tags user has access to...")
-                for tag_id in tags:
-                    try:
-                        tag_info = self._vsphere_client.get_tag_info(tag_id)
-                    except VSphereAPINotFoundException:
-                        continue  # tag already removed, skip it
-                    else:
-                        self._logger.debug(
-                            f"TagName: {tag_info['name']}, TagID: {tag_info['id']}"
-                        )
-                        result.update({tag_info["name"]: tag_info["id"]})
-            else:
-                self._logger.info("No Tag Found...")
-        except VSphereAPINotFoundException as err:
-            raise TagFaultException(err)
+        tags = self._vsphere_client.get_all_category_tags(category_id=category_id)
+        if len(tags) > 0:
+            self._logger.debug("List of all existing tags user has access to...")
+            for tag_id in tags:
+                try:
+                    tag_info = self._vsphere_client.get_tag_info(tag_id)
+                except TagIdDoesntExists:
+                    continue  # tag already removed, skip it
+                else:
+                    self._logger.debug(
+                        f"TagName: {tag_info['name']}, TagID: {tag_info['id']}"
+                    )
+                    result.update({tag_info["name"]: tag_info["id"]})
         else:
-            return result
+            self._logger.info("No Tag Found...")
+        return result
 
     def _get_tag_id(self, name: str, category_id: str) -> str:
         for tag_id in self._vsphere_client.get_all_category_tags(category_id):
             try:
                 tag_info = self._vsphere_client.get_tag_info(tag_id)
-            except VSphereAPINotFoundException:
+            except TagIdDoesntExists:
                 continue  # tag already removed, skip it
             else:
                 if tag_info["name"].lower() == name.lower():
                     break
         else:
-            msg = f"Tag with name '{name}' not found in the category id '{category_id}'"
-            raise VSphereAPINotFoundException(msg)
+            raise TagNameDoesntExists(name, category_id)
 
         return tag_info["id"]
 
@@ -177,12 +176,10 @@ class VSphereSDKHandler:
         try:
             tag_id = self._vsphere_client.create_tag(name=name, category_id=category_id)
             if tag_id is None:
-                raise TagFaultException("Error during tag creation.")
-        except VSphereAPIAlreadyExistsException as err:
+                raise TagApiException("Error during tag creation.")
+        except TagAlreadyExists as err:
             self._logger.debug(err)
             tag_id = self._get_tag_id(name, category_id=category_id)
-        except VSphereAPINotFoundException as err:
-            raise TagFaultException(err)
 
         return tag_id
 
@@ -225,7 +222,7 @@ class VSphereSDKHandler:
         """
         try:
             self._vsphere_client.delete_category(category_id)
-        except VSphereAPINotFoundException as err:
+        except CategoryIdDoesntExists as err:
             self._logger.debug(err)
 
     def _delete_tag(self, tag_id: str) -> None:
@@ -235,7 +232,7 @@ class VSphereSDKHandler:
         """
         try:
             self._vsphere_client.delete_tag(tag_id)
-        except VSphereAPINotFoundException as err:
+        except TagIdDoesntExists as err:
             self._logger.debug(err)
 
     def delete_tags(self, obj):
@@ -248,7 +245,7 @@ class VSphereSDKHandler:
                 category_info = self._vsphere_client.get_category_info(
                     tag_info["category_id"]
                 )
-            except VSphereAPINotFoundException:
+            except TagIdDoesntExists:
                 self._logger.debug(f"Tag {tag_id} already removed")
                 continue
 
@@ -262,7 +259,7 @@ class VSphereSDKHandler:
 
                     self._logger.debug(f"TagID to delete: {tag_id}")
                     self._delete_tag(tag_id)
-                except VSphereAPINotFoundException:
+                except TagIdDoesntExists:
                     self._logger.debug(f"Pattern TagID {tag_id} doesn't exist.")
                     break
             else:
@@ -273,7 +270,7 @@ class VSphereSDKHandler:
                     )
 
                     tag_to_objects_mapping.update({tag_id: candidate_objects_list})
-                except VSphereAPINotFoundException:
+                except TagIdDoesntExists:
                     self._logger.debug(f"Candidate TagID {tag_id} doesn't exist.")
 
         for tag_id, objects_list in tag_to_objects_mapping.items():
