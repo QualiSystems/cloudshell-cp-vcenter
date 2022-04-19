@@ -143,4 +143,4 @@ class HddSpec:
 
     @property
     def size_in_kb(self) -> int:
-        return int(self.size * 2 ** 20)
+        return int(self.size * 2**20)

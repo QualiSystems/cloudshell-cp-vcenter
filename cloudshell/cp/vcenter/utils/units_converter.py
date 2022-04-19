@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import attr
 
-BASE_10 = 2 ** 10
+BASE_10 = 2**10
 BASE_SI = 1000
 
 PREFIX_B = "B"
