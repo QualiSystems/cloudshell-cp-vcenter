@@ -32,7 +32,7 @@ from cloudshell.cp.vcenter.handlers.switch_handler import (
 )
 from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
 from cloudshell.cp.vcenter.handlers.vsphere_api_handler import (
-    NoPrivilegesForListEntityTags,
+    NotEnoughPrivilegesListObjectTags,
 )
 from cloudshell.cp.vcenter.handlers.vsphere_sdk_handler import VSphereSDKHandler
 from cloudshell.cp.vcenter.models.connectivity_action_model import (
@@ -198,12 +198,12 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
     def _remove_network_tags(self, network: AbstractNetwork):
         """Remove network's tags.
 
-        NoPrivilegesForListEntityTags error can mean that the network can be already
+        NotEnoughPrivilegesListObjectTags error can mean that the network can be already
         removed. But we ought to check, if it isn't removed reraise the Tag's error.
         """
         if self._vsphere_client:
             try:
                 self._vsphere_client.delete_tags(network)
-            except NoPrivilegesForListEntityTags:
+            except NotEnoughPrivilegesListObjectTags:
                 if not network.wait_network_disappears():
                     raise
