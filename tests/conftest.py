@@ -102,7 +102,7 @@ def resource_conf(resource_command_context, cs_api) -> VCenterResourceConfig:
     vm_resource_pool = "vm resource pool"
     vm_storage = "vm storage"
     saved_sandbox_storage = "saved sandbox storage"
-    behavior_during_save = "behavior during save"
+    behavior_during_save = "Remain Powered On"
     vm_location = "vm location"
     shutdown_method = "soft"
     ovf_tool_path = "ovf tool path"
