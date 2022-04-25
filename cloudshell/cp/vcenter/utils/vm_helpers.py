@@ -50,7 +50,7 @@ def get_vm_folder_path(
     resource_conf: VCenterResourceConfig,
     reservation_id: str,
 ) -> VcenterPath:
-    path = VcenterPath(model.vm_cluster or resource_conf.vm_location)
+    path = VcenterPath(model.vm_location or resource_conf.vm_location)
     path.append(DEPLOYED_APPS_FOLDER)
     path.append(reservation_id)
     return path

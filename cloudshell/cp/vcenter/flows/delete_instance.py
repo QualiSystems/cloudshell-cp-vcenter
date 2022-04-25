@@ -34,7 +34,10 @@ def delete_instance(
 ):
     si = SiHandler.from_config(resource_conf, logger)
     vsphere_client = VSphereSDKHandler.from_config(
-        resource_config=resource_conf, reservation_info=reservation_info, logger=logger
+        resource_config=resource_conf,
+        reservation_info=reservation_info,
+        logger=logger,
+        si=si,
     )
     dc = DcHandler.get_dc(resource_conf.default_datacenter, si)
 
