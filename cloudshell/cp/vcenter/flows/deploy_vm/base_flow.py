@@ -70,6 +70,7 @@ class AbstractVCenterDeployVMFlow(AbstractDeployFlow):
             resource_config=self._resource_config,
             reservation_info=self._reservation_info,
             logger=self._logger,
+            si=self._si,
         )
 
     @abstractmethod
