@@ -72,6 +72,7 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
             resource_config=self._resource_conf,
             reservation_info=self._reservation_info,
             logger=self._logger,
+            si=self._si,
         )
         self._network_lock = Lock()
 

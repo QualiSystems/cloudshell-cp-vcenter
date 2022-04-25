@@ -55,8 +55,14 @@ class VSphereSDKHandler:
         resource_config: VCenterResourceConfig,
         reservation_info: ReservationInfo | None,
         logger: Logger,
+        si: SiHandler | None = None,
     ) -> VSphereSDKHandler | None:
-        si = SiHandler.from_config(resource_config, logger)
+        if not si:
+            si = SiHandler.from_config(resource_config, logger)
+
+        if not resource_config.add_tags:
+            return None
+
         if version.parse(si.vc_version) >= version.parse(cls.VCENTER_VERSION):
             logger.info("Initializing vSphere API client.")
             vsphere_client = VSphereAutomationAPI(
@@ -74,7 +80,7 @@ class VSphereSDKHandler:
             return cls(vsphere_client, tags_manager, logger)
         else:
             logger.warning(f"Tags available only from vCenter {cls.VCENTER_VERSION}")
-            return
+            return None
 
     def _get_all_categories(self) -> dict[str:str]:
         """Get all existing categories."""
