@@ -73,7 +73,7 @@ class VCenterAttributeNames:
     reserved_networks = "Reserved Networks"
     execution_server_selector = "Execution Server Selector"
     promiscuous_mode = "Promiscuous Mode"
-    add_tags = "Add Tags"
+    enable_tags = "Enable Tags"
 
 
 class VCenterResourceConfig(GenericResourceConfig):
@@ -101,8 +101,8 @@ class VCenterResourceConfig(GenericResourceConfig):
     promiscuous_mode = ResourceBoolAttrRO(
         ATTR_NAMES.promiscuous_mode, ResourceBoolAttrRO.NAMESPACE.SHELL_NAME
     )
-    add_tags = ResourceBoolAttrRO(
-        ATTR_NAMES.add_tags, ResourceBoolAttrRO.NAMESPACE.SHELL_NAME
+    enable_tags = ResourceBoolAttrRO(
+        ATTR_NAMES.enable_tags, ResourceBoolAttrRO.NAMESPACE.SHELL_NAME
     )
 
     @classmethod
