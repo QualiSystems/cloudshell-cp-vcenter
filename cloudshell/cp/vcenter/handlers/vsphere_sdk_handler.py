@@ -60,7 +60,7 @@ class VSphereSDKHandler:
         if not si:
             si = SiHandler.from_config(resource_config, logger)
 
-        if not resource_config.add_tags:
+        if not resource_config.enable_tags:
             return None
 
         if version.parse(si.vc_version) >= version.parse(cls.VCENTER_VERSION):
