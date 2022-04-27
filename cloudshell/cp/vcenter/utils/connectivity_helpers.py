@@ -65,7 +65,7 @@ def get_available_vnic(
 
         # we need to update vnic object to fill all attributes, e.g. mac_address
         vnic = vm.vnics[-1]
-        assert vnic.network_name == default_network.name
+        assert vm.get_network_from_vnic(vnic).name == default_network.name
 
     return vnic
 

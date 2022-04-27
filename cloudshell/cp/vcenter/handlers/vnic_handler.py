@@ -53,14 +53,11 @@ class VnicHandler(VirtualDeviceHandler):
         return self._device.macAddress
 
     @property
-    def network_name(self) -> str:
-        try:
-            return self._device.backing.network.name
-        except AttributeError:
-            raise ValueError
-
-    @property
     def vc_network(self) -> vim.Network:
+        """Return the Network created from Host Port Group.
+
+        Note: it would raise the ValueError for the dvPortGroup
+        """
         try:
             return self._device.backing.network
         except AttributeError:
