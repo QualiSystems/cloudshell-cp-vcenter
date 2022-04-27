@@ -164,9 +164,9 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         switch: AbstractSwitchHandler,
         action: ConnectivityActionModel | VcenterConnectivityActionModel,
     ) -> AbstractNetwork:
-        port_mode = action.connection_params.mode.value
+        port_mode = action.connection_params.mode
         vlan_id = action.connection_params.vlan_id
-        pg_name = generate_port_group_name(switch.name, vlan_id, port_mode)
+        pg_name = generate_port_group_name(switch.name, vlan_id, port_mode.value)
 
         try:
             network = dc.get_network(pg_name)
