@@ -102,7 +102,9 @@ class VCenterResourceConfig(GenericResourceConfig):
         ATTR_NAMES.promiscuous_mode, ResourceBoolAttrRO.NAMESPACE.SHELL_NAME
     )
     enable_tags = ResourceBoolAttrRO(
-        ATTR_NAMES.enable_tags, ResourceBoolAttrRO.NAMESPACE.SHELL_NAME
+        ATTR_NAMES.enable_tags,
+        ResourceBoolAttrRO.NAMESPACE.SHELL_NAME,
+        default=True,
     )
 
     @classmethod
