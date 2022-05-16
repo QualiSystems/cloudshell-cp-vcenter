@@ -34,6 +34,11 @@ def is_network_generated_name(net_name: str):
 
 
 def is_correct_vnic(expected_vnic: str, vnic_label: str) -> bool:
+    """Check that expected vNIC name or number is equal to vNIC label.
+
+    :param expected_vnic: vNIC name or number from the connectivity request
+    :param vnic_label: vNIC name from VM
+    """
     if expected_vnic.isdigit():
         index = vnic_label.rsplit(" ", 1)[-1]
         try:
