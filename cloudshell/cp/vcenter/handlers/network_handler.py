@@ -152,7 +152,7 @@ class HostPortGroupHandler(AbstractPortGroupHandler):
         return self._entity.spec.vlanId
 
     def destroy(self):
-        self._host.remove_port_group(self)
+        self._host.remove_port_group(self.name)
 
 
 def get_network_handler(
