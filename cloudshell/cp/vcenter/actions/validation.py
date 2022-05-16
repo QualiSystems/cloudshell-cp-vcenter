@@ -68,9 +68,7 @@ class ValidationActions:
         _is_not_empty(conf.default_datacenter, conf.ATTR_NAMES.default_datacenter)
         _is_not_empty(conf.vm_cluster, conf.ATTR_NAMES.vm_cluster)
         _is_not_empty(conf.vm_storage, conf.ATTR_NAMES.vm_storage)
-        _is_not_empty(conf.saved_sandbox_storage, conf.ATTR_NAMES.saved_sandbox_storage)
         _is_not_empty(conf.vm_location, conf.ATTR_NAMES.vm_location)
-        _is_not_empty(conf.default_dv_switch, conf.ATTR_NAMES.default_dv_switch)
         _is_value_in(
             conf.behavior_during_save,
             BEHAVIOURS_DURING_SAVE,
@@ -89,8 +87,10 @@ class ValidationActions:
         dc.get_network(conf.holding_network)
         dc.get_vm_folder(conf.vm_location)
         dc.get_datastore(conf.vm_storage)
-        dc.get_datastore(conf.saved_sandbox_storage)
-        self._validate_switch(dc, compute_entity)
+        if conf.saved_sandbox_storage:
+            dc.get_datastore(conf.saved_sandbox_storage)
+        if conf.default_dv_switch:
+            self._validate_switch(dc, compute_entity)
         if conf.vm_resource_pool:
             dc.get_resource_pool(conf.vm_resource_pool)
 
