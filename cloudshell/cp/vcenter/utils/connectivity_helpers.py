@@ -33,15 +33,27 @@ def is_network_generated_name(net_name: str):
     return bool(PORT_GROUP_NAME_PATTERN.search(net_name))
 
 
+def is_correct_vnic(expected_vnic: str, vnic_label: str) -> bool:
+    if expected_vnic.isdigit():
+        index = vnic_label.rsplit(" ", 1)[-1]
+        try:
+            is_correct = int(index) == int(expected_vnic)
+        except ValueError:
+            is_correct = False
+    else:
+        is_correct = expected_vnic.lower() == vnic_label.lower()
+    return is_correct
+
+
 def get_available_vnic(
     vm: VmHandler,
     default_network: AbstractNetwork,
     reserved_networks: list[str],
     logger: Logger,
-    vnic_name=None,
+    vnic_name: str | None = None,
 ) -> VnicHandler:
     for vnic in vm.vnics:
-        if vnic_name and vnic_name != vnic.label:
+        if vnic_name and not is_correct_vnic(vnic_name, vnic.label):
             continue
 
         network = vm.get_network_from_vnic(vnic)
