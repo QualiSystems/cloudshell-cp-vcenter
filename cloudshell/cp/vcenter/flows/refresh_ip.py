@@ -20,7 +20,7 @@ def refresh_ip(
     resource_conf: VCenterResourceConfig,
     cancellation_manager: CancellationContextManager,
     logger: Logger,
-):
+) -> str:
     si = SiHandler.from_config(resource_conf, logger)
     dc = DcHandler.get_dc(resource_conf.default_datacenter, si)
     vm = dc.get_vm_by_uuid(deployed_app.vmdetails.uid)
@@ -36,3 +36,4 @@ def refresh_ip(
     )
     if ip != deployed_app.private_ip:
         deployed_app.update_private_ip(deployed_app.name, ip)
+    return ip
