@@ -121,7 +121,7 @@ class DVPortGroupHandler(AbstractNetwork, AbstractPortGroupHandler):
     def destroy(self):
         try:
             self._entity.Destroy()
-        except vim.fault.NotFound:
+        except (vim.fault.NotFound, ManagedEntityNotFound):
             pass
         except vim.fault.ResourceInUse:
             raise ResourceInUse(self.name)

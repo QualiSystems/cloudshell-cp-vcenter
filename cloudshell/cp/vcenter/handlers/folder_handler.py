@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+from contextlib import suppress
 from logging import Logger
 
 import attr
 from pyVmomi import vim
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException, TaskFaultException
-from cloudshell.cp.vcenter.handlers.managed_entity_handler import ManagedEntityHandler
+from cloudshell.cp.vcenter.handlers.managed_entity_handler import (
+    ManagedEntityHandler,
+    ManagedEntityNotFound,
+)
 from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
 from cloudshell.cp.vcenter.handlers.vcenter_path import VcenterPath
 from cloudshell.cp.vcenter.utils.task_waiter import VcenterTaskWaiter
@@ -88,13 +92,14 @@ class FolderHandler(ManagedEntityHandler):
 
     def destroy(self, logger: Logger, task_waiter: VcenterTaskWaiter | None = None):
         logger.info(f"Deleting the {self}")
-        if not self.is_empty():
-            raise FolderIsNotEmpty(self)
+        with suppress(ManagedEntityNotFound):
+            if not self.is_empty():
+                raise FolderIsNotEmpty(self)
 
-        task = self._entity.Destroy_Task()
-        task_waiter = task_waiter or VcenterTaskWaiter(logger)
-        try:
-            task_waiter.wait_for_task(task)
-        except TaskFaultException as e:
-            if "has already been deleted" not in str(e):
-                raise
+            task = self._entity.Destroy_Task()
+            task_waiter = task_waiter or VcenterTaskWaiter(logger)
+            try:
+                task_waiter.wait_for_task(task)
+            except TaskFaultException as e:
+                if "has already been deleted" not in str(e):
+                    raise

@@ -6,7 +6,10 @@ from pyVmomi import vim
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
 from cloudshell.cp.vcenter.handlers.datastore_handler import DatastoreHandler
-from cloudshell.cp.vcenter.handlers.managed_entity_handler import ManagedEntityHandler
+from cloudshell.cp.vcenter.handlers.managed_entity_handler import (
+    ManagedEntityHandler,
+    ManagedEntityNotFound,
+)
 from cloudshell.cp.vcenter.handlers.network_handler import HostPortGroupHandler
 from cloudshell.cp.vcenter.handlers.resource_pool import ResourcePoolHandler
 from cloudshell.cp.vcenter.handlers.si_handler import ResourceInUse
@@ -146,7 +149,7 @@ class HostHandler(BasicComputeEntityHandler):
     def remove_port_group(self, name: str):
         try:
             self._entity.configManager.networkSystem.RemovePortGroup(name)
-        except vim.fault.NotFound:
+        except (vim.fault.NotFound, ManagedEntityNotFound):
             pass
         except vim.fault.ResourceInUse:
             raise ResourceInUse(name)
