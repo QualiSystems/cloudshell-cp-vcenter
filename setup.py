@@ -1,21 +1,6 @@
 import os
 
 from setuptools import find_packages, setup
-from setuptools.version import __version__ as setuptools_version
-
-if tuple(map(int, setuptools_version.split("."))) < (40, 0):
-    import sys
-
-    python = sys.executable
-    try:
-        s = os.system(f'{python} -m pip install "setuptools>=40"')
-        if s != 0:
-            raise Exception
-    except Exception:
-        raise Exception("Setuptools>40 have to be installed")
-
-    os.execl(python, python, *sys.argv)
-
 
 with open(os.path.join("version.txt")) as version_file:
     version_from_file = version_file.read().strip()
