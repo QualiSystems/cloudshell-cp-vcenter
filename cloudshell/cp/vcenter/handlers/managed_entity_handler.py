@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from collections.abc import Callable
 
 import attr
 from pyVmomi import vim, vmodl
@@ -9,6 +10,16 @@ from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
 
 class ManagedEntityNotFound(BaseVCenterException):
     ...
+
+
+def wrapper(fn):
+    def wrapped(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except vmodl.fault.ManagedObjectNotFound:
+            raise ManagedEntityNotFound
+
+    return wrapped
 
 
 @attr.s(auto_attribs=True)
@@ -27,6 +38,8 @@ class ManagedEntityHandler:
         except vmodl.fault.ManagedObjectNotFound:
             raise ManagedEntityNotFound
         else:
+            if isinstance(result, Callable):
+                result = wrapper(result)
             return result
 
     @property

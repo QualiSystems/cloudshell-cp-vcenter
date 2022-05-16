@@ -16,7 +16,10 @@ from cloudshell.cp.vcenter.handlers.config_spec_handler import ConfigSpecHandler
 from cloudshell.cp.vcenter.handlers.custom_spec_handler import CustomSpecHandler
 from cloudshell.cp.vcenter.handlers.datastore_handler import DatastoreHandler
 from cloudshell.cp.vcenter.handlers.folder_handler import FolderHandler
-from cloudshell.cp.vcenter.handlers.managed_entity_handler import ManagedEntityHandler
+from cloudshell.cp.vcenter.handlers.managed_entity_handler import (
+    ManagedEntityHandler,
+    ManagedEntityNotFound,
+)
 from cloudshell.cp.vcenter.handlers.network_handler import (
     DVPortGroupHandler,
     HostPortGroupNotFound,
@@ -424,9 +427,10 @@ class VmHandler(ManagedEntityHandler):
 
     def delete(self, logger: Logger, task_waiter: VcenterTaskWaiter | None = None):
         logger.info(f"Deleting the {self}")
-        task = self._entity.Destroy_Task()
-        task_waiter = task_waiter or VcenterTaskWaiter(logger)
-        task_waiter.wait_for_task(task)
+        with suppress(ManagedEntityNotFound):
+            task = self._entity.Destroy_Task()
+            task_waiter = task_waiter or VcenterTaskWaiter(logger)
+            task_waiter.wait_for_task(task)
 
     def clone_vm(
         self,
