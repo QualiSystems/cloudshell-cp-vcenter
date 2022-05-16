@@ -39,7 +39,7 @@ class CreateVmFolder(RollbackCommand):
             try:
                 self._vsphere_client.assign_tags(obj=vm_folder)
             except Exception:
-                with suppress(FolderIsNotEmpty, FolderNotFound):
+                with suppress(FolderIsNotEmpty):
                     vm_folder.destroy(self._logger)
                 raise
         return vm_folder
