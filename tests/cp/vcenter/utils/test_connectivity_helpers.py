@@ -8,6 +8,7 @@ from cloudshell.cp.vcenter.utils.connectivity_helpers import is_correct_vnic
     (
         ("2", "Network adapter 2", True),
         ("network adapter 1", "Network adapter 1", True),
+        ("10", "Network adapter 10", True),
         ("Network adapter 3", "Network adapter 2", False),
         (" 3", "Network adapter 3", False),
         ("2", "not expected network name", False),
