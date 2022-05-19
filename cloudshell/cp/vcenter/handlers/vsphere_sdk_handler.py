@@ -5,6 +5,7 @@ from typing import Union
 
 import attr
 from packaging import version
+from retrying import retry
 
 from cloudshell.cp.core.reservation_info import ReservationInfo
 
@@ -177,6 +178,10 @@ class VSphereSDKHandler:
 
         return tag_info["id"]
 
+    @retry(
+        stop_max_attempt_number=5,
+        retry_on_exception=lambda e: isinstance(e, TagNameDoesntExists),
+    )  # there is small chance that tag can be deleted while we're finding it by name
     def _get_or_create_tag(self, name: str, category_id: str) -> str:
         """Create a Tag."""
         try:
