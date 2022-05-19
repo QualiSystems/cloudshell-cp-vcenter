@@ -145,7 +145,7 @@ class VmHandler(ManagedEntityHandler):
 
     @property
     def disk_size(self) -> int:
-        return sum(map(lambda d: d.capacity_in_bytes, self.disks))
+        return sum(d.capacity_in_bytes for d in self.disks)
 
     @property
     def num_cpu(self) -> int:
