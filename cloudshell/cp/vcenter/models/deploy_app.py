@@ -20,6 +20,7 @@ from cloudshell.cp.vcenter.models.base_deployment_app import (
 
 
 class BaseVCenterDeployApp(DeployApp):
+    _DO_NOT_EDIT_APP_NAME = True
     ATTR_NAMES = VCenterDeploymentAppAttributeNames
 
     vm_cluster = ResourceAttrRODeploymentPath(ATTR_NAMES.vm_cluster)
