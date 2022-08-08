@@ -132,11 +132,8 @@ class SaveRestoreAppFlow:
     ) -> ResourcePoolHandler:
         r_pool_name = app_attrs.get(VMFromVMDeployApp.ATTR_NAMES.vm_resource_pool)
         cluster_name = app_attrs.get(VMFromVMDeployApp.ATTR_NAMES.vm_cluster)
-        if r_pool_name:
-            return dc.get_resource_pool(r_pool_name)
-        if cluster_name:
-            compute_entity = dc.get_compute_entity(cluster_name)
-            return compute_entity.get_resource_pool()
+        compute_entity = dc.get_compute_entity(cluster_name)
+        return compute_entity.get_resource_pool(r_pool_name)
 
     def _save_app(self, save_action: SaveApp, dc: DcHandler) -> SaveAppResult:
         self._logger.info(f"Starting save app {save_action.actionParams.sourceAppName}")
