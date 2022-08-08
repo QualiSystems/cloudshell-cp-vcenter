@@ -17,6 +17,7 @@ from cloudshell.cp.vcenter.handlers.switch_handler import (
     VSwitchHandler,
     VSwitchNotFound,
 )
+from cloudshell.cp.vcenter.handlers.vcenter_path import VcenterPath
 from cloudshell.cp.vcenter.utils.units_converter import (
     BASE_10,
     BASE_SI,
@@ -50,8 +51,11 @@ class BasicComputeEntityHandler(ManagedEntityHandler):
     def ram_usage(self) -> UsageInfo:
         ...
 
-    def get_resource_pool(self) -> ResourcePoolHandler:
-        return ResourcePoolHandler(self._entity.resourcePool, self._si)
+    def get_resource_pool(self, path: str | None) -> ResourcePoolHandler:
+        rp = ResourcePoolHandler(self._entity.resourcePool, self._si)
+        for name in VcenterPath(path or ""):
+            rp = rp.get_resource_pool(name)
+        return rp
 
     @abstractmethod
     def get_v_switch(self, name: str) -> VSwitchHandler:

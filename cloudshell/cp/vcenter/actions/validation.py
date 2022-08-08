@@ -92,7 +92,7 @@ class ValidationActions:
         if conf.default_dv_switch:
             self._validate_switch(dc, compute_entity)
         if conf.vm_resource_pool:
-            dc.get_resource_pool(conf.vm_resource_pool)
+            compute_entity.get_resource_pool(conf.vm_resource_pool)
 
     def validate_deploy_app_dc_objects(self, deploy_app):
         self._logger.info("Validating deploy app objects on the vCenter")
