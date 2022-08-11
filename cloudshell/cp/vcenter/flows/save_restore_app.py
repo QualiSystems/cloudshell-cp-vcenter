@@ -182,6 +182,9 @@ class SaveRestoreAppFlow:
         entity_attrs = [
             Attribute(attr_names.vcenter_vm, str(cloned_vm.path)),
             Attribute(attr_names.vcenter_vm_snapshot, SNAPSHOT_NAME),
+            Attribute(attr_names.hostname, None),
+            Attribute(attr_names.private_ip, None),
+            Attribute(attr_names.customization_spec, None),
         ]
 
         return SaveAppResult(
