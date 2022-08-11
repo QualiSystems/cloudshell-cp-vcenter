@@ -22,6 +22,11 @@ setup(
         "supports connectivity, and adds new deployment types for apps which can be "
         "used in CloudShell sandboxes."
     ),
+    long_description=(
+        "This Shell enables setting up vCenter as a cloud provider in CloudShell. It "
+        "supports connectivity, and adds new deployment types for apps which can be "
+        "used in CloudShell sandboxes."
+    ),
     install_requires=required,
     tests_require=required_for_tests,
     python_requires="~=3.7",
