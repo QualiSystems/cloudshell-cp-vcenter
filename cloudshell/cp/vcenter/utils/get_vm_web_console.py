@@ -21,14 +21,14 @@ VM_WEB_CONSOLE_OLD_LINK_TPL = (
     "&sessionTicket={session_ticket}"
     "&thumbprint={thumbprint}"
 )
+
 VM_WEB_CONSOLE_NEW_LINK_TPL = (
     "https://{vcenter_ip}/ui/webconsole.html?"
     "vmId={vm_moid}"
     "&vmName={vm_name}"
+    "&numMksConnections={num_mks_connections}"
     "&serverGuid={server_guid}"
-    "&host={vcenter_host}:443"
-    "&sessionTicket={session_ticket}"
-    "&thumbprint={thumbprint}"
+    "&locale=en-US"
 )
 
 
@@ -41,7 +41,6 @@ def get_vm_console_link(
     vc_cert = ssl.get_server_certificate((vcenter_host, HTTPS_PORT)).encode()
     vc_pem = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, vc_cert)
     thumbprint = vc_pem.digest("sha1")
-
     link = VM_WEB_CONSOLE_NEW_LINK_TPL if new_version else VM_WEB_CONSOLE_OLD_LINK_TPL
     return link.format(
         vcenter_ip=vcenter_host,
@@ -52,4 +51,5 @@ def get_vm_console_link(
         https_port=HTTPS_PORT,
         session_ticket=quote(si.acquire_session_ticket()),
         thumbprint=quote(thumbprint.decode()),
+        num_mks_connections=vm._entity.config.maxMksConnections,
     )
