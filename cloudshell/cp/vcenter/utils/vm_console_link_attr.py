@@ -22,7 +22,7 @@ def set_deployed_app_vm_console_link_attr(
     si: SiHandler,
 ):
     if WEB_CONSOLE_ATTR_NAME in deployed_app.attributes:
-        link = get_vm_console_link(resource_config.address, si, vm, new_version=True)
+        link = get_vm_console_link(resource_config.address, si, vm)
         params = {
             "username": resource_config.user,
             "password": resource_config.password,
@@ -43,7 +43,7 @@ def get_deploy_app_vm_console_link_attr(
     if WEB_CONSOLE_ATTR_NAME not in deploy_app.attributes:
         return None
 
-    link = get_vm_console_link(resource_config.address, si, vm, new_version=True)
+    link = get_vm_console_link(resource_config.address, si, vm)
     params = {
         "username": resource_config.user,
         "password": resource_config.password,
