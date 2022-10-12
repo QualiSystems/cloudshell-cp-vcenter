@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from contextlib import suppress
+from contextlib import contextmanager, suppress
 from logging import Logger
 from typing import Iterable
 
@@ -100,6 +100,11 @@ class SaveRestoreAppFlow:
         attrs[attr_names.vm_resource_pool] = r_pool
         attrs[attr_names.vm_cluster] = cluster_name
 
+        if attrs[attr_names.behavior_during_save] == "Inherited":
+            attrs[
+                attr_names.behavior_during_save
+            ] = self._resource_conf.behavior_during_save
+
         return attrs
 
     def _validate_app_attrs(self, attrs: dict[str, str]):
@@ -153,23 +158,18 @@ class SaveRestoreAppFlow:
                 app_attrs[VMFromVMDeployApp.ATTR_NAMES.vm_location], dc, sandbox_id
             )
 
-        vm_power_state = None
-        if app_attrs[VMFromVMDeployApp.ATTR_NAMES.behavior_during_save] == "Power Off":
-            vm_power_state = vm.power_state
-            vm.power_off(soft=False, logger=self._logger)
-
-        new_vm_name = f"Clone of {vm.name[0:32]}"
-        cloned_vm = self._clone_vm(
-            vm,
-            new_vm_name,
-            vm_resource_pool,
-            vm_storage,
-            vm_folder,
-        )
-        cloned_vm.create_snapshot(SNAPSHOT_NAME, dump_memory=False, logger=self._logger)
-
-        if vm_power_state is PowerState.ON:
-            vm.power_on(self._logger)
+        with self._behavior_during_save(vm, app_attrs):
+            new_vm_name = f"Clone of {vm.name[0:32]}"
+            cloned_vm = self._clone_vm(
+                vm,
+                new_vm_name,
+                vm_resource_pool,
+                vm_storage,
+                vm_folder,
+            )
+            cloned_vm.create_snapshot(
+                SNAPSHOT_NAME, dump_memory=False, logger=self._logger
+            )
 
         return self._prepare_result(cloned_vm, save_action)
 
@@ -238,3 +238,15 @@ class SaveRestoreAppFlow:
             with suppress(FolderNotFound, FolderIsNotEmpty):
                 folder = sandbox_folder.get_folder(sandbox_id)
                 folder.destroy(self._logger, self._task_waiter)
+
+    @contextmanager
+    def _behavior_during_save(self, vm: VmHandler, attrs):
+        vm_power_state = None
+        if attrs[VMFromVMDeployApp.ATTR_NAMES.behavior_during_save] == "Power Off":
+            vm_power_state = vm.power_state
+            vm.power_off(soft=False, logger=self._logger)
+
+        yield
+
+        if vm_power_state is PowerState.ON:
+            vm.power_on(self._logger)
