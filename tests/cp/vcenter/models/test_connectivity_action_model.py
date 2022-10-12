@@ -33,6 +33,11 @@ def action_request():
                     "attributeValue": "existed-pg",
                     "type": "vlanServiceAttribute",
                 },
+                {
+                    "attributeName": "VLAN ID",
+                    "attributeValue": "10-11",
+                    "type": "vlanServiceAttribute",
+                },
             ],
             "type": "setVlanParameter",
         },
