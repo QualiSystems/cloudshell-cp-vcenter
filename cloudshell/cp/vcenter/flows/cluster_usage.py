@@ -3,9 +3,15 @@ from __future__ import annotations
 import json
 from logging import Logger
 
+from cloudshell.cp.vcenter.exceptions import BaseVCenterException
 from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
 from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
 from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
+
+
+class DatastoreNameMissed(BaseVCenterException):
+    def __init__(self):
+        super().__init__("Datastore name is missed")
 
 
 def get_cluster_usage(
@@ -13,6 +19,9 @@ def get_cluster_usage(
     datastore_name: str,
     logger: Logger,
 ):
+    if not datastore_name:
+        raise DatastoreNameMissed
+
     si = SiHandler.from_config(resource_conf, logger)
     dc = DcHandler.get_dc(resource_conf.default_datacenter, si)
     compute_entity = dc.get_compute_entity(resource_conf.vm_cluster)
