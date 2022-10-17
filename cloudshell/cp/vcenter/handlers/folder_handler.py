@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from contextlib import suppress
 from logging import Logger
+from threading import Lock
+from typing import ClassVar
 
 import attr
 from pyVmomi import vim
@@ -32,6 +34,8 @@ class FolderIsNotEmpty(BaseVCenterException):
 
 @attr.s(auto_attribs=True)
 class FolderHandler(ManagedEntityHandler):
+    FOLDER_LOCK: ClassVar[Lock] = Lock()
+
     @classmethod
     def get_folder_from_parent(
         cls, parent, path: str | VcenterPath, si: SiHandler
@@ -73,21 +77,11 @@ class FolderHandler(ManagedEntityHandler):
 
     def get_or_create_folder(self, path: str | VcenterPath) -> FolderHandler:
         if not isinstance(path, VcenterPath):
-            path = VcenterPath
+            path = VcenterPath(path)
         folder = self
 
         for name in path:
-            try:
-                folder = folder.get_folder(name)
-            except FolderNotFound:
-                # Try Except wrapper for cases
-                # when we have several simultaneous request,
-                # and one of them fails with duplicate error
-                try:
-                    folder = folder.create_folder(name)
-                except vim.fault.DuplicateName:
-                    folder = folder.get_folder(name)
-
+            folder = folder.get_or_create_child(name)
         return folder
 
     def destroy(self, logger: Logger, task_waiter: VcenterTaskWaiter | None = None):
@@ -103,3 +97,22 @@ class FolderHandler(ManagedEntityHandler):
             except TaskFaultException as e:
                 if "has already been deleted" not in str(e):
                     raise
+
+    def get_or_create_child(self, name: str) -> FolderHandler:
+        """Creates a new folder with a lock.
+
+        If we try to create a folder that already exists vCenter will show
+        an unpleasant message in 'Recent Tasks' on the Web Portal 🤷
+        """
+        with self.FOLDER_LOCK:
+            try:
+                folder = self.get_folder(name)
+            except FolderNotFound:
+                # Try Except wrapper for cases
+                # when we have several simultaneous request,
+                # and one of them fails with duplicate error
+                try:
+                    folder = self.create_folder(name)
+                except vim.fault.DuplicateName:
+                    folder = self.get_folder(name)
+        return folder
