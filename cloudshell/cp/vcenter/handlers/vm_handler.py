@@ -463,5 +463,9 @@ class VmHandler(ManagedEntityHandler):
         new_vm = VmHandler(new_vc_vm, self._si)
 
         if config_spec:
-            new_vm.reconfigure_vm(config_spec, logger, task_waiter)
+            try:
+                new_vm.reconfigure_vm(config_spec, logger, task_waiter)
+            except Exception:
+                new_vm.delete(logger, task_waiter)
+                raise
         return new_vm
