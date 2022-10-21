@@ -17,6 +17,7 @@ from cloudshell.cp.vcenter.utils.vm_helpers import (
 )
 
 if TYPE_CHECKING:
+    from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
     from cloudshell.cp.vcenter.models.deploy_app import BaseVCenterDeployApp
 
 
@@ -59,6 +60,11 @@ class InvalidDiskNumber(ReconfigureVMError):
 class UnableToFindScsiController(ReconfigureVMError):
     def __init__(self):
         super().__init__("Unable to find Controller for the new VM Disk creation")
+
+
+class CannotChangeLinkedVmDisk(BaseVCenterException):
+    def __init__(self, disk_num: int):
+        super().__init__(f"Disk {disk_num} cannot be changed for Linked Clone")
 
 
 def _get_disk_num(name: str) -> int:
@@ -197,3 +203,9 @@ class ConfigSpecHandler:
         if self.hdd_specs:
             self._update_hdd_specs(config_spec, vm)
         return config_spec
+
+    def validate_for_linked_vm(self, source_vm: VmHandler) -> None:
+        hdd_nums_to_change = {hdd_spec.num for hdd_spec in self.hdd_specs}
+        for disk_num, disk in enumerate(source_vm.disks, start=1):
+            if disk_num in hdd_nums_to_change:
+                raise CannotChangeLinkedVmDisk(disk_num)
