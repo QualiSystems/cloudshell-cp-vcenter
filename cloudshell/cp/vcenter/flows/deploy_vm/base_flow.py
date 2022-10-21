@@ -280,6 +280,7 @@ class AbstractVCenterDeployVMFromTemplateFlow(AbstractVCenterDeployVMFlow):
             snapshot = self._get_vm_snapshot(deploy_app, vm_template)
 
         config_spec = ConfigSpecHandler.from_deploy_add(deploy_app)
+        self._validate_config_spec(config_spec, vm_template)
 
         return CloneVMCommand(
             rollback_manager=self._rollback_manager,
@@ -294,3 +295,8 @@ class AbstractVCenterDeployVMFromTemplateFlow(AbstractVCenterDeployVMFlow):
             vm_snapshot=snapshot,
             config_spec=config_spec,
         ).execute()
+
+    def _validate_config_spec(
+        self, config_spec: ConfigSpecHandler, vm_template: VmHandler
+    ) -> None:
+        pass
