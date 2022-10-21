@@ -48,21 +48,27 @@ class CloneVMCommand(RollbackCommand):
         self._cloned_vm: VmHandler | None = None
 
     def _execute(self) -> VmHandler:
-        vm = self._vm_template.clone_vm(
-            vm_name=self._vm_name,
-            vm_storage=self._vm_storage,
-            vm_folder=self._vm_folder,
-            logger=self._logger,
-            vm_resource_pool=self._vm_resource_pool,
-            snapshot=self._vm_snapshot,
-            config_spec=self._config_spec,
-            task_waiter=self._task_waiter,
-        )
-        self._cloned_vm = vm
-        return vm
+        try:
+            vm = self._vm_template.clone_vm(
+                vm_name=self._vm_name,
+                vm_storage=self._vm_storage,
+                vm_folder=self._vm_folder,
+                logger=self._logger,
+                vm_resource_pool=self._vm_resource_pool,
+                snapshot=self._vm_snapshot,
+                config_spec=self._config_spec,
+                task_waiter=self._task_waiter,
+            )
+        except Exception:
+            with suppress(FolderIsNotEmpty):
+                self._vm_folder.destroy(self._logger)
+            raise
+        else:
+            self._cloned_vm = vm
+            return vm
 
     def rollback(self):
         if self._cloned_vm:
             self._cloned_vm.delete(self._logger)
-            with suppress(FolderIsNotEmpty):
-                self._vm_folder.destroy(self._logger)
+        with suppress(FolderIsNotEmpty):
+            self._vm_folder.destroy(self._logger)
