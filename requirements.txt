@@ -17,3 +17,5 @@ pyOpenSSL~=21.0 ; python_version > "3.7"
 typing_extensions~=3.0
 netaddr~=0.8
 jsonschema~=4.0
+urllib3~=1.0
+pydantic~=1.0
