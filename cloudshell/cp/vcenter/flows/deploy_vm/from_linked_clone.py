@@ -5,6 +5,7 @@ from cloudshell.cp.vcenter.actions.vm_details import VMDetailsActions
 from cloudshell.cp.vcenter.flows.deploy_vm.base_flow import (
     AbstractVCenterDeployVMFromTemplateFlow,
 )
+from cloudshell.cp.vcenter.handlers.config_spec_handler import ConfigSpecHandler
 from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
 from cloudshell.cp.vcenter.handlers.snapshot_handler import SnapshotHandler
 from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
@@ -43,3 +44,8 @@ class VCenterDeployVMFromLinkedCloneFlow(AbstractVCenterDeployVMFromTemplateFlow
             self._cancellation_manager,
         )
         return vm_details_actions.create(deployed_vm, deploy_app)
+
+    def _validate_config_spec(
+        self, config_spec: ConfigSpecHandler, vm_template: VmHandler
+    ) -> None:
+        config_spec.validate_for_linked_vm(vm_template)
