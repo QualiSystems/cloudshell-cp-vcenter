@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import suppress
+from functools import partial
 from logging import Logger
 from typing import Any
 
@@ -77,8 +78,15 @@ class SiHandler:
         view.DestroyView()
         return items
 
-    def find_by_uuid(self, dc, uuid: str, vm_search) -> Any:
-        return self._si.content.searchIndex.FindByUuid(dc, uuid, vmSearch=vm_search)
+    def find_by_uuid(self, dc, uuid: str, vm_search: bool) -> Any:
+        find_by_uuid = partial(self._si.content.searchIndex.FindByUuid, dc, uuid)
+        if vm_search:
+            # vmSearch=True, instanceUuid=True
+            # if we cannot find by vCenter UUID use fallback - find by BIOS UUID
+            entity = find_by_uuid(True, True) or find_by_uuid(True)
+        else:
+            entity = find_by_uuid()
+        return entity
 
     def find_child(self, parent, name: str) -> Any:
         return self._si.content.searchIndex.FindChild(parent, name)
