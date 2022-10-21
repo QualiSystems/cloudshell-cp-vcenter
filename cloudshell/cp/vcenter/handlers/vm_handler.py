@@ -121,6 +121,10 @@ class VmHandler(ManagedEntityHandler):
 
     @property
     def uuid(self) -> str:
+        return self._entity.config.instanceUuid
+
+    @property
+    def bios_uuid(self) -> str:
         return self._entity.config.uuid
 
     @property
