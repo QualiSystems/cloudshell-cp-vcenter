@@ -26,6 +26,6 @@ repos:
           flake8-requirements-absolute-imports,
         ]
         args: [
-          --project-base-module=cloudshell.cp.openstack,
-          "--known-modules=cloudshell-cp-core:[cloudshell.cp.core],cloudshell-shell-standards:[cloudshell.shell.standards],cloudshell-shell-connectivity-flow:[cloudshell.shell.flows.connectivity],cloudshell-shell-core:[cloudshell.shell.core]"
+          --project-base-module=cloudshell.cp.vcenter,
+          "--known-modules=cloudshell-cp-core:[cloudshell.cp.core],cloudshell-shell-standards:[cloudshell.shell.standards],cloudshell-shell-connectivity-flow:[cloudshell.shell.flows.connectivity],cloudshell-shell-core:[cloudshell.shell.core],cloudshell-automation-api:[cloudshell.api],pyvmomi:[pyVmomi,pyVim]"
         ]
