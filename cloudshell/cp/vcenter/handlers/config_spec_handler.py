@@ -8,6 +8,7 @@ import attr
 from pyVmomi import vim
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
+from cloudshell.cp.vcenter.handlers.virtual_disk_handler import VirtualDiskHandler
 from cloudshell.cp.vcenter.models.base_deployment_app import HddSpec
 from cloudshell.cp.vcenter.utils.vm_helpers import (
     get_all_devices,
@@ -62,9 +63,9 @@ class UnableToFindScsiController(ReconfigureVMError):
         super().__init__("Unable to find Controller for the new VM Disk creation")
 
 
-class CannotChangeLinkedVmDisk(BaseVCenterException):
-    def __init__(self, disk_num: int):
-        super().__init__(f"Disk {disk_num} cannot be changed for Linked Clone")
+class CannotChangeLinkedDisk(BaseVCenterException):
+    def __init__(self, disk: VirtualDiskHandler):
+        super().__init__(f"{disk} is linked and cannot be changed")
 
 
 def _get_disk_num(name: str) -> int:
@@ -192,7 +193,7 @@ class ConfigSpecHandler:
             raise UnableToFindScsiController()
         return key
 
-    def get_spec_for_vm(self, vm: vim.VirtualMachine) -> vim.vm.ConfigSpec:
+    def get_spec_for_vm(self, vm: VmHandler) -> vim.vm.ConfigSpec:
         config_spec = vim.vm.ConfigSpec(
             cpuHotAddEnabled=True, cpuHotRemoveEnabled=True, memoryHotAddEnabled=True
         )
@@ -201,11 +202,12 @@ class ConfigSpecHandler:
         if self.ram_amount is not None:
             config_spec.memoryMB = int(self.ram_amount * 1024)
         if self.hdd_specs:
-            self._update_hdd_specs(config_spec, vm)
+            self._validate_hdd_spec(vm)
+            self._update_hdd_specs(config_spec, vm._entity)
         return config_spec
 
-    def validate_for_linked_vm(self, source_vm: VmHandler) -> None:
+    def _validate_hdd_spec(self, vm: VmHandler):
         hdd_nums_to_change = {hdd_spec.num for hdd_spec in self.hdd_specs}
-        for disk_num, disk in enumerate(source_vm.disks, start=1):
-            if disk_num in hdd_nums_to_change:
-                raise CannotChangeLinkedVmDisk(disk_num)
+        for disk in vm.disks:
+            if disk.number in hdd_nums_to_change and disk.has_parent:
+                raise CannotChangeLinkedDisk(disk)
