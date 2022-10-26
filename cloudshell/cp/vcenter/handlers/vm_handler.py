@@ -353,7 +353,7 @@ class VmHandler(ManagedEntityHandler):
         logger: Logger,
         task_waiter: VcenterTaskWaiter | None = None,
     ):
-        spec = config_spec.get_spec_for_vm(self._entity)
+        spec = config_spec.get_spec_for_vm(self)
         self._reconfigure(spec, logger, task_waiter)
 
     def create_snapshot(
