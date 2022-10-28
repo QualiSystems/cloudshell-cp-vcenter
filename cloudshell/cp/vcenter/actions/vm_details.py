@@ -54,13 +54,19 @@ class VMDetailsActions(VMNetworkActions):
 
     @staticmethod
     def _prepare_common_vm_instance_data(vm: VmHandler) -> list[VmDetailsProperty]:
-        return [
+        data = [
             VmDetailsProperty(key="CPU", value=f"{vm.num_cpu} vCPU"),
             VmDetailsProperty(key="Memory", value=format_bytes(vm.memory_size)),
-            VmDetailsProperty(key="Disk Size", value=format_bytes(vm.disk_size)),
             VmDetailsProperty(key="Guest OS", value=vm.guest_os),
             VmDetailsProperty(key="Managed Object Reference ID", value=vm._moId),
         ]
+        hdd_data = [
+            VmDetailsProperty(
+                key=f"{d.label} Size", value=format_bytes(d.capacity_in_bytes)
+            )
+            for d in vm.disks
+        ]
+        return data + hdd_data
 
     def _prepare_vm_network_data(
         self,
