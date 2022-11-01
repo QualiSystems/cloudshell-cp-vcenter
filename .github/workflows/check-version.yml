@@ -1,0 +1,10 @@
+name: check version
+on:
+  pull_request:
+    paths-ignore:
+      - README.md
+    branches:
+      - master
+jobs:
+  check-version:
+    uses: QualiSystems/cloudshell-package-repo-template/.github/workflows/reusing-check-version.yml@master
