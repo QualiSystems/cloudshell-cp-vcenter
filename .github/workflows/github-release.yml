@@ -1,0 +1,13 @@
+name: github release
+on:
+  push:
+    paths-ignore:
+      - README.md
+    branches:
+      - master
+jobs:
+  tox-ci:
+    uses: QualiSystems/cloudshell-package-repo-template/.github/workflows/reusing-tox-py37-39.yml@master
+  pypi-deploy:
+    needs: tox-ci
+    uses: QualiSystems/cloudshell-package-repo-template/.github/workflows/reusing-github-release.yml@master

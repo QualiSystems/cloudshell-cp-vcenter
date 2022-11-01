@@ -1,0 +1,10 @@
+name: package CI
+on:
+  push:
+    paths-ignore:
+      - README.md
+    branches-ignore:
+      - master
+jobs:
+  tox-ci:
+    uses: QualiSystems/cloudshell-package-repo-template/.github/workflows/reusing-tox-py37-39.yml@master
