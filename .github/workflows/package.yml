@@ -7,4 +7,4 @@ on:
       - master
 jobs:
   tox-ci:
-    uses: QualiSystems/cloudshell-package-repo-template/.github/workflows/reusing-tox-py37-39.yml@master
+    uses: QualiSystems/.github/.github/workflows/package-tox-py-37-39.yml@master

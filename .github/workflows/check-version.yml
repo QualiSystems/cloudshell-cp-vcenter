@@ -7,4 +7,4 @@ on:
       - master
 jobs:
   check-version:
-    uses: QualiSystems/cloudshell-package-repo-template/.github/workflows/reusing-check-version.yml@master
+    uses: QualiSystems/.github/.github/workflows/package-check-version.yml@master
