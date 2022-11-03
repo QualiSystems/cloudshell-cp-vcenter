@@ -32,6 +32,10 @@ from cloudshell.cp.vcenter.handlers.resource_pool import (
     ResourcePoolNotFound,
 )
 from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
+from cloudshell.cp.vcenter.handlers.storage_pod_handler import (
+    StoragePodHandler,
+    StoragePodNotFound,
+)
 from cloudshell.cp.vcenter.handlers.switch_handler import (
     DvSwitchHandler,
     DvSwitchNotFound,
@@ -129,17 +133,22 @@ class DcHandler(ManagedEntityHandler):
     def get_datastore(self, path: str | VcenterPath) -> DatastoreHandler:
         if not isinstance(path, VcenterPath):
             path = VcenterPath(path)
-
         datastore_name = path.pop()
-        if path:
-            entity = self.get_compute_entity(str(path))
-        else:
-            entity = self
 
-        for datastore in entity.datastores:
-            if datastore.name == datastore_name:
-                return datastore
-        raise DatastoreNotFound(entity, datastore_name)
+        if path:
+            try:
+                entity = self.get_compute_entity(str(path))
+            except ClusterHostNotFound:
+                entity = self.get_storage_pod(str(path))
+            datastore = entity.get_datastore_by_name(datastore_name)
+        else:
+            try:
+                datastore = self.get_datastore_by_name(datastore_name)
+            except DatastoreNotFound:
+                storage_pod = self.get_storage_pod(datastore_name)
+                datastore = storage_pod.get_datastore_with_max_free_space()
+
+        return datastore
 
     def get_dv_switch(self, path: VcenterPath | str) -> DvSwitchHandler:
         if not isinstance(path, VcenterPath):
@@ -162,3 +171,15 @@ class DcHandler(ManagedEntityHandler):
             if r_pool.name == name:
                 return ResourcePoolHandler(r_pool, self._si)
         raise ResourcePoolNotFound(self, name)
+
+    def get_datastore_by_name(self, name: str) -> DatastoreHandler:
+        for datastore in self.datastores:
+            if datastore.name == name:
+                return datastore
+        raise DatastoreNotFound(self, name)
+
+    def get_storage_pod(self, name: str) -> StoragePodHandler:
+        for storage in self.find_items(vim.StoragePod):
+            if storage.name == name:
+                return StoragePodHandler(storage, self._si)
+        raise StoragePodNotFound(self, name)
