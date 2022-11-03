@@ -18,13 +18,16 @@ class DatastoreHandler(ManagedEntityHandler):
         return f"Datastore '{self.name}'"
 
     @property
+    def free_space(self):
+        return self._entity.summary.freeSpace
+
+    @property
     def usage_info(self) -> UsageInfo:
         capacity = self._entity.summary.capacity
-        free = self._entity.summary.freeSpace
-        used = capacity - free
+        used = capacity - self.free_space
         return UsageInfo(
             capacity=format_bytes(capacity),
-            used=format_bytes(capacity - free),
+            used=format_bytes(capacity - self.free_space),
             free=format_bytes(used),
             used_percentage=str(round(used / capacity * 100)),
         )
