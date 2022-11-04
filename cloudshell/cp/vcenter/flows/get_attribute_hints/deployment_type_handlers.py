@@ -61,7 +61,7 @@ class VMFromTemplateHintsHandler(AbstractHintsHandler):
 class VMFromLinkedCloneHintsHandler(AbstractHintsHandler):
     DEPLOYMENT_PATH = constants.VM_FROM_LINKED_CLONE_DEPLOYMENT_PATH
     ATTRIBUTES = (
-        attribute_hints.VcenterVMAttributeHint,
+        attribute_hints.VcenterVMForLinkedCloneAttributeHint,
         attribute_hints.VcenterVMSnapshotAttributeHint,
         attribute_hints.VMClusterAttributeHint,
         attribute_hints.VMStorageAttributeHint,
