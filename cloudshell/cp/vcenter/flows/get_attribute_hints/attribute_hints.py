@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import itertools
 from abc import ABC, abstractmethod
+from enum import IntEnum
 
 from pyVmomi import vim, vmodl
 
@@ -37,10 +38,16 @@ class AbstractAttributeHint(ABC):
         pass
 
 
+class SearchVmTemplates(IntEnum):
+    INCLUDE = 1
+    EXCLUDE = 2
+    ONLY = 3
+
+
 class VcenterTemplateAttributeHint(AbstractAttributeHint):
     ATTR_NAME = "vCenter Template"
     ROOT_VMS_FOLDER = "vm"
-    SEARCH_VM_TEMPLATES = True
+    SEARCH_VM_TEMPLATES: SearchVmTemplates = SearchVmTemplates.ONLY
 
     NAME_PROPERTY = "name"
     PARENT_PROPERTY = "parent"
@@ -78,7 +85,6 @@ class VcenterTemplateAttributeHint(AbstractAttributeHint):
     def _get_hints(self) -> list[str]:
         service = VcenterDataRetrieveService()
         hints = []
-        # todo: add config.template = True in the filter search. I'm sure it's possible
         vms_with_props = service.get_all_objects_with_properties(
             vim_type=vim.VirtualMachine,
             properties=[
@@ -99,14 +105,7 @@ class VcenterTemplateAttributeHint(AbstractAttributeHint):
 
         folders_with_props_map = {prop.obj: prop for prop in folders_with_props}
 
-        for vm_with_props in (
-            vm_with_props
-            for vm_with_props in vms_with_props
-            if self.SEARCH_VM_TEMPLATES
-            is service.get_object_property(
-                name=self.IS_TEMPLATE_PROPERTY, obj_with_props=vm_with_props
-            )
-        ):
+        for vm_with_props in filter(self._filter_vm_by_template, vms_with_props):
             hints.append(
                 self._generate_full_vm_path(
                     vm_with_props=vm_with_props,
@@ -117,10 +116,30 @@ class VcenterTemplateAttributeHint(AbstractAttributeHint):
         hints.sort()
         return hints
 
+    def _filter_vm_by_template(self, vm_with_props) -> bool:
+        service = VcenterDataRetrieveService()
+        is_template = service.get_object_property(
+            name=self.IS_TEMPLATE_PROPERTY, obj_with_props=vm_with_props
+        )
+
+        if self.SEARCH_VM_TEMPLATES is SearchVmTemplates.INCLUDE:
+            result = True
+        elif is_template and self.SEARCH_VM_TEMPLATES is SearchVmTemplates.ONLY:
+            result = True
+        elif not is_template and self.SEARCH_VM_TEMPLATES is SearchVmTemplates.EXCLUDE:
+            result = True
+        else:
+            result = False
+        return result
+
 
 class VcenterVMAttributeHint(VcenterTemplateAttributeHint):
     ATTR_NAME = "vCenter VM"
-    SEARCH_VM_TEMPLATES = False
+    SEARCH_VM_TEMPLATES = SearchVmTemplates.EXCLUDE
+
+
+class VcenterVMForLinkedCloneAttributeHint(VcenterVMAttributeHint):
+    SEARCH_VM_TEMPLATES = SearchVmTemplates.INCLUDE
 
 
 class VcenterVMSnapshotAttributeHint(VcenterTemplateAttributeHint):
