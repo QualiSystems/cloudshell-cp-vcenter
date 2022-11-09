@@ -133,20 +133,17 @@ class DcHandler(ManagedEntityHandler):
     def get_datastore(self, path: str | VcenterPath) -> DatastoreHandler:
         if not isinstance(path, VcenterPath):
             path = VcenterPath(path)
+        # we ignore datastore parents for now
         datastore_name = path.pop()
 
-        if path:
+        try:
+            datastore = self.get_datastore_by_name(datastore_name)
+        except DatastoreNotFound as exc:
             try:
-                entity = self.get_compute_entity(str(path))
-            except ClusterHostNotFound:
-                entity = self.get_storage_pod(str(path))
-            datastore = entity.get_datastore_by_name(datastore_name)
-        else:
-            try:
-                datastore = self.get_datastore_by_name(datastore_name)
-            except DatastoreNotFound:
                 storage_pod = self.get_storage_pod(datastore_name)
                 datastore = storage_pod.get_datastore_with_max_free_space()
+            except StoragePodNotFound:
+                raise exc
 
         return datastore
 
@@ -179,7 +176,9 @@ class DcHandler(ManagedEntityHandler):
         raise DatastoreNotFound(self, name)
 
     def get_storage_pod(self, name: str) -> StoragePodHandler:
-        for storage in self.find_items(vim.StoragePod):
+        for storage in self._si.find_items(
+            vim.StoragePod, container=self._entity, recursive=True
+        ):
             if storage.name == name:
                 return StoragePodHandler(storage, self._si)
         raise StoragePodNotFound(self, name)
