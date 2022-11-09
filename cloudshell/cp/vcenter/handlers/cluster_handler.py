@@ -5,10 +5,7 @@ from abc import abstractmethod
 from pyVmomi import vim
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
-from cloudshell.cp.vcenter.handlers.datastore_handler import (
-    DatastoreHandler,
-    DatastoreNotFound,
-)
+from cloudshell.cp.vcenter.handlers.datastore_handler import DatastoreHandler
 from cloudshell.cp.vcenter.handlers.managed_entity_handler import (
     ManagedEntityHandler,
     ManagedEntityNotFound,
@@ -63,12 +60,6 @@ class BasicComputeEntityHandler(ManagedEntityHandler):
     @abstractmethod
     def get_v_switch(self, name: str) -> VSwitchHandler:
         ...
-
-    def get_datastore_by_name(self, name: str) -> DatastoreHandler:
-        for datastore in self.datastores:
-            if datastore.name == name:
-                return datastore
-        raise DatastoreNotFound(self, name)
 
 
 class ClusterHandler(BasicComputeEntityHandler):
