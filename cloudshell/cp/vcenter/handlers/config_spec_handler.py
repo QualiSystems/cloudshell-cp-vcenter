@@ -102,9 +102,10 @@ class ConfigSpecHandler:
     cpu_num: int | None
     ram_amount: float | None
     hdd_specs: list[HddSpec]
+    bios_uuid: str | None = None
 
     def __bool__(self) -> bool:
-        return bool(self.cpu_num or self.ram_amount or self.hdd_specs)
+        return any((self.cpu_num, self.ram_amount, self.hdd_specs, self.bios_uuid))
 
     @classmethod
     def from_deploy_add(cls, deploy_app: BaseVCenterDeployApp) -> ConfigSpecHandler:
@@ -204,6 +205,8 @@ class ConfigSpecHandler:
         if self.hdd_specs:
             self._validate_hdd_spec(vm)
             self._update_hdd_specs(config_spec, vm._entity)
+        if self.bios_uuid:
+            config_spec.uuid = self.bios_uuid
         return config_spec
 
     def _validate_hdd_spec(self, vm: VmHandler):
