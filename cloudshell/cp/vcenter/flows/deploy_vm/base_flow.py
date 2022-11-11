@@ -280,6 +280,8 @@ class AbstractVCenterDeployVMFromTemplateFlow(AbstractVCenterDeployVMFlow):
             snapshot = self._get_vm_snapshot(deploy_app, vm_template)
 
         config_spec = ConfigSpecHandler.from_deploy_add(deploy_app)
+        if deploy_app.copy_source_uuid:
+            config_spec.bios_uuid = vm_template.bios_uuid
 
         return CloneVMCommand(
             rollback_manager=self._rollback_manager,
