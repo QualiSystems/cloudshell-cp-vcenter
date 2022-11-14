@@ -65,3 +65,10 @@ def test_not_found_vnic(vm):
         vm.get_vnic("Network adapter 4")
     with pytest.raises(VnicNotFound):
         vm.get_vnic("4")
+
+
+def test_uuid_and_bios_uuid(vm):
+    vc_vm = vm._entity
+    # check that VM Handler returns correct UUIDs
+    assert vm.uuid == vc_vm.config.instanceUuid
+    assert vm.bios_uuid == vc_vm.config.uuid
