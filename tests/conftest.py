@@ -16,6 +16,7 @@ from cloudshell.shell.core.driver_context import (
 from cloudshell.cp.vcenter.constants import SHELL_NAME, STATIC_SHELL_NAME
 from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
 from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
+from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
 from cloudshell.cp.vcenter.models.deployed_app import StaticVCenterDeployedApp
 from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 
@@ -144,15 +145,22 @@ def resource_conf(resource_command_context, cs_api) -> VCenterResourceConfig:
     return conf
 
 
-@pytest.fixture()
+@pytest.fixture
 def si() -> SiHandler:
     _si = Mock()
     return SiHandler(_si)
 
 
-@pytest.fixture()
-def dc(si, resource_conf) -> DcHandler:
-    return DcHandler.get_dc(resource_conf.default_datacenter, si)
+@pytest.fixture
+def dc(si) -> DcHandler:
+    dc_ = Mock()
+    return DcHandler(dc_, si)
+
+
+@pytest.fixture
+def vm(si):
+    vm_ = Mock()
+    return VmHandler(vm_, si)
 
 
 @pytest.fixture()
