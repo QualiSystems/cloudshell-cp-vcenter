@@ -2,11 +2,113 @@ from unittest.mock import Mock
 
 import pytest
 
+from cloudshell.shell.flows.connectivity.models.connectivity_model import (
+    ConnectionModeEnum,
+)
+
+from cloudshell.cp.vcenter.models.connectivity_action_model import (
+    VcenterConnectivityActionModel,
+)
+
 from cloudshell.cp.vcenter.utils.connectivity_helpers import (
     generate_port_group_name,
+    get_existed_port_group_name,
     get_available_vnic,
     is_correct_vnic,
+    should_remove_port_group,
 )
+
+
+@pytest.fixture
+def action_request():
+    return {
+        "connectionId": "96582265-2728-43aa-bc97-cefb2457ca44",
+        "connectionParams": {
+            "vlanId": "10-11",
+            "mode": "Trunk",
+            "vlanServiceAttributes": [
+                {
+                    "attributeName": "QnQ",
+                    "attributeValue": "False",
+                    "type": "vlanServiceAttribute",
+                },
+                {
+                    "attributeName": "CTag",
+                    "attributeValue": "",
+                    "type": "vlanServiceAttribute",
+                },
+                {
+                    "attributeName": "Port Group Name",
+                    "attributeValue": "existed-pg",
+                    "type": "vlanServiceAttribute",
+                },
+                {
+                    "attributeName": "VLAN ID",
+                    "attributeValue": "10-11",
+                    "type": "vlanServiceAttribute",
+                },
+                {
+                    "attributeName": "Virtual Network",
+                    "attributeValue": "network name",
+                    "type": "vlanServiceAttribute",
+                },
+            ],
+            "type": "setVlanParameter",
+        },
+        "connectorAttributes": [
+            {
+                "attributeName": "Selected Network",
+                "attributeValue": "2",
+                "type": "connectorAttribute",
+            },
+            {
+                "attributeName": "Interface",
+                "attributeValue": "mac address",
+                "type": "connectorAttribute",
+            },
+        ],
+        "actionTarget": {
+            "fullName": "centos",
+            "fullAddress": "full address",
+            "type": "actionTarget",
+        },
+        "customActionAttributes": [
+            {
+                "attributeName": "VM_UUID",
+                "attributeValue": "vm_uid",
+                "type": "customAttribute",
+            },
+            {
+                "attributeName": "Vnic Name",
+                "attributeValue": "vnic",
+                "type": "customAttribute",
+            },
+        ],
+        "actionId": "96582265-2728-43aa-bc97-cefb2457ca44_0900c4b5-0f90-42e3-b495",
+        "type": "removeVlan",
+    }
+
+
+def test_connectivity_action_model_parse_port_group_name(action_request):
+    action = VcenterConnectivityActionModel.parse_obj(action_request)
+    action.connection_params.vlan_service_attrs.virtual_network = None
+
+    assert get_existed_port_group_name(action) == "existed-pg"
+
+
+def test_connectivity_action_model_without_port_group_name(action_request):
+    action = VcenterConnectivityActionModel.parse_obj(action_request)
+    action.connection_params.vlan_service_attrs.port_group_name = None
+    action.connection_params.vlan_service_attrs.virtual_network = None
+
+    assert get_existed_port_group_name(action) is None
+
+
+def test_existed_port_group_name_in_virtual_network(action_request):
+    action = VcenterConnectivityActionModel.parse_obj(action_request)
+
+    assert get_existed_port_group_name(action) == "network name"
+
 
 
 @pytest.mark.parametrize(
@@ -22,6 +124,35 @@ from cloudshell.cp.vcenter.utils.connectivity_helpers import (
 )
 def test_is_correct_vnic(expected_vnic, vnic_label, is_correct):
     assert is_correct_vnic(expected_vnic, vnic_label) == is_correct
+
+
+@pytest.mark.parametrize(
+    ("net_name", "virtual_network", "expected_result"),
+    (
+        ("network-name", "network-name", False),
+        (
+            generate_port_group_name("switch", "11", ConnectionModeEnum.ACCESS),
+            generate_port_group_name("switch", "11", ConnectionModeEnum.ACCESS),
+            False,
+        ),
+        ("network-name", None, False),
+        (
+            generate_port_group_name("switch", "11", ConnectionModeEnum.ACCESS),
+            None,
+            True,
+        ),
+    ),
+)
+def test_should_remove_port_group(
+    action_request, net_name, virtual_network, expected_result
+):
+    action = VcenterConnectivityActionModel.parse_obj(action_request)
+    action.connection_params.vlan_service_attrs.port_group_name = None
+    action.connection_params.vlan_service_attrs.virtual_network = virtual_network
+
+    result = should_remove_port_group(net_name, action)
+
+    assert result == expected_result
 
 
 @pytest.mark.parametrize(
