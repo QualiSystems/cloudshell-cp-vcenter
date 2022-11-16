@@ -95,14 +95,10 @@ def is_vnic_network_can_be_replaced(
     )
 
 
-def get_existed_port_group_name(
-    action: ConnectivityActionModel | VcenterConnectivityActionModel,
-) -> str | None:
-    # From vCenter Shell 4.2.1 and 5.0.1 we support "vCenter VLAN Port Group"
-    # service that allows to connect to the existed Port Group. Before that we would
-    # receive ConnectivityActionModel that know nothing about port_group_name
-    pg_name = getattr(
-        action.connection_params.vlan_service_attrs, "port_group_name", None
+def get_existed_port_group_name(action: VcenterConnectivityActionModel) -> str | None:
+    pg_name = (
+        action.connection_params.vlan_service_attrs.virtual_network
+        or action.connection_params.vlan_service_attrs.port_group_name  # deprecated
     )
     return pg_name
 

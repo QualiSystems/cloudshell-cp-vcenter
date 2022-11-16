@@ -6,9 +6,6 @@ from threading import Lock
 from typing import TYPE_CHECKING
 
 from cloudshell.shell.flows.connectivity.basic_flow import AbstractConnectivityFlow
-from cloudshell.shell.flows.connectivity.models.connectivity_model import (
-    ConnectivityActionModel,
-)
 from cloudshell.shell.flows.connectivity.models.driver_response import (
     ConnectivityActionResult,
 )
@@ -85,7 +82,7 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
             raise DvSwitchNameEmpty
 
     def _set_vlan(
-        self, action: ConnectivityActionModel | VcenterConnectivityActionModel
+        self, action: VcenterConnectivityActionModel
     ) -> ConnectivityActionResult:
         vlan_id = action.connection_params.vlan_id
         vc_conf = self._resource_conf
@@ -118,7 +115,9 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         msg = f"Setting VLAN {vlan_id} successfully completed"
         return ConnectivityActionResult.success_result_vm(action, msg, vnic.mac_address)
 
-    def _remove_vlan(self, action: ConnectivityActionModel) -> ConnectivityActionResult:
+    def _remove_vlan(
+        self, action: VcenterConnectivityActionModel
+    ) -> ConnectivityActionResult:
         vc_conf = self._resource_conf
         dc = DcHandler.get_dc(vc_conf.default_datacenter, self._si)
         vm = dc.get_vm_by_uuid(action.custom_action_attrs.vm_uuid)
@@ -151,7 +150,7 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         self,
         dc: DcHandler,
         switch: AbstractSwitchHandler,
-        action: ConnectivityActionModel | VcenterConnectivityActionModel,
+        action: VcenterConnectivityActionModel,
     ) -> NetworkHandler | DVPortGroupHandler:
         pg_name = get_existed_port_group_name(action)
         if pg_name:
@@ -164,7 +163,7 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         self,
         dc: DcHandler,
         switch: AbstractSwitchHandler,
-        action: ConnectivityActionModel | VcenterConnectivityActionModel,
+        action: VcenterConnectivityActionModel,
     ) -> AbstractNetwork:
         port_mode = action.connection_params.mode
         vlan_id = action.connection_params.vlan_id
