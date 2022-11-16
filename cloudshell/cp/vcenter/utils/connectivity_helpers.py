@@ -5,7 +5,7 @@ from logging import Logger
 from typing import TYPE_CHECKING
 
 from cloudshell.shell.flows.connectivity.models.connectivity_model import (
-    ConnectivityActionModel,
+    ConnectionModeEnum,
 )
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
@@ -28,9 +28,11 @@ QS_NAME_PREFIX = "QS"
 PORT_GROUP_NAME_PATTERN = re.compile(rf"{QS_NAME_PREFIX}_.+_VLAN")
 
 
-def generate_port_group_name(dv_switch_name: str, vlan_id: str, port_mode: str):
+def generate_port_group_name(
+    dv_switch_name: str, vlan_id: str, port_mode: ConnectionModeEnum
+) -> str:
     dvs_name = dv_switch_name[:MAX_DVSWITCH_LENGTH]
-    return f"{QS_NAME_PREFIX}_{dvs_name}_VLAN_{vlan_id}_{port_mode}"
+    return f"{QS_NAME_PREFIX}_{dvs_name}_VLAN_{vlan_id}_{port_mode.value}"
 
 
 def is_network_generated_name(net_name: str):
@@ -103,9 +105,12 @@ def get_existed_port_group_name(action: VcenterConnectivityActionModel) -> str |
     return pg_name
 
 
-def should_remove_port_group(
-    name: str, action: ConnectivityActionModel | VcenterConnectivityActionModel
-) -> bool:
-    return not bool(get_existed_port_group_name(action)) or is_network_generated_name(
+def should_remove_port_group(name: str, action: VcenterConnectivityActionModel) -> bool:
+    """Check if we should remove the network.
+
+    We don't remove the network if it was specified in action
+    or doesn't create by the Shell
+    """
+    return not bool(get_existed_port_group_name(action)) and is_network_generated_name(
         name
     )
