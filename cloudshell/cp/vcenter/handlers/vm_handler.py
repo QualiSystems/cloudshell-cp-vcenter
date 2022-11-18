@@ -41,9 +41,11 @@ from cloudshell.cp.vcenter.handlers.virtual_device_handler import (
 from cloudshell.cp.vcenter.handlers.virtual_disk_handler import VirtualDiskHandler
 from cloudshell.cp.vcenter.handlers.vnic_handler import (
     VnicHandler,
+    VnicNotFound,
     VnicWithMacNotFound,
     VnicWithoutNetwork,
 )
+from cloudshell.cp.vcenter.utils.connectivity_helpers import is_correct_vnic
 from cloudshell.cp.vcenter.utils.task_waiter import VcenterTaskWaiter
 from cloudshell.cp.vcenter.utils.units_converter import BASE_10
 
@@ -271,6 +273,12 @@ class VmHandler(ManagedEntityHandler):
         nic_spec = vnic.create_spec_for_connection_network(network)
         config_spec = vim.vm.ConfigSpec(deviceChange=[nic_spec])
         self._reconfigure(config_spec, logger, task_waiter)
+
+    def get_vnic(self, name_or_id: str) -> VnicHandler:
+        for vnic in self.vnics:
+            if is_correct_vnic(name_or_id, vnic.label):
+                return vnic
+        raise VnicNotFound(name_or_id, self)
 
     def get_vnic_by_mac(self, mac_address: str, logger: Logger) -> VnicHandler:
         logger.info(f"Searching for vNIC of the {self} with mac {mac_address}")

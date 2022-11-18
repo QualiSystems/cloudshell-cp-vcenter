@@ -96,13 +96,15 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
 
         switch = self._get_switch(dc, vm)
         with self._network_lock:
-            vnic = get_available_vnic(
-                vm,
-                default_network,
-                vc_conf.reserved_networks,
-                self._logger,
-                action.custom_action_attrs.vnic,
-            )
+            if action.custom_action_attrs.vnic:
+                vnic = vm.get_vnic(action.custom_action_attrs.vnic)
+            else:
+                vnic = get_available_vnic(
+                    vm,
+                    default_network,
+                    vc_conf.reserved_networks,
+                    self._logger,
+                )
             network = self._get_or_create_network(dc, switch, action)
             try:
                 if isinstance(network, DVPortGroupHandler):
