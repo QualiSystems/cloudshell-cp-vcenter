@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import attr
 from pyVmomi import vim
 
@@ -10,6 +12,19 @@ from cloudshell.cp.vcenter.handlers.network_handler import (
     NetworkHandler,
 )
 from cloudshell.cp.vcenter.handlers.virtual_device_handler import VirtualDeviceHandler
+
+if TYPE_CHECKING:
+    from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
+
+
+class VnicNotFound(BaseVCenterException):
+    def __init__(self, name_or_id: str, vm: VmHandler):
+        self.name_or_id = name_or_id
+        if name_or_id.isdigit():
+            msg = f"vNIC with ID '{name_or_id}' not found in the {vm}"
+        else:
+            msg = f"vNIC with name '{name_or_id}' not found in the {vm}"
+        super().__init__(msg)
 
 
 class VnicWithMacNotFound(BaseVCenterException):

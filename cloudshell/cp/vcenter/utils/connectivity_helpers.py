@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from logging import Logger
+from typing import TYPE_CHECKING
 
 from cloudshell.shell.flows.connectivity.models.connectivity_model import (
     ConnectivityActionModel,
@@ -13,11 +14,14 @@ from cloudshell.cp.vcenter.handlers.network_handler import (
     DVPortGroupHandler,
     NetworkHandler,
 )
-from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
 from cloudshell.cp.vcenter.handlers.vnic_handler import VnicHandler
 from cloudshell.cp.vcenter.models.connectivity_action_model import (
     VcenterConnectivityActionModel,
 )
+
+if TYPE_CHECKING:
+    from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
+
 
 MAX_DVSWITCH_LENGTH = 60
 QS_NAME_PREFIX = "QS"
@@ -55,21 +59,10 @@ def get_available_vnic(
     default_network: AbstractNetwork,
     reserved_networks: list[str],
     logger: Logger,
-    vnic_name: str | None = None,
 ) -> VnicHandler:
     for vnic in vm.vnics:
-        if vnic_name and not is_correct_vnic(vnic_name, vnic.label):
-            continue
-
         network = vm.get_network_from_vnic(vnic)
-        if (
-            not network.name
-            or network.name == default_network.name
-            or (
-                not is_network_generated_name(network.name)
-                and network.name not in reserved_networks
-            )
-        ):
+        if is_vnic_network_can_be_replaced(network, default_network, reserved_networks):
             break
     else:
         if len(vm.vnics) >= 10:
@@ -85,6 +78,21 @@ def get_available_vnic(
         assert vm.get_network_from_vnic(vnic).name == default_network.name
 
     return vnic
+
+
+def is_vnic_network_can_be_replaced(
+    network: AbstractNetwork,
+    default_network: AbstractNetwork,
+    reserved_network_names: list[str],
+) -> bool:
+    return any(
+        (
+            not network.name,
+            network.name == default_network,
+            network.name not in reserved_network_names
+            and not (is_network_generated_name(network.name)),
+        )
+    )
 
 
 def get_existed_port_group_name(
