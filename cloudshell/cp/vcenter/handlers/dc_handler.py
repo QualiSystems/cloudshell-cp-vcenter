@@ -9,8 +9,7 @@ from cloudshell.cp.vcenter.exceptions import BaseVCenterException
 from cloudshell.cp.vcenter.handlers.cluster_handler import (
     BasicComputeEntityHandler,
     ClusterHandler,
-    ClusterHostNotFound,
-    HostHandler,
+    ClusterNotFound,
 )
 from cloudshell.cp.vcenter.handlers.datastore_handler import (
     DatastoreHandler,
@@ -115,20 +114,23 @@ class DcHandler(ManagedEntityHandler):
             vm_folder = vm_folder.get_or_create_folder(path)
         return vm_folder
 
-    def get_compute_entity(self, name: str) -> BasicComputeEntityHandler:
+    def get_cluster(self, name: str) -> ClusterHandler:
         for vc_cluster in self._si.find_items(
             [vim.ComputeResource, vim.ClusterComputeResource],
             container=self._entity.hostFolder,
         ):
             if vc_cluster.name == name:
                 return ClusterHandler(vc_cluster, self._si)
-        for vc_host in self._si.find_items(
-            [vim.HostSystem], container=self._entity.hostFolder
-        ):
-            if vc_host.name == name:
-                return HostHandler(vc_host, self._si)
+        raise ClusterNotFound(self, name)
 
-        raise ClusterHostNotFound(self, name)
+    def get_compute_entity(self, path: str | VcenterPath) -> BasicComputeEntityHandler:
+        if not isinstance(path, VcenterPath):
+            path = VcenterPath(path)
+        cluster_name = path.pop_head()
+        compute_entity = self.get_cluster(cluster_name)
+        if path:
+            compute_entity = compute_entity.get_host(str(path))
+        return compute_entity
 
     def get_datastore(self, path: str | VcenterPath) -> DatastoreHandler:
         if not isinstance(path, VcenterPath):
