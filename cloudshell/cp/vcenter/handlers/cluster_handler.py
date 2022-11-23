@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import abstractmethod
+from typing import TYPE_CHECKING
 
 from pyVmomi import vim
 
@@ -28,12 +29,22 @@ from cloudshell.cp.vcenter.utils.units_converter import (
     format_hertz,
 )
 
+if TYPE_CHECKING:
+    from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
 
-class ClusterHostNotFound(BaseVCenterException):
-    def __init__(self, entity: ManagedEntityHandler, name: str):
-        self.entity = entity
+
+class ClusterNotFound(BaseVCenterException):
+    def __init__(self, dc: DcHandler, name: str):
+        self.dc = dc
         self.name = name
-        super().__init__(f"Cluster or Host with name '{name}' not found in {entity}")
+        super().__init__(f"Cluster with name '{name}' not found in the {dc}")
+
+
+class HostNotFound(BaseVCenterException):
+    def __init__(self, cluster: ClusterHandler, name: str):
+        self.cluster = cluster
+        self.name = name
+        super().__init__(f"Host with name '{name}' not found in the {cluster}")
 
 
 class BasicComputeEntityHandler(ManagedEntityHandler):
@@ -50,12 +61,6 @@ class BasicComputeEntityHandler(ManagedEntityHandler):
     @abstractmethod
     def ram_usage(self) -> UsageInfo:
         ...
-
-    def get_resource_pool(self, path: str | None) -> ResourcePoolHandler:
-        rp = ResourcePoolHandler(self._entity.resourcePool, self._si)
-        for name in VcenterPath(path or ""):
-            rp = rp.get_resource_pool(name)
-        return rp
 
     @abstractmethod
     def get_v_switch(self, name: str) -> VSwitchHandler:
@@ -96,6 +101,18 @@ class ClusterHandler(BasicComputeEntityHandler):
     def hosts(self) -> list[HostHandler]:
         return [HostHandler(host, self._si) for host in self._entity.host]
 
+    def get_host(self, name: str) -> HostHandler:
+        for host in self.hosts:
+            if host.name == name:
+                return host
+        raise HostNotFound(self, name)
+
+    def get_resource_pool(self, path: str | None) -> ResourcePoolHandler:
+        rp = ResourcePoolHandler(self._entity.resourcePool, self._si)
+        for name in VcenterPath(path or ""):
+            rp = rp.get_resource_pool(name)
+        return rp
+
     def get_v_switch(self, name: str) -> VSwitchHandler:
         for host in self.hosts:
             try:
@@ -112,6 +129,10 @@ class HostHandler(BasicComputeEntityHandler):
 
     def __str__(self) -> str:
         return f"Host '{self.name}'"
+
+    @property
+    def cluster(self) -> ClusterHandler:
+        return ClusterHandler(self._entity.parent, self._si)
 
     @property
     def cpu_usage(self) -> UsageInfo:
@@ -143,6 +164,9 @@ class HostHandler(BasicComputeEntityHandler):
             HostPortGroupHandler(pg, self)
             for pg in self._entity.config.network.portgroup
         ]
+
+    def get_resource_pool(self, path: str | None) -> ResourcePoolHandler:
+        return self.cluster.get_resource_pool(path)
 
     def get_v_switch(self, name: str) -> VSwitchHandler:
         for v_switch in self._entity.config.network.vswitch:
