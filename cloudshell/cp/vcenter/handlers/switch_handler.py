@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import time
 from logging import Logger
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 import attr
 from pyVmomi import vim
-from typing_extensions import Protocol
 
 from cloudshell.shell.flows.connectivity.models.connectivity_model import (
     ConnectionModeEnum,

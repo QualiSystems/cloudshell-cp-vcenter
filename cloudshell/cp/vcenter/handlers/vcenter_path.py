@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import ClassVar, Iterable, TypeVar
+from collections.abc import Iterable
+from typing import ClassVar, TypeVar
 
 import attr
 
