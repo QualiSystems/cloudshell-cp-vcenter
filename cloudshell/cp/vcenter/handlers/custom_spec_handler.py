@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import ClassVar, TypeVar, Union
+from typing import ClassVar, Protocol, TypeVar, Union
 
 import attr
 from pyVmomi import vim
-from typing_extensions import Protocol
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
 from cloudshell.cp.vcenter.models.custom_spec import (

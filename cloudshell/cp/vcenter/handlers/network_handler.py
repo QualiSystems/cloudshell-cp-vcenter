@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 import attr
 from pyVmomi import vim
-from typing_extensions import Protocol
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
 from cloudshell.cp.vcenter.handlers.managed_entity_handler import (

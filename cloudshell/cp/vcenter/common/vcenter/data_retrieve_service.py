@@ -1,4 +1,4 @@
-from typing import List, Type, Union
+from typing import Union
 
 from pyVmomi import vim, vmodl
 
@@ -12,7 +12,7 @@ class VcenterDataRetrieveService:
 
     def get_all_objects_with_properties(
         self,
-        vim_type: Type[
+        vim_type: type[
             Union[
                 vim.Folder,
                 vim.VirtualMachine,
@@ -22,7 +22,7 @@ class VcenterDataRetrieveService:
                 vim.StoragePod,
             ]
         ],
-        properties: List[str],
+        properties: list[str],
         si: vim.ServiceInstance,
         root: vim.ManagedEntity = None,
     ):
