@@ -9,11 +9,10 @@ from cloudshell.shell.flows.connectivity.models.connectivity_model import (
 from cloudshell.cp.vcenter.models.connectivity_action_model import (
     VcenterConnectivityActionModel,
 )
-
 from cloudshell.cp.vcenter.utils.connectivity_helpers import (
     generate_port_group_name,
-    get_existed_port_group_name,
     get_available_vnic,
+    get_existed_port_group_name,
     is_correct_vnic,
     should_remove_port_group,
 )
@@ -110,7 +109,6 @@ def test_existed_port_group_name_in_virtual_network(action_request):
     assert get_existed_port_group_name(action) == "network name"
 
 
-
 @pytest.mark.parametrize(
     ("expected_vnic", "vnic_label", "is_correct"),
     (
@@ -171,7 +169,7 @@ def test_get_available_vnic(
     default_network.name = default_net_name
     # vNIC1
     net1 = Mock()
-    net1.name = generate_port_group_name("switch", "11", "access")
+    net1.name = generate_port_group_name("switch", "11", ConnectionModeEnum.ACCESS)
     vnic1 = Mock(name="vnic1", network=net1)
     # vNIC2
     net2 = Mock()
