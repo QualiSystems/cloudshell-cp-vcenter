@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from contextlib import contextmanager, suppress
 from logging import Logger
-from typing import Iterable
 
 import attr
 

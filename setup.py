@@ -29,7 +29,7 @@ setup(
     ),
     install_requires=required,
     tests_require=required_for_tests,
-    python_requires="~=3.7",
+    python_requires="~=3.9",
     version=version_from_file,
     package_data={"": ["*.txt"]},
     include_package_data=True,
