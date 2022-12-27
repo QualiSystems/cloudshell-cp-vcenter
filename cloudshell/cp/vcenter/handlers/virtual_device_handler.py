@@ -1,7 +1,13 @@
-from abc import abstractmethod
+from __future__ import annotations
 
-import attr
+from logging import Logger
+from typing import TYPE_CHECKING, ClassVar
+
+from attrs import define
 from pyVmomi import vim
+
+if TYPE_CHECKING:
+    from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
 
 
 def is_vnic(device) -> bool:
@@ -12,18 +18,15 @@ def is_virtual_disk(device) -> bool:
     return isinstance(device, vim.vm.device.VirtualDisk)
 
 
-def is_virtual_scsi_controller(device) -> bool:
-    return isinstance(device, vim.vm.device.VirtualSCSIController)
+@define(repr=False)
+class VirtualDevice:
+    vm: ClassVar[VmHandler]
+    logger: ClassVar[Logger]
+    _vc_obj: vim.vm.device.VirtualDevice
 
-
-@attr.s(auto_attribs=True)
-class VirtualDeviceHandler:
-    _device: vim.vm.device.VirtualDevice
+    def __repr__(self) -> str:
+        return f"{self.name} of the {self.vm}"
 
     @property
-    def label(self) -> str:
-        return self._device.deviceInfo.label
-
-    @abstractmethod
-    def __str__(self) -> str:
-        raise NotImplementedError("Should return - Entity 'label'")
+    def name(self) -> str:
+        return self._vc_obj.deviceInfo.label

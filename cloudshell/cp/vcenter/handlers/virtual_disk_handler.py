@@ -1,22 +1,19 @@
 import re
+from functools import cached_property
 
-from cloudshell.cp.vcenter.handlers.virtual_device_handler import VirtualDeviceHandler
+from cloudshell.cp.vcenter.handlers.virtual_device_handler import VirtualDevice
 
 
-class VirtualDiskHandler(VirtualDeviceHandler):
-    def __repr__(self) -> str:
-        return f"Virtual Disk '{self.label}'"
-
-    __str__ = __repr__
+class VirtualDisk(VirtualDevice):
+    @cached_property
+    def index(self) -> int:
+        """Return the index of the disk on the VM."""
+        return int(re.search(r"\d+$", self.name).group())
 
     @property
     def capacity_in_bytes(self) -> int:
-        return self._device.capacityInBytes
+        return self._vc_obj.capacityInBytes
 
     @property
     def has_parent(self) -> bool:
-        return bool(self._device.backing.parent)
-
-    @property
-    def number(self) -> int:
-        return int(re.search(r"\d+", self.label).group())
+        return bool(self._vc_obj.backing.parent)

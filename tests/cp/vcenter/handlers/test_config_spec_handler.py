@@ -33,14 +33,14 @@ def test_from_string(cpu, ram, hdd, spec):
 
 
 def test_validate_spec_for_vm():
-    vm = Mock(disks=[Mock(number=1, has_parent=False)])
+    vm = Mock(disks=[Mock(index=1, has_parent=False)])
     spec = ConfigSpecHandler(None, None, [HddSpec(1, 10)])
 
     spec._validate_hdd_spec(vm)
 
 
 def test_validate_spec_for_vm_linked_disk():
-    vm = Mock(disks=[Mock(number=1, has_parent=True)])
+    vm = Mock(disks=[Mock(index=1, has_parent=True)])
     spec = ConfigSpecHandler(None, None, [HddSpec(1, 10)])
 
     with pytest.raises(CannotChangeLinkedDisk):

@@ -31,6 +31,7 @@ class ResourceInUse(BaseVCenterException):
 @attr.s(auto_attribs=True, slots=True, frozen=True)
 class SiHandler:
     _si: vim.ServiceInstance
+    logger: Logger
 
     @classmethod
     def from_config(cls, conf: VCenterResourceConfig, logger: Logger) -> SiHandler:
@@ -40,7 +41,7 @@ class SiHandler:
     def connect(cls, host: str, user: str, password: str, logger: Logger) -> SiHandler:
         logger.info("Initializing vCenter API client SI")
         si = get_si(host, user, password)
-        return cls(si)
+        return cls(si, logger)
 
     @property
     def root_folder(self):

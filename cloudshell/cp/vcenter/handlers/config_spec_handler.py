@@ -8,7 +8,7 @@ import attr
 from pyVmomi import vim
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
-from cloudshell.cp.vcenter.handlers.virtual_disk_handler import VirtualDiskHandler
+from cloudshell.cp.vcenter.handlers.virtual_disk_handler import VirtualDisk
 from cloudshell.cp.vcenter.models.base_deployment_app import HddSpec
 from cloudshell.cp.vcenter.utils.vm_helpers import (
     get_all_devices,
@@ -64,7 +64,7 @@ class UnableToFindScsiController(ReconfigureVMError):
 
 
 class CannotChangeLinkedDisk(BaseVCenterException):
-    def __init__(self, disk: VirtualDiskHandler):
+    def __init__(self, disk: VirtualDisk):
         super().__init__(f"{disk} is linked and cannot be changed")
 
 
@@ -212,5 +212,5 @@ class ConfigSpecHandler:
     def _validate_hdd_spec(self, vm: VmHandler):
         hdd_nums_to_change = {hdd_spec.num for hdd_spec in self.hdd_specs}
         for disk in vm.disks:
-            if disk.number in hdd_nums_to_change and disk.has_parent:
+            if disk.index in hdd_nums_to_change and disk.has_parent:
                 raise CannotChangeLinkedDisk(disk)
