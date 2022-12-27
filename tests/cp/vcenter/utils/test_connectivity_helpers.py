@@ -6,6 +6,7 @@ from cloudshell.shell.flows.connectivity.models.connectivity_model import (
     ConnectionModeEnum,
 )
 
+from cloudshell.cp.vcenter.handlers.vnic_handler import Vnic
 from cloudshell.cp.vcenter.models.connectivity_action_model import (
     VcenterConnectivityActionModel,
 )
@@ -117,11 +118,11 @@ def test_existed_port_group_name_in_virtual_network(action_request):
         ("10", "Network adapter 10", True),
         ("Network adapter 3", "Network adapter 2", False),
         (" 3", "Network adapter 3", False),
-        ("2", "not expected network name", False),
     ),
 )
 def test_is_correct_vnic(expected_vnic, vnic_label, is_correct):
-    assert is_correct_vnic(expected_vnic, vnic_label) == is_correct
+    vnic = Vnic(Mock(deviceInfo=Mock(label=vnic_label)))
+    assert is_correct_vnic(expected_vnic, vnic) is is_correct
 
 
 @pytest.mark.parametrize(
@@ -158,7 +159,7 @@ def test_should_remove_port_group(
     (
         ("Local", [], "vnic2"),
         ("another-name", [], "vnic2"),
-        ("default-net", ["another-name", "Local"], "vnic4"),
+        ("default-net", ["another-name", "Local"], None),
     ),
 )
 def test_get_available_vnic(
@@ -179,19 +180,12 @@ def test_get_available_vnic(
     net3 = Mock()
     net3.name = "another-name"
     vnic3 = Mock(name="vnic3", network=net3)
-    # new vNIC4
-    vnic4 = Mock(name="vnic4", network=default_network)
     # VM
     vm = Mock(vnics=[vnic1, vnic2, vnic3])
-    vm.get_network_from_vnic.side_effect = lambda v: v.network
 
-    def create_vnic(logger):
-        vm.vnics = [*vm.vnics, vnic4]
-
-    vm.create_vnic = create_vnic
     # expected vNIC
-    expected_vnic = locals()[expected_vnic_name]
+    expected_vnic = expected_vnic_name and locals()[expected_vnic_name]
 
-    vnic = get_available_vnic(vm, default_network, reserved_networks, logger)
+    vnic = get_available_vnic(vm, default_network, reserved_networks)
 
     assert vnic == expected_vnic

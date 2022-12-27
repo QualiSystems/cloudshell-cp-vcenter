@@ -62,7 +62,7 @@ class VMDetailsActions(VMNetworkActions):
         ]
         hdd_data = [
             VmDetailsProperty(
-                key=f"{d.label} Size", value=format_bytes(d.capacity_in_bytes)
+                key=f"{d.name} Size", value=format_bytes(d.capacity_in_bytes)
             )
             for d in vm.disks
         ]
@@ -78,25 +78,25 @@ class VMDetailsActions(VMNetworkActions):
         network_interfaces = []
 
         if getattr(app_model, "wait_for_ip", None) and vm.power_state is PowerState.ON:
-            primary_ip = self.get_vm_ip(vm._entity, ip_regex=app_model.ip_regex)
+            primary_ip = self.get_vm_ip(vm, ip_regex=app_model.ip_regex)
         elif isinstance(app_model, StaticVCenterDeployedApp):
-            primary_ip = self.get_vm_ip(vm._entity)
+            primary_ip = self.get_vm_ip(vm)
         else:
             primary_ip = None
 
         for vnic in vm.vnics:
-            network = vm.get_network_from_vnic(vnic)
+            network = vnic.network
             is_predefined = network.name in self._resource_conf.reserved_networks
-            private_ip = self.get_vm_ip_from_vnic(vm._entity, vnic._device)
             vlan_id = vm.get_network_vlan_id(network)
 
             if vlan_id and (self.is_quali_network(network.name) or is_predefined):
-                is_primary = private_ip and primary_ip == private_ip
+                vnic_ip = vnic.ipv4
+                is_primary = primary_ip == vnic_ip if vnic_ip and primary_ip else False
 
                 network_data = [
-                    VmDetailsProperty(key="IP", value=private_ip),
+                    VmDetailsProperty(key="IP", value=vnic_ip),
                     VmDetailsProperty(key="MAC Address", value=vnic.mac_address),
-                    VmDetailsProperty(key="Network Adapter", value=vnic.label),
+                    VmDetailsProperty(key="Network Adapter", value=vnic.name),
                     VmDetailsProperty(key="Port Group Name", value=network.name),
                 ]
 
@@ -106,7 +106,7 @@ class VMDetailsActions(VMNetworkActions):
                     isPrimary=is_primary,
                     isPredefined=is_predefined,
                     networkData=network_data,
-                    privateIpAddress=private_ip,
+                    privateIpAddress=vnic_ip,
                 )
                 network_interfaces.append(interface)
 
