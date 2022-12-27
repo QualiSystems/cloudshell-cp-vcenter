@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import ipaddress
 import re
-from logging import Logger
 from typing import TYPE_CHECKING
 
 from cloudshell.shell.flows.connectivity.models.connectivity_model import (
@@ -14,13 +14,14 @@ from cloudshell.cp.vcenter.handlers.network_handler import (
     DVPortGroupHandler,
     NetworkHandler,
 )
-from cloudshell.cp.vcenter.handlers.vnic_handler import VnicHandler
+from cloudshell.cp.vcenter.handlers.si_handler import CustomSpecNotFound
 from cloudshell.cp.vcenter.models.connectivity_action_model import (
     VcenterConnectivityActionModel,
 )
 
 if TYPE_CHECKING:
     from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
+    from cloudshell.cp.vcenter.handlers.vnic_handler import Vnic
 
 
 MAX_DVSWITCH_LENGTH = 60
@@ -39,20 +40,18 @@ def is_network_generated_name(net_name: str):
     return bool(PORT_GROUP_NAME_PATTERN.search(net_name))
 
 
-def is_correct_vnic(expected_vnic: str, vnic_label: str) -> bool:
-    """Check that expected vNIC name or number is equal to vNIC label.
+def is_correct_vnic(expected_vnic: str, vnic: Vnic) -> bool:
+    """Check that expected vNIC name or number is equal to vNIC.
 
     :param expected_vnic: vNIC name or number from the connectivity request
-    :param vnic_label: vNIC name from VM
     """
     if expected_vnic.isdigit():
-        index = vnic_label.rsplit(" ", 1)[-1]
         try:
-            is_correct = int(index) == int(expected_vnic)
+            is_correct = vnic.index == int(expected_vnic)
         except ValueError:
             is_correct = False
     else:
-        is_correct = expected_vnic.lower() == vnic_label.lower()
+        is_correct = expected_vnic.lower() == vnic.name.lower()
     return is_correct
 
 
@@ -60,24 +59,35 @@ def get_available_vnic(
     vm: VmHandler,
     default_network: AbstractNetwork,
     reserved_networks: list[str],
-    logger: Logger,
-) -> VnicHandler:
+) -> Vnic | None:
     for vnic in vm.vnics:
-        network = vm.get_network_from_vnic(vnic)
+        network = vnic.network
         if is_vnic_network_can_be_replaced(network, default_network, reserved_networks):
             break
     else:
-        if len(vm.vnics) >= 10:
-            raise BaseVCenterException("Limit of vNICs per VM is 10")
-        vnic = vm.create_vnic(logger)
-        if isinstance(default_network, DVPortGroupHandler):
-            vm.connect_vnic_to_dv_port_group(vnic, default_network, logger)
-        elif isinstance(default_network, NetworkHandler):
-            vm.connect_vnic_to_network(vnic, default_network, logger)
+        vnic = None
+    return vnic
 
-        # we need to update vnic object to fill all attributes, e.g. mac_address
-        vnic = vm.vnics[-1]
-        assert vm.get_network_from_vnic(vnic).name == default_network.name
+
+def create_new_vnic(
+    vm: VmHandler, network: NetworkHandler | DVPortGroupHandler
+) -> Vnic:
+    if len(vm.vnics) >= 10:
+        raise BaseVCenterException("Limit of vNICs per VM is 10")
+
+    vnic = vm.vnic_class.create(network)
+
+    try:
+        custom_spec = vm._si.get_customization_spec(vm.name)
+    except CustomSpecNotFound:
+        pass
+    else:
+        # we need to have the same number of interfaces on the VM and in the
+        # customization spec
+        vm._si.logger.info(f"Adding a new vNIC to the customization spec for the {vm}")
+        if custom_spec.number_of_vnics > 0:
+            custom_spec.add_new_vnic()
+            vm._si.overwrite_customization_spec(custom_spec)
 
     return vnic
 
@@ -114,3 +124,13 @@ def should_remove_port_group(name: str, action: VcenterConnectivityActionModel) 
     return not bool(get_existed_port_group_name(action)) and is_network_generated_name(
         name
     )
+
+
+def is_ipv4(ip: str | None) -> bool:
+    try:
+        ipaddress.IPv4Address(ip)
+    except ipaddress.AddressValueError:
+        result = False
+    else:
+        result = True
+    return result
