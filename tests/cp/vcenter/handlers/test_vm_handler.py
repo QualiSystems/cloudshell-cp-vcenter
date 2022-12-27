@@ -4,7 +4,7 @@ import pytest
 from pyVmomi import vim
 
 from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
-from cloudshell.cp.vcenter.handlers.vnic_handler import VnicHandler, VnicNotFound
+from cloudshell.cp.vcenter.handlers.vnic_handler import Vnic, VnicNotFound
 
 
 @pytest.fixture
@@ -50,13 +50,13 @@ def vm(vc_vm, si):
 
 def test_get_vnic(vm):
     vnic2 = vm.get_vnic("Network adapter 2")
-    assert isinstance(vnic2, VnicHandler)
-    assert vnic2.label == "Network adapter 2"
+    assert isinstance(vnic2, Vnic)
+    assert vnic2.name == "Network adapter 2"
     assert vnic2.mac_address == "00:50:56:8D:2E:0F"
 
     vnic3 = vm.get_vnic("Network adapter 3")
-    assert isinstance(vnic3, VnicHandler)
-    assert vnic3.label == "Network adapter 3"
+    assert isinstance(vnic3, Vnic)
+    assert vnic3.name == "Network adapter 3"
     assert vnic3.mac_address == "00:50:56:8D:2E:10"
 
 

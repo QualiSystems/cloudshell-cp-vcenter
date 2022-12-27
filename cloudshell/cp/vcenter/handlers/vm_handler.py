@@ -3,6 +3,7 @@ from __future__ import annotations
 from contextlib import suppress
 from datetime import datetime
 from enum import Enum
+from functools import cached_property
 from logging import Logger
 from threading import Lock
 
@@ -27,7 +28,7 @@ from cloudshell.cp.vcenter.handlers.network_handler import (
     get_network_handler,
 )
 from cloudshell.cp.vcenter.handlers.resource_pool import ResourcePoolHandler
-from cloudshell.cp.vcenter.handlers.si_handler import CustomSpecNotFound, SiHandler
+from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
 from cloudshell.cp.vcenter.handlers.snapshot_handler import (
     SnapshotHandler,
     SnapshotNotFoundInSnapshotTree,
@@ -38,14 +39,15 @@ from cloudshell.cp.vcenter.handlers.virtual_device_handler import (
     is_virtual_disk,
     is_vnic,
 )
-from cloudshell.cp.vcenter.handlers.virtual_disk_handler import VirtualDiskHandler
+from cloudshell.cp.vcenter.handlers.virtual_disk_handler import (
+    VirtualDisk as _VirtualDisk,
+)
+from cloudshell.cp.vcenter.handlers.vnic_handler import Vnic as _Vnic
 from cloudshell.cp.vcenter.handlers.vnic_handler import (
-    VnicHandler,
     VnicNotFound,
     VnicWithMacNotFound,
-    VnicWithoutNetwork,
 )
-from cloudshell.cp.vcenter.utils.connectivity_helpers import is_correct_vnic
+from cloudshell.cp.vcenter.utils.connectivity_helpers import is_correct_vnic, is_ipv4
 from cloudshell.cp.vcenter.utils.task_waiter import VcenterTaskWaiter
 from cloudshell.cp.vcenter.utils.units_converter import BASE_10
 
@@ -107,7 +109,7 @@ def _get_dc(entity):
     return entity.parent
 
 
-@attr.s(auto_attribs=True, slots=True)
+@attr.s(auto_attribs=True, repr=False)
 class VmHandler(ManagedEntityHandler):
     _entity: vim.VirtualMachine
     _si: SiHandler
@@ -116,8 +118,26 @@ class VmHandler(ManagedEntityHandler):
     def __attrs_post_init__(self):
         self._reconfig_vm_lock = Lock()
 
-    def __str__(self):
+    def __repr__(self):
         return f"VM '{self.name}'"
+
+    __str__ = __repr__
+
+    @cached_property
+    def vnic_class(self) -> type[_Vnic]:
+        class Vnic(_Vnic):
+            vm = self
+            logger = self._si.logger
+
+        return Vnic
+
+    @cached_property
+    def disk_class(self) -> type[_VirtualDisk]:
+        class VirtualDisk(_VirtualDisk):
+            vm = self
+            logger = self._si.logger
+
+        return VirtualDisk
 
     @property
     def uuid(self) -> str:
@@ -128,6 +148,11 @@ class VmHandler(ManagedEntityHandler):
         return self._entity.config.uuid
 
     @property
+    def primary_ipv4(self) -> str | None:
+        ip = self._entity.guest.ipAddress
+        return ip if is_ipv4(ip) else None
+
+    @property
     def networks(self) -> list[NetworkHandler | DVPortGroupHandler]:
         return [get_network_handler(net, self._si) for net in self._entity.network]
 
@@ -136,21 +161,19 @@ class VmHandler(ManagedEntityHandler):
         return list(filter(lambda x: isinstance(x, DVPortGroupHandler), self.networks))
 
     @property
-    def vnics(self) -> list[VnicHandler]:
-        return list(map(VnicHandler, filter(is_vnic, self._get_devices())))
+    def vnics(self) -> list[_Vnic]:
+        return list(map(self.vnic_class, filter(is_vnic, self._get_devices())))
 
     @property
-    def disks(self) -> list[VirtualDiskHandler]:
-        return list(
-            map(VirtualDiskHandler, filter(is_virtual_disk, self._get_devices()))
-        )
+    def disks(self) -> list[_VirtualDisk]:
+        return list(map(self.disk_class, filter(is_virtual_disk, self._get_devices())))
 
     @property
     def host(self) -> HostHandler:
         return HostHandler(self._entity.runtime.host, self._si)
 
     @property
-    def disk_size(self) -> int:
+    def disks_size(self) -> int:
         return sum(d.capacity_in_bytes for d in self.disks)
 
     @property
@@ -214,82 +237,28 @@ class VmHandler(ManagedEntityHandler):
             task_waiter = task_waiter or VcenterTaskWaiter(logger)
             task_waiter.wait_for_task(task)
 
-    def create_vnic(self, logger: Logger) -> VnicHandler:
-        """The vNIC is not connected to the VM yet!."""
-        logger.info(f"Adding a new vNIC for the {self}")
-        try:
-            vnic_type = self.vnics[0].vnic_type
-            vnic = VnicHandler.create_new(vnic_type)
-        except IndexError:
-            vnic = VnicHandler.create_new()
-
-        try:
-            custom_spec = self._si.get_customization_spec(self.name)
-        except CustomSpecNotFound:
-            pass
-        else:
-            # we need to have the same number of interfaces on the VM and in the
-            # customization spec
-            logger.info(f"Adding a new vNIC to the customization spec for the {self}")
-            if custom_spec.number_of_vnics > 0:
-                custom_spec.add_new_vnic()
-                self._si.overwrite_customization_spec(custom_spec)
-
-        return vnic
-
-    def get_network_from_vnic(
-        self, vnic: VnicHandler
-    ) -> NetworkHandler | DVPortGroupHandler:
-        try:
-            vc_network = vnic.vc_network
-            network = NetworkHandler(vc_network, self._si)
-        except ValueError:
-            for pg in self.dv_port_groups:
-                with suppress(ValueError):
-                    if pg.key == vnic.port_group_key:
-                        network = pg
-                        break
-            else:
-                raise VnicWithoutNetwork
-
-        return network
-
-    def connect_vnic_to_dv_port_group(
-        self,
-        vnic: VnicHandler,
-        port_group: DVPortGroupHandler,
-        logger: Logger,
-        task_waiter: VcenterTaskWaiter | None = None,
-    ) -> None:
-        logger.info(f"Connecting {vnic} of the {self} to the {port_group}")
-        nic_spec = vnic.create_spec_for_connection_port_group(port_group)
-        config_spec = vim.vm.ConfigSpec(deviceChange=[nic_spec])
-        self._reconfigure(config_spec, logger, task_waiter)
-
-    def connect_vnic_to_network(
-        self,
-        vnic: VnicHandler,
-        network: NetworkHandler,
-        logger: Logger,
-        task_waiter: VcenterTaskWaiter | None = None,
-    ) -> None:
-        logger.info(f"Connecting {vnic} of the {self} to the {network}")
-        nic_spec = vnic.create_spec_for_connection_network(network)
-        config_spec = vim.vm.ConfigSpec(deviceChange=[nic_spec])
-        self._reconfigure(config_spec, logger, task_waiter)
-
-    def get_vnic(self, name_or_id: str) -> VnicHandler:
+    def get_vnic(self, name_or_id: str) -> _Vnic:
         for vnic in self.vnics:
-            if is_correct_vnic(name_or_id, vnic.label):
+            if is_correct_vnic(name_or_id, vnic):
                 return vnic
         raise VnicNotFound(name_or_id, self)
 
-    def get_vnic_by_mac(self, mac_address: str, logger: Logger) -> VnicHandler:
+    def get_vnic_by_mac(self, mac_address: str, logger: Logger) -> _Vnic:
         logger.info(f"Searching for vNIC of the {self} with mac {mac_address}")
         for vnic in self.vnics:
-            if vnic.mac_address.lower() == mac_address.lower():
+            if vnic.mac_address == mac_address.upper():
                 return vnic
         raise VnicWithMacNotFound(mac_address, self)
+
+    def get_ip_addresses_by_vnic(self, vnic: _Vnic) -> list[str]:
+        assert vnic.vm is self
+        for nic_info in self._entity.guest.net:
+            if nic_info.deviceConfigId == vnic.key:
+                ips = [ip.ipAddress for ip in nic_info.ipConfig.ipAddress]
+                break
+        else:
+            ips = []
+        return ips
 
     def get_network_vlan_id(self, network: NetworkHandler | DVPortGroupHandler) -> int:
         if isinstance(network, DVPortGroupHandler):

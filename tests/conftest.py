@@ -146,9 +146,9 @@ def resource_conf(resource_command_context, cs_api) -> VCenterResourceConfig:
 
 
 @pytest.fixture
-def si() -> SiHandler:
+def si(logger) -> SiHandler:
     _si = Mock()
-    return SiHandler(_si)
+    return SiHandler(_si, logger)
 
 
 @pytest.fixture

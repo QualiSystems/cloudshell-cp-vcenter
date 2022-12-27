@@ -1,15 +1,14 @@
 from __future__ import annotations
 
-import ipaddress
 import re
 import time
 from contextlib import nullcontext
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
-from pyVmomi import vim
-
 from cloudshell.cp.vcenter.exceptions import VMIPNotFoundException
+from cloudshell.cp.vcenter.handlers.network_handler import NetworkHandler
+from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
 
 if TYPE_CHECKING:
     from logging import Logger
@@ -22,7 +21,8 @@ if TYPE_CHECKING:
 class VMNetworkActions:
     QUALI_NETWORK_PREFIX = "QS_"
     DEFAULT_IP_REGEX = ".*"
-    DEFAULT_IP_WAIT_TIME = 5
+    DEFAULT_IP_WAIT_TIME = 180
+    DEFAULT_IP_DELAY = 5
 
     def __init__(
         self,
@@ -37,93 +37,57 @@ class VMNetworkActions:
     def is_quali_network(self, network_name: str) -> bool:
         return network_name.startswith(self.QUALI_NETWORK_PREFIX)
 
-    def _is_ipv4_address(self, ip):
-        self._logger.info(f"Checking if IP address {ip} is IPv4 ")
-        is_ipv4 = True
-        try:
-            ipaddress.IPv4Address(ip)
-        except ipaddress.AddressValueError:
-            is_ipv4 = False
-
-        self._logger.info(f"IP address is IPv4: {is_ipv4}")
-        return is_ipv4
-
-    def get_vm_ip_from_vnic(self, vm, vnic):
-        """Get VM IP address from the vNIC."""
-        # todo work with handlers
-        vnic_label = vnic.deviceInfo.label
-        self._logger.info(f"Getting IPv4 address from the vNIC {vnic_label}")
-        for net in vm.guest.net:
-            if str(net.deviceConfigId) == str(vnic.key):
-                for ip_address in net.ipAddress:
-                    if self._is_ipv4_address(ip_address):
-                        return ip_address
-
-    def _get_ip_regex_match_function(self, ip_regex=None):
-        """Get Regex Match function for the VM IP address."""
-        self._logger.info(f"Getting IP RegEx match function for the RegEx {ip_regex}")
-
-        if ip_regex is None:
-            ip_regex = self.DEFAULT_IP_REGEX
-        try:
-            return re.compile(ip_regex).match
-        except Exception:
-            raise AttributeError(f"Invalid IP regex : {ip_regex}")
-
-    def _get_vm_ip_addresses(self, vm, default_network):
-        """Get all VM IP address except the default network address."""
-        self._logger.info(f"Getting all VM IP addresses for the vm {vm.name}")
-        ips = []
-
-        if vm.guest.ipAddress:
-            ips.append(vm.guest.ipAddress)
-
-        for nic in vm.guest.net:
-            if not default_network or nic.network != default_network.name:
-                for addr in nic.ipAddress:
-                    if addr:
-                        ips.append(addr)
-
-        self._logger.info(f"Found VM IP addresses: {ips}")
-        return ips
-
-    def _find_vm_ip(self, vm, default_network, ip_match_function):
-        """Find VM IP address."""
-        self._logger.info(f"Finding VM IP address for the vm {vm.name}")
-        for ip in self._get_vm_ip_addresses(vm, default_network):
-            if self._is_ipv4_address(ip):
-                if ip_match_function(ip):
-                    return ip
+    def _find_vm_ip(
+        self,
+        vm: VmHandler,
+        skip_networks: list[NetworkHandler],
+        is_ip_pass_regex: callable[[str | None], bool],
+    ) -> str | None:
+        self._logger.info(f"Searching for the IPv4 address of the {vm}")
+        ip = vm.primary_ipv4
+        if not ip:
+            self._logger.debug(f"{vm} doesn't have a primary IPv4 address")
+            for vnic in vm.vnics:
+                if vnic.network not in skip_networks and is_ip_pass_regex(vnic.ipv4):
+                    self._logger.debug(f"Found IP {vnic.ipv4} on {vnic}")
+                    ip = vnic.ipv4
+                    break
+        return ip
 
     def get_vm_ip(
         self,
-        vm: vim.VirtualMachine,  # todo VmHandler
-        default_network: vim.Network | None = None,
+        vm: VmHandler,
         ip_regex: str | None = None,
-        timeout: int | None = None,
+        timeout: int = DEFAULT_IP_WAIT_TIME,
+        skip_networks: list[NetworkHandler] | None = None,
     ) -> str:
-        """Get VM IP address."""
         self._logger.info(f"Getting IP address for the VM {vm.name} from the vCenter")
-
-        timeout = timeout or 0
         timeout_time = datetime.now() + timedelta(seconds=timeout)
-        ip_regex_match = self._get_ip_regex_match_function(ip_regex)
-        ip = None
+        is_ip_pass_regex = get_ip_regex_match_func(ip_regex)
+        skip_networks = skip_networks or []
 
-        while not ip:
+        while True:
             with self._cancellation_manager:
-                self._logger.info(f"Getting IP for VM {vm.name}")
-                ip = self._find_vm_ip(
-                    vm=vm,
-                    default_network=default_network,
-                    ip_match_function=ip_regex_match,
-                )
-
+                ip = self._find_vm_ip(vm, skip_networks, is_ip_pass_regex)
             if ip:
-                return ip
-
-            with self._cancellation_manager:
-                time.sleep(self.DEFAULT_IP_WAIT_TIME)
-
+                break
             if datetime.now() > timeout_time:
                 raise VMIPNotFoundException("Unable to get VM IP")
+            time.sleep(self.DEFAULT_IP_DELAY)
+        return ip
+
+
+def get_ip_regex_match_func(ip_regex=None) -> callable[[str | None], bool]:
+    """Get Regex Match function for the VM IP address."""
+    pattern = re.compile(ip_regex) if ip_regex is not None else None
+
+    def is_ip_pass_regex(ip: str | None) -> bool:
+        if not ip:
+            result = False
+        elif not pattern:
+            result = True
+        else:
+            result = bool(pattern.match(ip))
+        return result
+
+    return is_ip_pass_regex

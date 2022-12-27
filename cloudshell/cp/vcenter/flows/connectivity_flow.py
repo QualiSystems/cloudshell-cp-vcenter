@@ -37,6 +37,7 @@ from cloudshell.cp.vcenter.models.connectivity_action_model import (
 )
 from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 from cloudshell.cp.vcenter.utils.connectivity_helpers import (
+    create_new_vnic,
     generate_port_group_name,
     get_available_vnic,
     get_existed_port_group_name,
@@ -93,21 +94,19 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
 
         switch = self._get_switch(dc, vm)
         with self._network_lock:
+            network = self._get_or_create_network(dc, switch, action)
             if action.custom_action_attrs.vnic:
                 vnic = vm.get_vnic(action.custom_action_attrs.vnic)
             else:
                 vnic = get_available_vnic(
-                    vm,
-                    default_network,
-                    vc_conf.reserved_networks,
-                    self._logger,
+                    vm, default_network, vc_conf.reserved_networks
                 )
-            network = self._get_or_create_network(dc, switch, action)
+
             try:
-                if isinstance(network, DVPortGroupHandler):
-                    vm.connect_vnic_to_dv_port_group(vnic, network, self._logger)
+                if not vnic:
+                    create_new_vnic(vm, network)
                 else:
-                    vm.connect_vnic_to_network(vnic, network, self._logger)
+                    vnic.connect(network)
             except Exception:
                 if should_remove_port_group(network.name, action):
                     self._remove_network(network, vm)
@@ -123,13 +122,10 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         vm = dc.get_vm_by_uuid(action.custom_action_attrs.vm_uuid)
         default_network = dc.get_network(vc_conf.holding_network)
         vnic = vm.get_vnic_by_mac(action.connector_attrs.interface, self._logger)
-        network = vm.get_network_from_vnic(vnic)
+        network = vnic.network
         self._logger.info(f"Start disconnecting {network} from the {vnic} on the {vm}")
 
-        if isinstance(default_network, DVPortGroupHandler):
-            vm.connect_vnic_to_dv_port_group(vnic, default_network, self._logger)
-        else:
-            vm.connect_vnic_to_network(vnic, default_network, self._logger)
+        vnic.connect(default_network)
 
         with suppress(ManagedEntityNotFound):  # network can be already removed
             if should_remove_port_group(network.name, action):
