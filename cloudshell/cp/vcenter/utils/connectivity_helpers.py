@@ -18,6 +18,7 @@ from cloudshell.cp.vcenter.handlers.si_handler import CustomSpecNotFound
 from cloudshell.cp.vcenter.models.connectivity_action_model import (
     VcenterConnectivityActionModel,
 )
+from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 
 if TYPE_CHECKING:
     from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
@@ -134,3 +135,30 @@ def is_ipv4(ip: str | None) -> bool:
     else:
         result = True
     return result
+
+
+def get_forged_transmits(
+    action: VcenterConnectivityActionModel, r_conf: VCenterResourceConfig
+) -> bool:
+    forged_transmits = action.connection_params.vlan_service_attrs.forged_transmits
+    if forged_transmits is None:
+        forged_transmits = r_conf.forged_transmits
+    return forged_transmits
+
+
+def get_promiscuous_mode(
+    action: VcenterConnectivityActionModel, r_conf: VCenterResourceConfig
+) -> bool:
+    promiscuous_mode = action.connection_params.vlan_service_attrs.promiscuous_mode
+    if promiscuous_mode is None:
+        promiscuous_mode = r_conf.promiscuous_mode
+    return promiscuous_mode
+
+
+def get_mac_changes(
+    action: VcenterConnectivityActionModel, r_conf: VCenterResourceConfig
+) -> bool:
+    mac_changes = action.connection_params.vlan_service_attrs.mac_changes
+    if mac_changes is None:
+        mac_changes = r_conf.mac_changes
+    return mac_changes

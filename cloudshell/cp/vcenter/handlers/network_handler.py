@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from abc import abstractmethod
 from typing import TYPE_CHECKING, Protocol
 
 import attr
@@ -95,12 +96,40 @@ class AbstractPortGroupHandler(Protocol):
     def vlan_id(self) -> int:
         raise NotImplementedError
 
+    @property
+    @abstractmethod
+    def allow_promiscuous(self) -> bool:
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def forged_transmits(self) -> bool:
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def mac_changes(self) -> bool:
+        raise NotImplementedError
+
     def destroy(self):
         raise NotImplementedError
 
 
 class DVPortGroupHandler(AbstractNetwork, AbstractPortGroupHandler):
     _entity: vim.dvs.DistributedVirtualPortgroup
+
+    @property
+    def allow_promiscuous(self) -> bool:
+        mac_policy = self._entity.config.defaultPortConfig.macManagementPolicy
+        return mac_policy.allowPromiscuous
+
+    @property
+    def forged_transmits(self) -> bool:
+        return self._entity.config.defaultPortConfig.macManagementPolicy.forgedTransmits
+
+    @property
+    def mac_changes(self) -> bool:
+        return self._entity.config.defaultPortConfig.macManagementPolicy.macChanges
 
     def __str__(self) -> str:
         return f"Distributed Virtual Port group '{self.name}'"
@@ -149,6 +178,18 @@ class HostPortGroupHandler(AbstractPortGroupHandler):
     @property
     def vlan_id(self) -> int:
         return self._entity.spec.vlanId
+
+    @property
+    def allow_promiscuous(self) -> bool:
+        return self._entity.computedPolicy.security.allowPromiscuous
+
+    @property
+    def forged_transmits(self) -> bool:
+        return self._entity.computedPolicy.security.forgedTransmits
+
+    @property
+    def mac_changes(self) -> bool:
+        return self._entity.computedPolicy.security.macChanges
 
     def destroy(self):
         self._host.remove_port_group(self.name)

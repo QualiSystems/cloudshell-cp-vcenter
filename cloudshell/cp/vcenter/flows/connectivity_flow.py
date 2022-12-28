@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+from collections.abc import Collection
 from contextlib import suppress
 from logging import Logger
 from threading import Lock
 from typing import TYPE_CHECKING
 
 from cloudshell.shell.flows.connectivity.basic_flow import AbstractConnectivityFlow
+from cloudshell.shell.flows.connectivity.models.connectivity_model import (
+    ConnectivityActionModel,
+)
 from cloudshell.shell.flows.connectivity.models.driver_response import (
     ConnectivityActionResult,
 )
@@ -41,6 +45,9 @@ from cloudshell.cp.vcenter.utils.connectivity_helpers import (
     generate_port_group_name,
     get_available_vnic,
     get_existed_port_group_name,
+    get_forged_transmits,
+    get_mac_changes,
+    get_promiscuous_mode,
     should_remove_port_group,
 )
 
@@ -50,7 +57,10 @@ if TYPE_CHECKING:
 
 class DvSwitchNameEmpty(BaseVCenterException):
     def __init__(self):
-        msg = "For connectivity actions you have to specify default DvSwitch"
+        msg = (
+            "For connectivity actions you have to specify default DvSwitch name in the "
+            "resource or in every VLAN service"
+        )
         super().__init__(msg)
 
 
@@ -74,12 +84,13 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         )
         self._network_lock = Lock()
 
-    def apply_connectivity(self, request: str) -> str:
-        self._validate_dvs_present()
-        return super().apply_connectivity(request)
-
-    def _validate_dvs_present(self):
-        if not self._resource_conf.default_dv_switch:
+    def _validate_received_actions(
+        self, actions: Collection[ConnectivityActionModel]
+    ) -> None:
+        all_actions_with_switch = all(
+            a.connection_params.vlan_service_attrs.switch_name for a in actions
+        )
+        if not self._resource_conf.default_dv_switch or not all_actions_with_switch:
             raise DvSwitchNameEmpty
 
     def _set_vlan(
@@ -92,7 +103,7 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         default_network = dc.get_network(vc_conf.holding_network)
         self._logger.info(f"Start setting vlan {vlan_id} for the {vm}")
 
-        switch = self._get_switch(dc, vm)
+        switch = self._get_switch(dc, vm, action)
         with self._network_lock:
             network = self._get_or_create_network(dc, switch, action)
             if action.custom_action_attrs.vnic:
@@ -135,11 +146,17 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         msg = "Removing VLAN successfully completed"
         return ConnectivityActionResult.success_result_vm(action, msg, vnic.mac_address)
 
-    def _get_switch(self, dc: DcHandler, vm: VmHandler) -> AbstractSwitchHandler:
+    def _get_switch(
+        self, dc: DcHandler, vm: VmHandler, action: VcenterConnectivityActionModel
+    ) -> AbstractSwitchHandler:
+        switch_name = (
+            action.connection_params.vlan_service_attrs.switch_name
+            or self._resource_conf.default_dv_switch
+        )
         try:
-            switch = dc.get_dv_switch(self._resource_conf.default_dv_switch)
+            switch = dc.get_dv_switch(switch_name)
         except DvSwitchNotFound:
-            switch = vm.get_v_switch(self._resource_conf.default_dv_switch)
+            switch = vm.get_v_switch(switch_name)
         return switch
 
     def _get_or_create_network(
@@ -155,6 +172,24 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
             network = self._create_network_based_on_vlan_id(dc, switch, action)
         return network
 
+    @staticmethod
+    def _validate_network(
+        network: NetworkHandler | DVPortGroupHandler,
+        switch: AbstractSwitchHandler,
+        promiscuous_mode: bool,
+        forged_transmits: bool,
+        mac_changes: bool,
+    ) -> None:
+        pg = switch.get_port_group(network.name)
+        if pg.allow_promiscuous != promiscuous_mode:
+            raise BaseVCenterException(f"{pg} has incorrect promiscuous mode setting")
+        if pg.forged_transmits != forged_transmits:
+            raise BaseVCenterException(f"{pg} has incorrect forged transmits setting")
+        if pg.mac_changes != mac_changes:
+            raise BaseVCenterException(
+                f"{pg} has incorrect MAC address changes setting"
+            )
+
     def _create_network_based_on_vlan_id(
         self,
         dc: DcHandler,
@@ -163,6 +198,9 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
     ) -> AbstractNetwork:
         port_mode = action.connection_params.mode
         vlan_id = action.connection_params.vlan_id
+        promiscuous_mode = get_promiscuous_mode(action, self._resource_conf)
+        forged_transmits = get_forged_transmits(action, self._resource_conf)
+        mac_changes = get_mac_changes(action, self._resource_conf)
         pg_name = generate_port_group_name(switch.name, vlan_id, port_mode)
 
         try:
@@ -172,8 +210,9 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
                 pg_name,
                 vlan_id,
                 port_mode,
-                self._resource_conf.promiscuous_mode,
-                self._logger,
+                promiscuous_mode,
+                forged_transmits,
+                mac_changes,
             )
             port_group = switch.wait_port_group_appears(pg_name)
             network = dc.wait_network_appears(pg_name)
@@ -183,6 +222,11 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
                 except Exception:
                     port_group.destroy()
                     raise
+        else:
+            # we validate only network created by the Shell
+            self._validate_network(
+                network, switch, promiscuous_mode, forged_transmits, mac_changes
+            )
         return network
 
     @staticmethod
