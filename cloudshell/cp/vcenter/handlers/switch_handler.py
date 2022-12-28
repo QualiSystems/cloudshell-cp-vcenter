@@ -84,6 +84,7 @@ class AbstractSwitchHandler(Protocol):
         vlan_range: str,
         port_mode: ConnectionModeEnum,
         promiscuous_mode: bool,
+        forged_transmits: bool,
         logger: Logger,
         num_ports: int = 32,
         task_waiter: VcenterTaskWaiter | None = None,
@@ -101,6 +102,7 @@ class DvSwitchHandler(ManagedEntityHandler, AbstractSwitchHandler):
         vlan_range: str,
         port_mode: ConnectionModeEnum,
         promiscuous_mode: bool,
+        forged_transmits: bool,
         logger: Logger,
         num_ports: int = 32,
         task_waiter: VcenterTaskWaiter | None = None,
@@ -109,7 +111,7 @@ class DvSwitchHandler(ManagedEntityHandler, AbstractSwitchHandler):
             vim.dvs.VmwareDistributedVirtualSwitch.VmwarePortConfigPolicy(
                 securityPolicy=vim.dvs.VmwareDistributedVirtualSwitch.SecurityPolicy(
                     allowPromiscuous=vim.BoolPolicy(value=promiscuous_mode),
-                    forgedTransmits=vim.BoolPolicy(value=True),
+                    forgedTransmits=vim.BoolPolicy(value=forged_transmits),
                     macChanges=vim.BoolPolicy(value=False),
                     inherited=False,
                 ),
@@ -163,6 +165,7 @@ class VSwitchHandler(AbstractSwitchHandler):
         vlan_range: str,
         port_mode: ConnectionModeEnum,
         promiscuous_mode: bool,
+        forged_transmits: bool,
         logger: Logger,
         num_ports: int = 32,
         task_waiter: VcenterTaskWaiter | None = None,
@@ -175,7 +178,7 @@ class VSwitchHandler(AbstractSwitchHandler):
         network_policy.security = vim.host.NetworkPolicy.SecurityPolicy()
         network_policy.security.allowPromiscuous = promiscuous_mode
         network_policy.security.macChanges = False
-        network_policy.security.forgedTransmits = True
+        network_policy.security.forgedTransmits = forged_transmits
         pg_spec.policy = network_policy
 
         self._host.add_port_group(pg_spec)

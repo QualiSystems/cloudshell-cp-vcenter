@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from abc import abstractmethod
 from typing import TYPE_CHECKING, Protocol
 
 import attr
@@ -95,11 +96,30 @@ class AbstractPortGroupHandler(Protocol):
     def vlan_id(self) -> int:
         raise NotImplementedError
 
+    @property
+    @abstractmethod
+    def allow_promiscuous(self) -> bool:
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def forged_transmits(self) -> bool:
+        raise NotImplementedError
+
     def destroy(self):
         raise NotImplementedError
 
 
 class DVPortGroupHandler(AbstractNetwork, AbstractPortGroupHandler):
+    @property
+    def allow_promiscuous(self) -> bool:
+        mac_policy = self._entity.config.defaultPortConfig.macManagementPolicy
+        return mac_policy.allowPromiscuous
+
+    @property
+    def forged_transmits(self) -> bool:
+        return self._entity.config.defaultPortConfig.macManagementPolicy.forgedTransmits
+
     _entity: vim.dvs.DistributedVirtualPortgroup
 
     def __str__(self) -> str:
@@ -149,6 +169,14 @@ class HostPortGroupHandler(AbstractPortGroupHandler):
     @property
     def vlan_id(self) -> int:
         return self._entity.spec.vlanId
+
+    @property
+    def allow_promiscuous(self) -> bool:
+        return self._entity.computedPolicy.security.allowPromiscuous
+
+    @property
+    def forged_transmits(self) -> bool:
+        return self._entity.computedPolicy.security.forgedTransmits
 
     def destroy(self):
         self._host.remove_port_group(self.name)

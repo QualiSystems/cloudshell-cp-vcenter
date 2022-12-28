@@ -73,6 +73,7 @@ class VCenterAttributeNames:
     reserved_networks = "Reserved Networks"
     execution_server_selector = "Execution Server Selector"
     promiscuous_mode = "Promiscuous Mode"
+    forged_transmits = "Forged Transmits"
     enable_tags = "Enable Tags"
 
 
@@ -100,6 +101,9 @@ class VCenterResourceConfig(GenericResourceConfig):
     )
     promiscuous_mode = ResourceBoolAttrRO(
         ATTR_NAMES.promiscuous_mode, ResourceBoolAttrRO.NAMESPACE.SHELL_NAME
+    )
+    forged_transmits = ResourceBoolAttrRO(
+        ATTR_NAMES.forged_transmits, ResourceBoolAttrRO.NAMESPACE.SHELL_NAME
     )
     enable_tags = ResourceBoolAttrRO(
         ATTR_NAMES.enable_tags,
