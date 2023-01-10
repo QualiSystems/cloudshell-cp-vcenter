@@ -21,7 +21,6 @@ if TYPE_CHECKING:
 class VMNetworkActions:
     QUALI_NETWORK_PREFIX = "QS_"
     DEFAULT_IP_REGEX = ".*"
-    DEFAULT_IP_WAIT_TIME = 180
     DEFAULT_IP_DELAY = 5
 
     def __init__(
@@ -58,7 +57,7 @@ class VMNetworkActions:
         self,
         vm: VmHandler,
         ip_regex: str | None = None,
-        timeout: int = DEFAULT_IP_WAIT_TIME,
+        timeout: int = 0,
         skip_networks: list[NetworkHandler] | None = None,
     ) -> str:
         self._logger.info(f"Getting IP address for the VM {vm.name} from the vCenter")

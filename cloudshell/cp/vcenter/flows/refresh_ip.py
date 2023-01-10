@@ -24,16 +24,20 @@ def refresh_ip(
     si = SiHandler.from_config(resource_conf, logger)
     dc = DcHandler.get_dc(resource_conf.default_datacenter, si)
     vm = dc.get_vm_by_uuid(deployed_app.vmdetails.uid)
-    default_net = dc.get_network(resource_conf.holding_network)
     if vm.power_state is not vm.power_state.ON:
         raise VmIsNotPowered(vm)
 
-    ip = VMNetworkActions(resource_conf, logger, cancellation_manager).get_vm_ip(
-        vm._entity,
-        default_net._entity,
-        getattr(deployed_app, "ip_regex", None),
-        getattr(deployed_app, "refresh_ip_timeout", None),
-    )
+    actions = VMNetworkActions(resource_conf, logger, cancellation_manager)
+    if isinstance(deployed_app, StaticVCenterDeployedApp):
+        ip = actions.get_vm_ip(vm)
+    else:
+        default_net = dc.get_network(resource_conf.holding_network)
+        ip = actions.get_vm_ip(
+            vm,
+            ip_regex=deployed_app.ip_regex,
+            timeout=deployed_app.refresh_ip_timeout,
+            skip_networks=[default_net],
+        )
     if ip != deployed_app.private_ip:
         deployed_app.update_private_ip(deployed_app.name, ip)
     return ip
