@@ -46,9 +46,9 @@ class FolderHandler(ManagedEntityHandler):
         try:
             for name in path:
                 vc_folder = si.find_child(vc_folder, name)
+                if not vc_folder:
+                    raise FolderNotFound(parent, str(path))
         except AttributeError:
-            raise FolderNotFound(parent, str(path))
-        if not vc_folder:
             raise FolderNotFound(parent, str(path))
 
         return cls(vc_folder, si)
