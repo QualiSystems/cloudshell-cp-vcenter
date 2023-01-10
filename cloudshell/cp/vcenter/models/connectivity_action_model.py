@@ -12,8 +12,6 @@ from cloudshell.shell.flows.connectivity.models.connectivity_model import (
 
 class VcenterVlanServiceModel(VlanServiceModel):
     port_group_name: Optional[str] = Field(None, alias="Port Group Name")
-    promiscuous_mode: Optional[bool] = Field(None, alias="Promiscuous Mode")
-    forged_transmits: Optional[bool] = Field(None, alias="Forged Transmits")
 
     def __getattribute__(self, item):
         if "port_group_name" == item:
