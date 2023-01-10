@@ -77,10 +77,12 @@ class VMDetailsActions(VMNetworkActions):
         self._logger.info(f"Preparing VM Details network data for the {vm}")
         network_interfaces = []
 
-        if getattr(app_model, "wait_for_ip", None) and vm.power_state is PowerState.ON:
-            primary_ip = self.get_vm_ip(vm, ip_regex=app_model.ip_regex)
-        elif isinstance(app_model, StaticVCenterDeployedApp):
-            primary_ip = self.get_vm_ip(vm)
+        if isinstance(app_model, StaticVCenterDeployedApp):
+            # try to get VM IP without waiting
+            primary_ip = self.get_vm_ip(vm, timeout=0)
+        elif vm.power_state is PowerState.ON:
+            # try to get VM IP without waiting, use IP regex if present
+            primary_ip = self.get_vm_ip(vm, ip_regex=app_model.ip_regex, timeout=0)
         else:
             primary_ip = None
 
