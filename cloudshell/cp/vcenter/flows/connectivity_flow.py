@@ -42,6 +42,7 @@ from cloudshell.cp.vcenter.utils.connectivity_helpers import (
     get_available_vnic,
     get_existed_port_group_name,
     get_forged_transmits,
+    get_mac_changes,
     get_promiscuous_mode,
     should_remove_port_group,
 )
@@ -155,23 +156,25 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
             network = dc.get_network(pg_name)
         else:
             network = self._create_network_based_on_vlan_id(dc, switch, action)
-        self._validate_network(network, switch, action)
         return network
 
+    @staticmethod
     def _validate_network(
-        self,
         network: NetworkHandler | DVPortGroupHandler,
         switch: AbstractSwitchHandler,
-        action: VcenterConnectivityActionModel,
+        promiscuous_mode: bool,
+        forged_transmits: bool,
+        mac_changes: bool,
     ) -> None:
-        promiscuous_mode = get_promiscuous_mode(action, self._resource_conf)
-        forged_transmits = get_forged_transmits(action, self._resource_conf)
-
         pg = switch.get_port_group(network.name)
         if pg.allow_promiscuous != promiscuous_mode:
             raise BaseVCenterException(f"{pg} has incorrect promiscuous mode setting")
         if pg.forged_transmits != forged_transmits:
             raise BaseVCenterException(f"{pg} has incorrect forged transmits setting")
+        if pg.mac_changes != mac_changes:
+            raise BaseVCenterException(
+                f"{pg} has incorrect MAC address changes setting"
+            )
 
     def _create_network_based_on_vlan_id(
         self,
@@ -183,6 +186,7 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         vlan_id = action.connection_params.vlan_id
         promiscuous_mode = get_promiscuous_mode(action, self._resource_conf)
         forged_transmits = get_forged_transmits(action, self._resource_conf)
+        mac_changes = get_mac_changes(action, self._resource_conf)
         pg_name = generate_port_group_name(switch.name, vlan_id, port_mode)
 
         try:
@@ -194,6 +198,7 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
                 port_mode,
                 promiscuous_mode,
                 forged_transmits,
+                mac_changes,
                 self._logger,
             )
             port_group = switch.wait_port_group_appears(pg_name)
@@ -204,6 +209,11 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
                 except Exception:
                     port_group.destroy()
                     raise
+        else:
+            # we validate only network created by the Shell
+            self._validate_network(
+                network, switch, promiscuous_mode, forged_transmits, mac_changes
+            )
         return network
 
     @staticmethod
