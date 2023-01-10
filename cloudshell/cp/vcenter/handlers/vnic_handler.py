@@ -110,6 +110,7 @@ class Vnic(VirtualDevice):
     ) -> vim.vm.device.VirtualDeviceSpec:
         vnic = self._vc_obj
         vnic.wakeOnLanEnabled = True
+        vnic.deviceInfo = vim.Description()
         vnic.connectable = vim.vm.device.VirtualDevice.ConnectInfo(
             connected=True,
             startConnected=True,
@@ -129,7 +130,7 @@ class Vnic(VirtualDevice):
 
     @property
     def _is_new(self) -> bool:
-        return bool(self.mac_address)
+        return not bool(self.mac_address)
 
     def _create_spec_for_connecting_network(
         self, network: NetworkHandler
