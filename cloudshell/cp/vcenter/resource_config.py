@@ -26,6 +26,11 @@ class ResourceAttrROShellName(ResourceAttrRO):
         super().__init__(name, namespace)
 
 
+class ResourceBoolAttrROShellName(ResourceBoolAttrRO):
+    def __init__(self, name, namespace=ResourceAttrRO.NAMESPACE.SHELL_NAME):
+        super().__init__(name, namespace)
+
+
 class ShutdownMethodAttrRO(ResourceAttrRO):
     def __init__(self):
         super().__init__(
@@ -74,6 +79,7 @@ class VCenterAttributeNames:
     execution_server_selector = "Execution Server Selector"
     promiscuous_mode = "Promiscuous Mode"
     forged_transmits = "Forged Transmits"
+    mac_changes = "MAC address changes"
     enable_tags = "Enable Tags"
 
 
@@ -99,17 +105,10 @@ class VCenterResourceConfig(GenericResourceConfig):
     execution_server_selector = ResourceAttrROShellName(
         ATTR_NAMES.execution_server_selector
     )
-    promiscuous_mode = ResourceBoolAttrRO(
-        ATTR_NAMES.promiscuous_mode, ResourceBoolAttrRO.NAMESPACE.SHELL_NAME
-    )
-    forged_transmits = ResourceBoolAttrRO(
-        ATTR_NAMES.forged_transmits, ResourceBoolAttrRO.NAMESPACE.SHELL_NAME
-    )
-    enable_tags = ResourceBoolAttrRO(
-        ATTR_NAMES.enable_tags,
-        ResourceBoolAttrRO.NAMESPACE.SHELL_NAME,
-        default=True,
-    )
+    promiscuous_mode = ResourceBoolAttrROShellName(ATTR_NAMES.promiscuous_mode)
+    forged_transmits = ResourceBoolAttrROShellName(ATTR_NAMES.forged_transmits)
+    mac_changes = ResourceBoolAttrROShellName(ATTR_NAMES.mac_changes)
+    enable_tags = ResourceBoolAttrROShellName(ATTR_NAMES.enable_tags)
 
     @classmethod
     def from_context(

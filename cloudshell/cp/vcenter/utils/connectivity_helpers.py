@@ -153,3 +153,12 @@ def get_promiscuous_mode(
     if promiscuous_mode is None:
         promiscuous_mode = r_conf.promiscuous_mode
     return promiscuous_mode
+
+
+def get_mac_changes(
+    action: VcenterConnectivityActionModel, r_conf: VCenterResourceConfig
+) -> bool:
+    mac_changes = action.connection_params.vlan_service_attrs.mac_changes
+    if mac_changes is None:
+        mac_changes = r_conf.mac_changes
+    return mac_changes
