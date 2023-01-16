@@ -95,7 +95,7 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         default_network = dc.get_network(vc_conf.holding_network)
         self._logger.info(f"Start setting vlan {vlan_id} for the {vm}")
 
-        switch = self._get_switch(dc, vm)
+        switch = self._get_switch(dc, vm, action)
         with self._network_lock:
             network = self._get_or_create_network(dc, switch, action)
             if action.custom_action_attrs.vnic:
@@ -138,11 +138,17 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         msg = "Removing VLAN successfully completed"
         return ConnectivityActionResult.success_result_vm(action, msg, vnic.mac_address)
 
-    def _get_switch(self, dc: DcHandler, vm: VmHandler) -> AbstractSwitchHandler:
+    def _get_switch(
+        self, dc: DcHandler, vm: VmHandler, action: VcenterConnectivityActionModel
+    ) -> AbstractSwitchHandler:
+        switch_name = (
+            action.connection_params.vlan_service_attrs.switch_name
+            or self._resource_conf.default_dv_switch
+        )
         try:
-            switch = dc.get_dv_switch(self._resource_conf.default_dv_switch)
+            switch = dc.get_dv_switch(switch_name)
         except DvSwitchNotFound:
-            switch = vm.get_v_switch(self._resource_conf.default_dv_switch)
+            switch = vm.get_v_switch(switch_name)
         return switch
 
     def _get_or_create_network(
