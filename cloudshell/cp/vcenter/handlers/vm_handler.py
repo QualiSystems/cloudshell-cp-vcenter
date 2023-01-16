@@ -113,15 +113,16 @@ def _get_dc(entity):
 class VmHandler(ManagedEntityHandler):
     _entity: vim.VirtualMachine
     _si: SiHandler
-    _reconfig_vm_lock: Lock = attr.ib(None, init=False)
-
-    def __attrs_post_init__(self):
-        self._reconfig_vm_lock = Lock()
+    _reconfig_vm_lock: Lock = attr.ib(init=False, factory=Lock, eq=False, order=False)
 
     def __repr__(self):
         return f"VM '{self.name}'"
 
     __str__ = __repr__
+
+    @property
+    def vc_obj(self) -> vim.VirtualMachine:
+        return self._entity
 
     @cached_property
     def vnic_class(self) -> type[_Vnic]:
