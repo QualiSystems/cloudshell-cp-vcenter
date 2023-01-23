@@ -1,11 +1,18 @@
 from __future__ import annotations
 
 from abc import abstractmethod
+from collections.abc import Collection
 from typing import TYPE_CHECKING
 
 from pyVmomi import vim
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
+from cloudshell.cp.vcenter.handlers.cluster_specs import (
+    AffinityRule,
+    AffinityRuleNotFound,
+    AffinityRulesHasConflicts,
+    ClusterConfigSpec,
+)
 from cloudshell.cp.vcenter.handlers.datastore_handler import DatastoreHandler
 from cloudshell.cp.vcenter.handlers.managed_entity_handler import (
     ManagedEntityHandler,
@@ -18,6 +25,7 @@ from cloudshell.cp.vcenter.handlers.switch_handler import (
     VSwitchHandler,
     VSwitchNotFound,
 )
+from cloudshell.cp.vcenter.handlers.task import Task
 from cloudshell.cp.vcenter.handlers.vcenter_path import VcenterPath
 from cloudshell.cp.vcenter.utils.units_converter import (
     BASE_10,
@@ -122,6 +130,39 @@ class ClusterHandler(BasicComputeEntityHandler):
             else:
                 return v_switch
         raise VSwitchNotFound(self, name)
+
+    def get_affinity_rule(self, name: str) -> AffinityRule:
+        for rule in self._entity.configuration.rule:
+            if rule.name == name:
+                return AffinityRule.from_vcenter_rule(rule, self._si)
+        raise AffinityRuleNotFound(name, self)
+
+    def add_affinity_rule(self, *rules: AffinityRule) -> list[AffinityRule]:
+        assert all(rule.new for rule in rules)
+        return self._add_rules(rules)
+
+    def update_affinity_rule(self, *rules: AffinityRule) -> list[AffinityRule]:
+        assert all(not rule.new for rule in rules)
+        return self._add_rules(rules)
+
+    def reconfigure(self, spec: ClusterConfigSpec) -> None:
+        # Required Privileges Host.Inventory.EditCluster
+        vc_task = self._entity.ReconfigureEx(
+            spec.vc_obj,
+            # if modify is False all skipped properties will be reset to default
+            modify=True,
+        )
+        task = Task(vc_task)
+        task.wait()
+
+    def _add_rules(self, rules: Collection[AffinityRule]) -> list[AffinityRule]:
+        spec = ClusterConfigSpec(rules=rules)
+        self.reconfigure(spec)
+        new_rules = [self.get_affinity_rule(rule.name) for rule in rules]
+        not_enabled = [rule for rule in new_rules if not rule.enabled]
+        if not_enabled:
+            raise AffinityRulesHasConflicts(not_enabled)
+        return new_rules
 
 
 class HostHandler(BasicComputeEntityHandler):
