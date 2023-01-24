@@ -24,8 +24,8 @@ class AbstractAttributeHint(ABC):
         self._request = request
         self._deployment_path = request.DeploymentPath
         # todo use handlers
-        self._si = dc._si._si
-        self._datacenter = dc._entity
+        self._si = dc.si.get_vc_obj()
+        self._datacenter = dc.get_vc_obj()
 
     def prepare_hints(self) -> dict:
         return {

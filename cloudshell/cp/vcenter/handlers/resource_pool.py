@@ -14,14 +14,15 @@ class ResourcePoolNotFound(BaseVCenterException):
 
 
 class ResourcePoolHandler(ManagedEntityHandler):
-    _entity: vim.ResourcePool
-
-    def __str__(self) -> str:
-        return f"Resource Pool '{self.name}'"
+    _vc_obj: vim.ResourcePool
 
     @property
     def resource_pools(self) -> list[ResourcePoolHandler]:
-        return [ResourcePoolHandler(rp, self._si) for rp in self._entity.resourcePool]
+        return [ResourcePoolHandler(rp, self.si) for rp in self._vc_obj.resourcePool]
+
+    @property
+    def _class_name(self) -> str:
+        return "Resource Pool"
 
     def get_resource_pool(self, name: str) -> ResourcePoolHandler:
         for rp in self.resource_pools:

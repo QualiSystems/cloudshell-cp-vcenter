@@ -2,7 +2,7 @@ from unittest.mock import call
 
 
 def test_find_vm_by_uuid(si, dc):
-    vc_si = si._si
+    vc_si = si._vc_obj
 
     def find_by_uuid(container, uuid, vmSearch=False, instanceUuid=False):
         if instanceUuid:
@@ -22,7 +22,7 @@ def test_find_vm_by_uuid(si, dc):
 
 
 def test_find_by_uuid(si, dc):
-    vc_si = si._si
+    vc_si = si._vc_obj
 
     result = si.find_by_uuid(dc, "uuid", vm_search=False)
 

@@ -55,5 +55,5 @@ def get_vm_console_link(
         https_port=HTTPS_PORT,
         session_ticket=quote(si.acquire_session_ticket()),
         thumbprint=quote(thumbprint.decode()),
-        num_mks_connections=vm._entity.config.maxMksConnections,
+        num_mks_connections=vm.get_vc_obj().config.maxMksConnections,
     )

@@ -3,8 +3,7 @@ from __future__ import annotations
 from collections.abc import Collection
 from typing import TYPE_CHECKING
 
-from attr.setters import frozen
-from attrs import define, field
+from attrs import define, field, setters
 from pyVmomi import vim
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
@@ -35,7 +34,7 @@ class AffinityRule:
     mandatory: bool
     vms: list[VmHandler]
     _orig_vc_obj: vim.cluster.AffinityRule | None = field(
-        default=None, repr=False, on_setattr=frozen
+        default=None, repr=False, on_setattr=setters.frozen
     )
 
     def __str__(self) -> str:
@@ -61,8 +60,12 @@ class AffinityRule:
         return self._orig_vc_obj is None
 
     @property
-    def vc_obj(self) -> vim.cluster.AffinityRuleSpec:
-        vc_vms = [vm.vc_obj for vm in self.vms]
+    def rule_spec(self) -> vim.cluster.RuleSpec:
+        operation = "add" if self.new else "edit"
+        return vim.cluster.RuleSpec(info=self.get_vc_obj(), operation=operation)
+
+    def get_vc_obj(self) -> vim.cluster.AffinityRuleSpec:
+        vc_vms = [vm.get_vc_obj() for vm in self.vms]
         if self.new:
             spec = vim.cluster.AffinityRuleSpec(
                 vm=vc_vms,
@@ -78,11 +81,6 @@ class AffinityRule:
             spec.name = self.name
         return spec
 
-    @property
-    def rule_spec(self) -> vim.cluster.RuleSpec:
-        operation = "add" if self.new else "edit"
-        return vim.cluster.RuleSpec(info=self.vc_obj, operation=operation)
-
     def add_vm(self, *vms: VmHandler) -> None:
         for vm in vms:
             if vm not in self.vms:
@@ -93,8 +91,7 @@ class AffinityRule:
 class ClusterConfigSpec:
     rules: Collection[AffinityRule] | None = None
 
-    @property
-    def vc_obj(self) -> vim.cluster.ConfigSpecEx:
+    def get_vc_obj(self) -> vim.cluster.ConfigSpecEx:
         rules_spec = [rule.rule_spec for rule in self.rules]
         spec = vim.cluster.ConfigSpecEx(rulesSpec=rules_spec)
         return spec

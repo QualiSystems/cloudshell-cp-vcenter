@@ -204,7 +204,7 @@ class ConfigSpecHandler:
             config_spec.memoryMB = int(self.ram_amount * 1024)
         if self.hdd_specs:
             self._validate_hdd_spec(vm)
-            self._update_hdd_specs(config_spec, vm._entity)
+            self._update_hdd_specs(config_spec, vm.get_vc_obj())
         if self.bios_uuid:
             config_spec.uuid = self.bios_uuid
         return config_spec

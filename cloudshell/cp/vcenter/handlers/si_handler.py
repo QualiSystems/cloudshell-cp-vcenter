@@ -30,7 +30,7 @@ class ResourceInUse(BaseVCenterException):
 
 @attr.s(auto_attribs=True, slots=True, frozen=True)
 class SiHandler:
-    _si: vim.ServiceInstance
+    _vc_obj: vim.ServiceInstance
     logger: Logger
 
     @classmethod
@@ -45,32 +45,35 @@ class SiHandler:
 
     @property
     def root_folder(self):
-        return self._si.content.rootFolder
+        return self._vc_obj.content.rootFolder
 
     @property
     def vc_version(self) -> str:
-        return self._si.content.about.version
+        return self._vc_obj.content.about.version
 
     @property
     def instance_uuid(self) -> str:
-        return self._si.content.about.instanceUuid
+        return self._vc_obj.content.about.instanceUuid
 
     @property
     def vcenter_host(self) -> str:
         # noinspection PyUnresolvedReferences
-        for item in self._si.content.setting.setting:
+        for item in self._vc_obj.content.setting.setting:
             if item.key == "VirtualCenter.FQDN":
                 return item.value
         raise Exception("Unable to find vCenter host")
 
+    def get_vc_obj(self) -> vim.ServiceInstance:
+        return self._vc_obj
+
     def acquire_session_ticket(self) -> str:
-        return self._si.content.sessionManager.AcquireCloneTicket()
+        return self._vc_obj.content.sessionManager.AcquireCloneTicket()
 
     def find_items(self, vim_type, recursive=False, container=None) -> Any:
         container = container or self.root_folder
         if not isinstance(vim_type, list):
             vim_type = [vim_type]
-        view = self._si.content.viewManager.CreateContainerView(
+        view = self._vc_obj.content.viewManager.CreateContainerView(
             container, vim_type, recursive
         )
         # noinspection PyUnresolvedReferences
@@ -80,7 +83,7 @@ class SiHandler:
         return items
 
     def find_by_uuid(self, dc, uuid: str, vm_search: bool) -> Any:
-        find_by_uuid = partial(self._si.content.searchIndex.FindByUuid, dc, uuid)
+        find_by_uuid = partial(self._vc_obj.content.searchIndex.FindByUuid, dc, uuid)
         if vm_search:
             # vmSearch=True, instanceUuid=True
             # if we cannot find by vCenter UUID use fallback - find by BIOS UUID
@@ -90,11 +93,13 @@ class SiHandler:
         return entity
 
     def find_child(self, parent, name: str) -> Any:
-        return self._si.content.searchIndex.FindChild(parent, name)
+        return self._vc_obj.content.searchIndex.FindChild(parent, name)
 
     def get_customization_spec(self, name: str) -> CustomSpecHandler | None:
         try:
-            spec = self._si.content.customizationSpecManager.GetCustomizationSpec(name)
+            spec = self._vc_obj.content.customizationSpecManager.GetCustomizationSpec(
+                name
+            )
         except vim.fault.NotFound:
             raise CustomSpecNotFound(name)
 
@@ -103,22 +108,26 @@ class SiHandler:
 
     def duplicate_customization_spec(self, original_name: str, new_name: str):
         try:
-            self._si.content.customizationSpecManager.DuplicateCustomizationSpec(
+            self._vc_obj.content.customizationSpecManager.DuplicateCustomizationSpec(
                 name=original_name, newName=new_name
             )
         except vim.fault.NotFound:
             raise CustomSpecNotFound(original_name)
 
     def overwrite_customization_spec(self, spec: CustomSpecHandler):
-        self._si.content.customizationSpecManager.OverwriteCustomizationSpec(spec.spec)
+        self._vc_obj.content.customizationSpecManager.OverwriteCustomizationSpec(
+            spec.spec
+        )
 
     def create_customization_spec(self, spec: CustomSpecHandler):
-        self._si.content.customizationSpecManager.CreateCustomizationSpec(spec.spec)
+        self._vc_obj.content.customizationSpecManager.CreateCustomizationSpec(spec.spec)
 
     def delete_customization_spec(self, name: str):
         with suppress(vim.fault.NotFound):
-            self._si.content.customizationSpecManager.DeleteCustomizationSpec(name=name)
+            self._vc_obj.content.customizationSpecManager.DeleteCustomizationSpec(
+                name=name
+            )
 
     def query_event(self, filter_spec: vim.event.EventFilterSpec):
         # noinspection PyUnresolvedReferences
-        return self._si.content.eventManager.QueryEvent(filter_spec)
+        return self._vc_obj.content.eventManager.QueryEvent(filter_spec)
