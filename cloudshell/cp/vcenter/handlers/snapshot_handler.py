@@ -50,7 +50,7 @@ def _get_snapshot_path(
 
 @attr.s(auto_attribs=True)
 class SnapshotHandler:
-    _snapshot: vim.vm.Snapshot
+    _vc_obj: vim.vm.Snapshot
     _path: VcenterPath | None = None
 
     @classmethod
@@ -67,7 +67,7 @@ class SnapshotHandler:
 
     @property
     def _root_snapshot_list(self):
-        return self._snapshot.vm.snapshot.rootSnapshotList
+        return self._vc_obj.vm.snapshot.rootSnapshotList
 
     @property
     def name(self) -> str:
@@ -76,14 +76,17 @@ class SnapshotHandler:
     @property
     def path(self) -> VcenterPath:
         if self._path is None:
-            path = _get_snapshot_path(self._root_snapshot_list, self._snapshot)
+            path = _get_snapshot_path(self._root_snapshot_list, self._vc_obj)
             if not path:
                 raise SnapshotNotFoundInSnapshotTree  # it shouldn't happen
             self._path = path
         return self._path
 
+    def get_vc_obj(self) -> vim.vm.Snapshot:
+        return self._vc_obj
+
     def revert_to_snapshot_task(self):
-        return self._snapshot.RevertToSnapshot_Task()
+        return self._vc_obj.RevertToSnapshot_Task()
 
     def remove_snapshot_task(self, remove_child: bool):
-        return self._snapshot.RemoveSnapshot_Task(removeChildren=remove_child)
+        return self._vc_obj.RemoveSnapshot_Task(removeChildren=remove_child)

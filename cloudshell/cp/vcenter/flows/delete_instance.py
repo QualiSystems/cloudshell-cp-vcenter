@@ -51,8 +51,8 @@ def delete_instance(
         si.delete_customization_spec(vm.name)
 
         soft = resource_conf.shutdown_method is ShutdownMethod.SOFT
-        vm.power_off(soft=soft, logger=logger)
-        vm.delete(logger)
+        vm.power_off(soft=soft)
+        vm.delete()
 
     path = get_vm_folder_path(
         deployed_app, resource_conf, reservation_info.reservation_id
@@ -66,4 +66,4 @@ def delete_instance(
             _delete_tags(vsphere_client, folder)
 
             with suppress(FolderIsNotEmpty):
-                folder.destroy(logger)
+                folder.destroy()

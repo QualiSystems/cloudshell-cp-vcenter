@@ -14,16 +14,13 @@ class DatastoreNotFound(BaseVCenterException):
 
 @attr.s(auto_attribs=True)
 class DatastoreHandler(ManagedEntityHandler):
-    def __str__(self) -> str:
-        return f"Datastore '{self.name}'"
-
     @property
     def free_space(self):
-        return self._entity.summary.freeSpace
+        return self._vc_obj.summary.freeSpace
 
     @property
     def usage_info(self) -> UsageInfo:
-        capacity = self._entity.summary.capacity
+        capacity = self._vc_obj.summary.capacity
         used = capacity - self.free_space
         return UsageInfo(
             capacity=format_bytes(capacity),
@@ -31,3 +28,7 @@ class DatastoreHandler(ManagedEntityHandler):
             free=format_bytes(used),
             used_percentage=str(round(used / capacity * 100)),
         )
+
+    @property
+    def _class_name(self) -> str:
+        return "Datastore"

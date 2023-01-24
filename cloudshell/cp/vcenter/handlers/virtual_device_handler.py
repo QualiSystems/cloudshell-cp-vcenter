@@ -21,12 +21,18 @@ def is_virtual_disk(device) -> bool:
 @define(repr=False)
 class VirtualDevice:
     vm: ClassVar[VmHandler]
-    logger: ClassVar[Logger]
     _vc_obj: vim.vm.device.VirtualDevice
 
     def __repr__(self) -> str:
         return f"{self.name} of the {self.vm}"
 
     @property
+    def logger(self) -> Logger:
+        return self.vm.logger
+
+    @property
     def name(self) -> str:
         return self._vc_obj.deviceInfo.label
+
+    def get_vc_obj(self) -> vim.vm.device.VirtualDevice:
+        return self._vc_obj

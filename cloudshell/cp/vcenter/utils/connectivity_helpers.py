@@ -79,16 +79,16 @@ def create_new_vnic(
     vnic = vm.vnic_class.create(network)
 
     try:
-        custom_spec = vm._si.get_customization_spec(vm.name)
+        custom_spec = vm.si.get_customization_spec(vm.name)
     except CustomSpecNotFound:
         pass
     else:
         # we need to have the same number of interfaces on the VM and in the
         # customization spec
-        vm._si.logger.info(f"Adding a new vNIC to the customization spec for the {vm}")
+        vm.si.logger.info(f"Adding a new vNIC to the customization spec for the {vm}")
         if custom_spec.number_of_vnics > 0:
             custom_spec.add_new_vnic()
-            vm._si.overwrite_customization_spec(custom_spec)
+            vm.si.overwrite_customization_spec(custom_spec)
 
     return vnic
 

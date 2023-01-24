@@ -22,4 +22,4 @@ def reconfigure_vm(
     dc = DcHandler.get_dc(resource_conf.default_datacenter, si)
     vm = dc.get_vm_by_uuid(deployed_app.vmdetails.uid)
     config_spec = ConfigSpecHandler.from_strings(cpu, ram, hdd)
-    vm.reconfigure_vm(config_spec, logger)
+    vm.reconfigure_vm(config_spec)

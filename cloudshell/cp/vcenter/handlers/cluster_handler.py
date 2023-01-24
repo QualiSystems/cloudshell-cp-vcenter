@@ -58,7 +58,7 @@ class HostNotFound(BaseVCenterException):
 class BasicComputeEntityHandler(ManagedEntityHandler):
     @property
     def datastores(self) -> list[DatastoreHandler]:
-        return [DatastoreHandler(store, self._si) for store in self._entity.datastore]
+        return [DatastoreHandler(store, self.si) for store in self._vc_obj.datastore]
 
     @property
     @abstractmethod
@@ -76,14 +76,11 @@ class BasicComputeEntityHandler(ManagedEntityHandler):
 
 
 class ClusterHandler(BasicComputeEntityHandler):
-    _entity: vim.ComputeResource | vim.ClusterComputeResource
-
-    def __str__(self) -> str:
-        return f"Cluster '{self.name}'"
+    _vc_obj: vim.ComputeResource | vim.ClusterComputeResource
 
     @property
     def cpu_usage(self) -> UsageInfo:
-        usage = self._entity.GetResourceUsage()
+        usage = self._vc_obj.GetResourceUsage()
         capacity = usage.cpuCapacityMHz
         used = usage.cpuUsedMHz
         return UsageInfo(
@@ -95,7 +92,7 @@ class ClusterHandler(BasicComputeEntityHandler):
 
     @property
     def ram_usage(self) -> UsageInfo:
-        usage = self._entity.GetResourceUsage()
+        usage = self._vc_obj.GetResourceUsage()
         capacity = usage.memCapacityMB
         used = usage.memUsedMB
         return UsageInfo(
@@ -107,7 +104,11 @@ class ClusterHandler(BasicComputeEntityHandler):
 
     @property
     def hosts(self) -> list[HostHandler]:
-        return [HostHandler(host, self._si) for host in self._entity.host]
+        return [HostHandler(host, self.si) for host in self._vc_obj.host]
+
+    @property
+    def _class_name(self) -> str:
+        return "Cluster"
 
     def get_host(self, name: str) -> HostHandler:
         for host in self.hosts:
@@ -116,7 +117,7 @@ class ClusterHandler(BasicComputeEntityHandler):
         raise HostNotFound(self, name)
 
     def get_resource_pool(self, path: str | None) -> ResourcePoolHandler:
-        rp = ResourcePoolHandler(self._entity.resourcePool, self._si)
+        rp = ResourcePoolHandler(self._vc_obj.resourcePool, self.si)
         for name in VcenterPath(path or ""):
             rp = rp.get_resource_pool(name)
         return rp
@@ -132,9 +133,9 @@ class ClusterHandler(BasicComputeEntityHandler):
         raise VSwitchNotFound(self, name)
 
     def get_affinity_rule(self, name: str) -> AffinityRule:
-        for rule in self._entity.configuration.rule:
+        for rule in self._vc_obj.configuration.rule:
             if rule.name == name:
-                return AffinityRule.from_vcenter_rule(rule, self._si)
+                return AffinityRule.from_vcenter_rule(rule, self.si)
         raise AffinityRuleNotFound(name, self)
 
     def add_affinity_rule(self, *rules: AffinityRule) -> list[AffinityRule]:
@@ -147,12 +148,12 @@ class ClusterHandler(BasicComputeEntityHandler):
 
     def reconfigure(self, spec: ClusterConfigSpec) -> None:
         # Required Privileges Host.Inventory.EditCluster
-        vc_task = self._entity.ReconfigureEx(
-            spec.vc_obj,
+        vc_task = self._vc_obj.ReconfigureEx(
+            spec.get_vc_obj(),
             # if modify is False all skipped properties will be reset to default
             modify=True,
         )
-        task = Task(vc_task)
+        task = Task(vc_task, self.logger)
         task.wait()
 
     def _add_rules(self, rules: Collection[AffinityRule]) -> list[AffinityRule]:
@@ -166,20 +167,17 @@ class ClusterHandler(BasicComputeEntityHandler):
 
 
 class HostHandler(BasicComputeEntityHandler):
-    _entity: vim.HostSystem
-
-    def __str__(self) -> str:
-        return f"Host '{self.name}'"
+    _vc_obj: vim.HostSystem
 
     @property
     def cluster(self) -> ClusterHandler:
-        return ClusterHandler(self._entity.parent, self._si)
+        return ClusterHandler(self._vc_obj.parent, self.si)
 
     @property
     def cpu_usage(self) -> UsageInfo:
-        used = self._entity.summary.quickStats.overallCpuUsage * BASE_SI * BASE_SI
+        used = self._vc_obj.summary.quickStats.overallCpuUsage * BASE_SI * BASE_SI
         capacity = (
-            self._entity.hardware.cpuInfo.hz * self._entity.hardware.cpuInfo.numCpuCores
+            self._vc_obj.hardware.cpuInfo.hz * self._vc_obj.hardware.cpuInfo.numCpuCores
         )
         return UsageInfo(
             capacity=format_hertz(capacity),
@@ -190,8 +188,8 @@ class HostHandler(BasicComputeEntityHandler):
 
     @property
     def ram_usage(self) -> UsageInfo:
-        used = self._entity.summary.quickStats.overallMemoryUsage * BASE_10 * BASE_10
-        capacity = self._entity.hardware.memorySize
+        used = self._vc_obj.summary.quickStats.overallMemoryUsage * BASE_10 * BASE_10
+        capacity = self._vc_obj.hardware.memorySize
         return UsageInfo(
             capacity=format_bytes(capacity),
             used=format_bytes(used),
@@ -203,25 +201,29 @@ class HostHandler(BasicComputeEntityHandler):
     def port_groups(self) -> list[HostPortGroupHandler]:
         return [
             HostPortGroupHandler(pg, self)
-            for pg in self._entity.config.network.portgroup
+            for pg in self._vc_obj.config.network.portgroup
         ]
+
+    @property
+    def _class_name(self) -> str:
+        return "Host"
 
     def get_resource_pool(self, path: str | None) -> ResourcePoolHandler:
         return self.cluster.get_resource_pool(path)
 
     def get_v_switch(self, name: str) -> VSwitchHandler:
-        for v_switch in self._entity.config.network.vswitch:
+        for v_switch in self._vc_obj.config.network.vswitch:
             if v_switch.name == name:
                 return VSwitchHandler(v_switch, self)
         raise VSwitchNotFound(self, name)
 
     def remove_port_group(self, name: str):
         try:
-            self._entity.configManager.networkSystem.RemovePortGroup(name)
+            self._vc_obj.configManager.networkSystem.RemovePortGroup(name)
         except (vim.fault.NotFound, ManagedEntityNotFound):
             pass
         except vim.fault.ResourceInUse:
             raise ResourceInUse(name)
 
     def add_port_group(self, port_group_spec):
-        self._entity.configManager.networkSystem.AddPortGroup(port_group_spec)
+        self._vc_obj.configManager.networkSystem.AddPortGroup(port_group_spec)

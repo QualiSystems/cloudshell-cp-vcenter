@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import time
-from logging import Logger
 from typing import TYPE_CHECKING, Protocol
 
-import attr
+from attrs import define, field, setters
 from pyVmomi import vim
 
 from cloudshell.shell.flows.connectivity.models.connectivity_model import (
@@ -21,7 +20,7 @@ from cloudshell.cp.vcenter.handlers.network_handler import (
     HostPortGroupNotFound,
     PortGroupNotFound,
 )
-from cloudshell.cp.vcenter.utils.task_waiter import VcenterTaskWaiter
+from cloudshell.cp.vcenter.handlers.task import ON_TASK_PROGRESS_TYPE, Task
 
 if TYPE_CHECKING:
     from cloudshell.cp.vcenter.handlers.cluster_handler import HostHandler
@@ -86,16 +85,16 @@ class AbstractSwitchHandler(Protocol):
         promiscuous_mode: bool,
         forged_transmits: bool,
         mac_changes: bool,
-        logger: Logger,
         num_ports: int = 32,
-        task_waiter: VcenterTaskWaiter | None = None,
+        on_task_progress: ON_TASK_PROGRESS_TYPE | None = None,
     ) -> None:
         raise NotImplementedError
 
 
 class DvSwitchHandler(ManagedEntityHandler, AbstractSwitchHandler):
-    def __str__(self) -> str:
-        return f"DistributedVirtualSwitch '{self.name}'"
+    @property
+    def _class_name(self) -> str:
+        return "Distributed Virtual Switch"
 
     def create_port_group(
         self,
@@ -105,9 +104,8 @@ class DvSwitchHandler(ManagedEntityHandler, AbstractSwitchHandler):
         promiscuous_mode: bool,
         forged_transmits: bool,
         mac_changes: bool,
-        logger: Logger,
         num_ports: int = 32,
-        task_waiter: VcenterTaskWaiter | None = None,
+        on_task_progress: ON_TASK_PROGRESS_TYPE | None = None,
     ) -> None:
         port_conf_policy = (
             vim.dvs.VmwareDistributedVirtualSwitch.VmwarePortConfigPolicy(
@@ -127,36 +125,36 @@ class DvSwitchHandler(ManagedEntityHandler, AbstractSwitchHandler):
             defaultPortConfig=port_conf_policy,
         )
 
-        task = self._entity.AddDVPortgroup_Task([dv_pg_spec])
-        logger.info(f"DV Port Group '{dv_port_name}' CREATE Task")
-        task_waiter = task_waiter or VcenterTaskWaiter(logger)
-        task_waiter.wait_for_task(task)
+        vc_task = self._vc_obj.AddDVPortgroup_Task([dv_pg_spec])
+        self.logger.info(f"DV Port Group '{dv_port_name}' CREATE Task")
+        task = Task(vc_task, self.logger)
+        task.wait(on_progress=on_task_progress)
 
     def get_port_group(self, name: str) -> DVPortGroupHandler:
-        for port_group in self._entity.portgroup:
+        for port_group in self._vc_obj.portgroup:
             if port_group.name == name:
-                return DVPortGroupHandler(port_group, self._si)
+                return DVPortGroupHandler(port_group, self.si)
         raise DVPortGroupNotFound(self, name)
 
 
-@attr.s(auto_attribs=True)
+@define
 class VSwitchHandler(AbstractSwitchHandler):
-    _entity: vim.host.VirtualSwitch
-    _host: HostHandler
+    _vc_obj: vim.host.VirtualSwitch = field(on_setattr=setters.frozen)
+    host: HostHandler
 
     def __str__(self) -> str:
         return f"VirtualSwitch '{self.name}'"
 
     @property
     def key(self) -> str:
-        return self._entity.key
+        return self._vc_obj.key
 
     @property
     def name(self) -> str:
-        return self._entity.name
+        return self._vc_obj.name
 
     def get_port_group(self, name: str) -> HostPortGroupHandler:
-        for pg in self._host.port_groups:
+        for pg in self.host.port_groups:
             if pg.name == name and pg.v_switch_key == self.key:
                 return pg
         raise HostPortGroupNotFound(self, name)
@@ -169,9 +167,8 @@ class VSwitchHandler(AbstractSwitchHandler):
         promiscuous_mode: bool,
         forged_transmits: bool,
         mac_changes: bool,
-        logger: Logger,
         num_ports: int = 32,
-        task_waiter: VcenterTaskWaiter | None = None,
+        on_task_progress: ON_TASK_PROGRESS_TYPE | None = None,
     ) -> None:
         pg_spec = vim.host.PortGroup.Specification()
         pg_spec.vswitchName = self.name
@@ -184,4 +181,4 @@ class VSwitchHandler(AbstractSwitchHandler):
         network_policy.security.forgedTransmits = forged_transmits
         pg_spec.policy = network_policy
 
-        self._host.add_port_group(pg_spec)
+        self.host.add_port_group(pg_spec)

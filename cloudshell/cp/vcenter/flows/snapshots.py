@@ -48,14 +48,14 @@ class SnapshotFlow:
 
     def get_snapshot_paths(self) -> str:
         vm = self._get_vm()
-        paths = vm.get_snapshot_paths(self._logger)
+        paths = vm.get_snapshot_paths()
         return json.dumps(paths)
 
     def save_snapshot(self, snapshot_name: str, dump_memory: str) -> str:
         _validate_dump_memory_param(dump_memory)
         vm = self._get_vm()
         dump_memory = dump_memory == "Yes"
-        snapshot_path = vm.create_snapshot(snapshot_name, dump_memory, self._logger)
+        snapshot_path = vm.create_snapshot(snapshot_name, dump_memory)
         return snapshot_path
 
     def restore_from_snapshot(
@@ -64,7 +64,7 @@ class SnapshotFlow:
         snapshot_path: str,
     ):
         vm = self._get_vm()
-        vm.restore_from_snapshot(snapshot_path, self._logger)
+        vm.restore_from_snapshot(snapshot_path)
         cs_api.SetResourceLiveStatus(self._deployed_app.name, "Offline", "Powered Off")
 
     def orchestration_save(self) -> str:
@@ -91,4 +91,4 @@ class SnapshotFlow:
     def remove_snapshot(self, snapshot_name: str, remove_child: str = "yes") -> None:
         remove_child = remove_child.lower() == "yes"
         vm = self._get_vm()
-        vm.remove_snapshot(snapshot_name, remove_child, self._logger)
+        vm.remove_snapshot(snapshot_name, remove_child)

@@ -22,10 +22,6 @@ class LoginException(BaseVCenterException):
     """Login Exception."""
 
 
-class TaskFaultException(BaseVCenterException):
-    """Task Failed."""
-
-
 class InvalidAttributeException(BaseVCenterException):
     """Attribute is not valid."""
 
