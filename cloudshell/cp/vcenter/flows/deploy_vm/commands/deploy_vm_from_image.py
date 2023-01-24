@@ -69,4 +69,4 @@ class DeployVMFromImageCommand(RollbackCommand):
 
     def rollback(self):
         if self._deployed_vm:
-            self._deployed_vm.delete(self._logger)
+            self._deployed_vm.delete()

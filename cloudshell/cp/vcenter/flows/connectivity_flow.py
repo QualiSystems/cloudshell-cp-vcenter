@@ -132,7 +132,7 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         dc = DcHandler.get_dc(vc_conf.default_datacenter, self._si)
         vm = dc.get_vm_by_uuid(action.custom_action_attrs.vm_uuid)
         default_network = dc.get_network(vc_conf.holding_network)
-        vnic = vm.get_vnic_by_mac(action.connector_attrs.interface, self._logger)
+        vnic = vm.get_vnic_by_mac(action.connector_attrs.interface)
         network = vnic.network
         self._logger.info(f"Start disconnecting {network} from the {vnic} on the {vm}")
 

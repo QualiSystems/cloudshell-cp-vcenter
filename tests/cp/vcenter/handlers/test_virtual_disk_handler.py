@@ -11,7 +11,7 @@ def disk1():
 
 
 def test_representation(disk1, vm):
-    vm._entity.name = "vm_name"
+    vm._vc_obj.name = "vm_name"
     VirtualDisk.vm = vm
     vnic = VirtualDisk(disk1)
 

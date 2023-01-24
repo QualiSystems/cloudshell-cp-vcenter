@@ -5,6 +5,7 @@ from abc import abstractmethod
 from typing import TYPE_CHECKING, Protocol
 
 import attr
+from attrs import field, setters
 from pyVmomi import vim
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
@@ -47,15 +48,15 @@ class AbstractNetwork(ManagedEntityHandler):
     @property
     def _moId(self) -> str:
         # avoid using this property
-        return self._entity._moId
+        return self._vc_obj._moId
 
     @property
     def _wsdl_name(self) -> str:
-        return self._entity._wsdlName
+        return self._vc_obj._wsdlName
 
     @property
     def in_use(self) -> bool:
-        return bool(self._entity.vm)
+        return bool(self._vc_obj.vm)
 
     def wait_network_become_free(self, delay: int = 2, timeout: int = 30) -> bool:
         """Will wait for empty list of VMs."""
@@ -77,10 +78,11 @@ class AbstractNetwork(ManagedEntityHandler):
 
 
 class NetworkHandler(AbstractNetwork):
-    _entity: vim.Network
+    _vc_obj: vim.Network
 
-    def __str__(self) -> str:
-        return f"Network '{self.name}'"
+    @property
+    def _class_name(self) -> str:
+        return "Network"
 
 
 class AbstractPortGroupHandler(Protocol):
@@ -116,39 +118,40 @@ class AbstractPortGroupHandler(Protocol):
 
 
 class DVPortGroupHandler(AbstractNetwork, AbstractPortGroupHandler):
-    _entity: vim.dvs.DistributedVirtualPortgroup
+    _vc_obj: vim.dvs.DistributedVirtualPortgroup
 
     @property
     def allow_promiscuous(self) -> bool:
-        mac_policy = self._entity.config.defaultPortConfig.macManagementPolicy
+        mac_policy = self._vc_obj.config.defaultPortConfig.macManagementPolicy
         return mac_policy.allowPromiscuous
 
     @property
     def forged_transmits(self) -> bool:
-        return self._entity.config.defaultPortConfig.macManagementPolicy.forgedTransmits
+        return self._vc_obj.config.defaultPortConfig.macManagementPolicy.forgedTransmits
 
     @property
     def mac_changes(self) -> bool:
-        return self._entity.config.defaultPortConfig.macManagementPolicy.macChanges
-
-    def __str__(self) -> str:
-        return f"Distributed Virtual Port group '{self.name}'"
+        return self._vc_obj.config.defaultPortConfig.macManagementPolicy.macChanges
 
     @property
     def key(self) -> str:
-        return self._entity.key
+        return self._vc_obj.key
 
     @property
     def vlan_id(self) -> int:
-        return self._entity.config.defaultPortConfig.vlan.vlanId
+        return self._vc_obj.config.defaultPortConfig.vlan.vlanId
 
     @property
     def switch_uuid(self) -> str:
-        return self._entity.config.distributedVirtualSwitch.uuid
+        return self._vc_obj.config.distributedVirtualSwitch.uuid
+
+    @property
+    def _class_name(self) -> str:
+        return "Distributed Virtual Port group"
 
     def destroy(self):
         try:
-            self._entity.Destroy()
+            self._vc_obj.Destroy()
         except (vim.fault.NotFound, ManagedEntityNotFound):
             pass
         except vim.fault.ResourceInUse:
@@ -157,42 +160,42 @@ class DVPortGroupHandler(AbstractNetwork, AbstractPortGroupHandler):
 
 @attr.s(auto_attribs=True)
 class HostPortGroupHandler(AbstractPortGroupHandler):
-    _entity: vim.host.PortGroup
-    _host: HostHandler
+    _vc_obj: vim.host.PortGroup = field(on_setattr=setters.frozen)
+    host: HostHandler
 
     def __str__(self) -> str:
         return f"Host Port Group '{self.name}'"
 
     @property
     def v_switch_key(self) -> str:
-        return self._entity.vswitch
+        return self._vc_obj.vswitch
 
     @property
     def name(self) -> str:
-        return self._entity.spec.name
+        return self._vc_obj.spec.name
 
     @property
     def key(self) -> str:
-        return self._entity.key
+        return self._vc_obj.key
 
     @property
     def vlan_id(self) -> int:
-        return self._entity.spec.vlanId
+        return self._vc_obj.spec.vlanId
 
     @property
     def allow_promiscuous(self) -> bool:
-        return self._entity.computedPolicy.security.allowPromiscuous
+        return self._vc_obj.computedPolicy.security.allowPromiscuous
 
     @property
     def forged_transmits(self) -> bool:
-        return self._entity.computedPolicy.security.forgedTransmits
+        return self._vc_obj.computedPolicy.security.forgedTransmits
 
     @property
     def mac_changes(self) -> bool:
-        return self._entity.computedPolicy.security.macChanges
+        return self._vc_obj.computedPolicy.security.macChanges
 
     def destroy(self):
-        self._host.remove_port_group(self.name)
+        self.host.remove_port_group(self.name)
 
 
 def get_network_handler(

@@ -57,21 +57,22 @@ class DcHandler(ManagedEntityHandler):
                 return DcHandler(vc_dc, si)
         raise DcNotFound(name)
 
-    def __str__(self):
-        return f"Datacenter '{self.name}'"
-
     @property
     def datastores(self) -> list[DatastoreHandler]:
-        return [DatastoreHandler(store, self._si) for store in self._entity.datastore]
+        return [DatastoreHandler(store, self.si) for store in self._vc_obj.datastore]
 
     def get_network(self, name: str) -> NetworkHandler | DVPortGroupHandler:
-        networks = (get_network_handler(net, self._si) for net in self._entity.network)
+        networks = (get_network_handler(net, self.si) for net in self._vc_obj.network)
         for network in networks:
             with suppress(ManagedEntityNotFound):
                 # We can get the error if the resource has been removed...
                 if network.name == name:
                     return network
         raise NetworkNotFound(self, name)
+
+    @property
+    def _class_name(self) -> str:
+        return "Datacenter"
 
     def wait_network_appears(
         self, name: str, delay: int = 2, timeout: int = 60 * 5
@@ -87,10 +88,10 @@ class DcHandler(ManagedEntityHandler):
         raise NetworkNotFound(self, name)
 
     def get_vm_by_uuid(self, uuid: str) -> VmHandler:
-        vm = self._si.find_by_uuid(self._entity, uuid, vm_search=True)
+        vm = self.si.find_by_uuid(self._vc_obj, uuid, vm_search=True)
         if not vm:
             raise VmNotFound(self, uuid=uuid)
-        return VmHandler(vm, self._si)
+        return VmHandler(vm, self.si)
 
     def get_vm_by_path(self, path: str | VcenterPath) -> VmHandler:
         if not isinstance(path, VcenterPath):
@@ -100,27 +101,27 @@ class DcHandler(ManagedEntityHandler):
         vc_vm = folder.find_child(vm_name)
         if not vc_vm:
             raise VmNotFound(self, name=vm_name)
-        return VmHandler(vc_vm, self._si)
+        return VmHandler(vc_vm, self.si)
 
     def get_vm_folder(self, path: str | VcenterPath) -> FolderHandler:
-        vm_folder = FolderHandler(self._entity.vmFolder, self._si)
+        vm_folder = FolderHandler(self._vc_obj.vmFolder, self.si)
         if path:
             vm_folder = vm_folder.get_folder(path)
         return vm_folder
 
     def get_or_create_vm_folder(self, path: str | VcenterPath) -> FolderHandler:
-        vm_folder = FolderHandler(self._entity.vmFolder, self._si)
+        vm_folder = FolderHandler(self._vc_obj.vmFolder, self.si)
         if path:
             vm_folder = vm_folder.get_or_create_folder(path)
         return vm_folder
 
     def get_cluster(self, name: str) -> ClusterHandler:
-        for vc_cluster in self._si.find_items(
+        for vc_cluster in self.si.find_items(
             [vim.ComputeResource, vim.ClusterComputeResource],
-            container=self._entity.hostFolder,
+            container=self._vc_obj.hostFolder,
         ):
             if vc_cluster.name == name:
-                return ClusterHandler(vc_cluster, self._si)
+                return ClusterHandler(vc_cluster, self.si)
         raise ClusterNotFound(self, name)
 
     def get_compute_entity(self, path: str | VcenterPath) -> BasicComputeEntityHandler:
@@ -154,21 +155,21 @@ class DcHandler(ManagedEntityHandler):
             path = VcenterPath(path)
         dvs_name = path.pop()
         if path:
-            entity = FolderHandler.get_folder_from_parent(self._entity, path, self._si)
+            entity = FolderHandler.get_folder_from_parent(self._vc_obj, path, self.si)
         else:
-            entity = FolderHandler(self._entity.networkFolder, self._si)
+            entity = FolderHandler(self._vc_obj.networkFolder, self.si)
 
         for vc_dvs in entity.find_items(vim.dvs.VmwareDistributedVirtualSwitch):
             if vc_dvs.name == dvs_name:
-                return DvSwitchHandler(vc_dvs, self._si)
+                return DvSwitchHandler(vc_dvs, self.si)
         raise DvSwitchNotFound(self, dvs_name)
 
     def get_resource_pool(self, name: str) -> ResourcePoolHandler:
-        for r_pool in self._si.find_items(
-            vim.ResourcePool, container=self._entity.hostFolder
+        for r_pool in self.si.find_items(
+            vim.ResourcePool, container=self._vc_obj.hostFolder
         ):
             if r_pool.name == name:
-                return ResourcePoolHandler(r_pool, self._si)
+                return ResourcePoolHandler(r_pool, self.si)
         raise ResourcePoolNotFound(self, name)
 
     def get_datastore_by_name(self, name: str) -> DatastoreHandler:
@@ -178,9 +179,9 @@ class DcHandler(ManagedEntityHandler):
         raise DatastoreNotFound(self, name)
 
     def get_storage_pod(self, name: str) -> StoragePodHandler:
-        for storage in self._si.find_items(
-            vim.StoragePod, container=self._entity, recursive=True
+        for storage in self.si.find_items(
+            vim.StoragePod, container=self._vc_obj, recursive=True
         ):
             if storage.name == name:
-                return StoragePodHandler(storage, self._si)
+                return StoragePodHandler(storage, self.si)
         raise StoragePodNotFound(self, name)

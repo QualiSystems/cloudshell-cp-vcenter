@@ -26,7 +26,7 @@ def flow(resource_conf, cs_api, cancellation_manager, logger, si_handler):
 @pytest.fixture
 def dc_handler(si_handler):
     dc = Mock(name="DC")
-    dc._si = si_handler
+    dc.si = si_handler
     dc_class = Mock(return_value=dc, get_dc=Mock(return_value=dc))
     p = patch("cloudshell.cp.vcenter.flows.save_restore_app.DcHandler", dc_class)
     p.start()
@@ -162,17 +162,16 @@ def test_save(flow, vm, dc_handler, resource_conf, logger):
     assert dc_handler.method_calls == expected_dc_calls
 
     expected_vm_calls = [
-        call.power_off(logger=logger, soft=False),
+        call.power_off(soft=False),
         call.clone_vm(
             vm_name=cloned_vm_name,
             vm_storage=dc_handler.get_datastore(),
             vm_folder=dc_handler.get_or_create_vm_folder(),
-            logger=logger,
             vm_resource_pool=dc_handler.get_compute_entity().get_resource_pool(),
             snapshot=None,
             config_spec=None,
-            task_waiter=flow._task_waiter,
+            on_task_progress=flow._on_task_progress,
         ),
-        call.power_on(logger),
+        call.power_on(on_task_progress=flow._on_task_progress),
     ]
     assert vm.method_calls == expected_vm_calls

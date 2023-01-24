@@ -1,6 +1,8 @@
 from abc import abstractmethod
+from logging import Logger
+from typing import Generic, TypeVar
 
-import attr
+from attrs import define
 from pyVmomi import vim, vmodl
 
 from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
@@ -8,21 +10,35 @@ from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
 ManagedEntityNotFound = vmodl.fault.ManagedObjectNotFound
 
 
-@attr.s(auto_attribs=True)
-class ManagedEntityHandler:
-    _entity: vim.ManagedEntity
-    _si: SiHandler
+VC_TYPE = TypeVar("VC_TYPE", bound=vim.ManagedEntity)
 
-    @abstractmethod
-    def __str__(self) -> str:
-        raise NotImplementedError("Should return - Entity 'name'")
+
+@define(repr=False)
+class ManagedEntityHandler(Generic[VC_TYPE]):
+    _vc_obj: VC_TYPE
+    si: SiHandler
+
+    def __repr__(self) -> str:
+        return f"{self._class_name} '{self.name}'"
+
+    @property
+    def logger(self) -> Logger:
+        return self.si.logger
 
     @property
     def name(self) -> str:
-        return self._entity.name
+        return self._vc_obj.name
+
+    @property
+    @abstractmethod
+    def _class_name(self) -> str:
+        return "Managed Entity"
+
+    def get_vc_obj(self) -> VC_TYPE:
+        return self._vc_obj
 
     def find_child(self, name: str):
-        return self._si.find_child(self._entity, name)
+        return self.si.find_child(self._vc_obj, name)
 
     def find_items(self, vim_type, recursive: bool = False):
-        return self._si.find_items(vim_type, recursive, container=self._entity)
+        return self.si.find_items(vim_type, recursive, container=self._vc_obj)

@@ -11,7 +11,7 @@ def vc_vnic1():
 
 
 def test_representation(vc_vnic1, vm):
-    vm._entity.name = "vm_name"
+    vm._vc_obj.name = "vm_name"
     Vnic.vm = vm
     vnic = Vnic(vc_vnic1)
 

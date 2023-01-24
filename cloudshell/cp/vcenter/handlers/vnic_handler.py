@@ -4,7 +4,6 @@ import re
 from functools import cached_property
 from typing import TYPE_CHECKING
 
-from attrs import define
 from pyVmomi import vim
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
@@ -42,7 +41,6 @@ class VnicWithoutNetwork(BaseVCenterException):
     ...
 
 
-@define(repr=False, slots=False)
 class Vnic(VirtualDevice):
     @classmethod
     def create(cls, network: NetworkHandler | DVPortGroupHandler) -> Vnic:
@@ -69,7 +67,7 @@ class Vnic(VirtualDevice):
     @property
     def network(self) -> NetworkHandler | DVPortGroupHandler:
         try:
-            return NetworkHandler(self._vc_obj.backing.network, self.vm._si)
+            return NetworkHandler(self._vc_obj.backing.network, self.vm.si)
         except AttributeError:
             try:
                 pg_key = self._vc_obj.backing.port.portgroupKey
@@ -95,12 +93,12 @@ class Vnic(VirtualDevice):
         else:
             nic_spec = self._create_spec_for_connecting_dv_port_group(network)
         config_spec = vim.vm.ConfigSpec(deviceChange=[nic_spec])
-        self.vm._reconfigure(config_spec, self.logger, task_waiter=None)
+        self.vm._reconfigure(config_spec)
 
         if self._is_new:  # we need to update vCenter object
             vnic = self.vm.vnics[-1]
             assert vnic.network == network
-            self._vc_obj = vnic._vc_obj
+            self._vc_obj = vnic.get_vc_obj()
 
     def _create_new_vnic_same_type(self) -> Vnic:
         return Vnic(type(self._vc_obj)())
@@ -137,7 +135,7 @@ class Vnic(VirtualDevice):
     ) -> vim.vm.device.VirtualDeviceSpec:
         vnic = self._vc_obj
         vnic.backing = vim.vm.device.VirtualEthernetCard.NetworkBackingInfo(
-            network=network._entity, deviceName=network.name
+            network=network.get_vc_obj(), deviceName=network.name
         )
         nic_spec = self._create_spec_for_connecting_generic_network()
         return nic_spec

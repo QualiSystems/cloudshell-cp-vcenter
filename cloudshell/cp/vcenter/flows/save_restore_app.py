@@ -38,7 +38,7 @@ from cloudshell.cp.vcenter.models.base_deployment_app import (
 )
 from cloudshell.cp.vcenter.models.deploy_app import VMFromVMDeployApp
 from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
-from cloudshell.cp.vcenter.utils.task_waiter import VcenterCancellationContextTaskWaiter
+from cloudshell.cp.vcenter.utils.cs_helpers import on_task_progress_check_if_cancelled
 
 SAVED_SANDBOXES_FOLDER = "Saved Sandboxes"
 SNAPSHOT_NAME = "artifact"
@@ -63,8 +63,8 @@ class SaveRestoreAppFlow:
     def __attrs_post_init__(self):
         self._si = SiHandler.from_config(self._resource_conf, self._logger)
         self._rollback_manager = RollbackCommandsManager(logger=self._logger)
-        self._task_waiter = VcenterCancellationContextTaskWaiter(
-            self._logger, self._cancellation_manager
+        self._on_task_progress = on_task_progress_check_if_cancelled(
+            self._cancellation_manager
         )
 
     def save_apps(self, save_actions: Iterable[SaveApp]) -> str:
@@ -168,7 +168,9 @@ class SaveRestoreAppFlow:
                 vm_folder,
             )
             cloned_vm.create_snapshot(
-                SNAPSHOT_NAME, dump_memory=False, logger=self._logger
+                SNAPSHOT_NAME,
+                dump_memory=False,
+                on_task_progress=self._on_task_progress,
             )
 
         return self._prepare_result(cloned_vm, save_action)
@@ -203,7 +205,7 @@ class SaveRestoreAppFlow:
             rollback_manager=self._rollback_manager,
             cancellation_manager=self._cancellation_manager,
             logger=self._logger,
-            task_waiter=self._task_waiter,
+            on_task_progress=self._on_task_progress,
             vm_template=vm_template,
             vm_name=vm_name,
             vm_resource_pool=vm_resource_pool,
@@ -221,8 +223,8 @@ class SaveRestoreAppFlow:
                     vm = dc.get_vm_by_uuid(vm_uuid)
                 except VmNotFound:
                     continue
-            vm.power_off(soft=False, logger=self._logger, task_waiter=self._task_waiter)
-            vm.delete(self._logger, self._task_waiter)
+            vm.power_off(soft=False, on_task_progress=self._on_task_progress)
+            vm.delete(self._on_task_progress)
 
     def _delete_folders(
         self, delete_saved_app_actions: list[DeleteSavedApp], dc: DcHandler
@@ -237,16 +239,16 @@ class SaveRestoreAppFlow:
             sandbox_id = action.actionParams.savedSandboxId
             with suppress(FolderNotFound, FolderIsNotEmpty):
                 folder = sandbox_folder.get_folder(sandbox_id)
-                folder.destroy(self._logger, self._task_waiter)
+                folder.destroy(self._on_task_progress)
 
     @contextmanager
     def _behavior_during_save(self, vm: VmHandler, attrs):
         vm_power_state = None
         if attrs[VMFromVMDeployApp.ATTR_NAMES.behavior_during_save] == "Power Off":
             vm_power_state = vm.power_state
-            vm.power_off(soft=False, logger=self._logger)
+            vm.power_off(soft=False)
 
         yield
 
         if vm_power_state is PowerState.ON:
-            vm.power_on(self._logger)
+            vm.power_on(on_task_progress=self._on_task_progress)

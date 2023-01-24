@@ -33,12 +33,12 @@ class VCenterPowerFlow:
             self._logger.info(f"No VM Customization Spec found, powering on the {vm}")
         else:
             self._logger.info(f"Adding Customization Spec to the {vm}")
-            vm.add_customization_spec(spec, self._logger)
+            vm.add_customization_spec(spec)
 
-        powered_time = vm.power_on(self._logger)
+        powered_time = vm.power_on()
 
         if spec:
-            vm.wait_for_customization_ready(powered_time, self._logger)
+            vm.wait_for_customization_ready(powered_time)
             si.delete_customization_spec(spec_name)
 
     def power_off(self):
@@ -46,4 +46,4 @@ class VCenterPowerFlow:
         vm = self._get_vm(si)
         self._logger.info(f"Powering Off {vm}")
         soft = self._resource_config.shutdown_method is ShutdownMethod.SOFT
-        vm.power_off(soft, self._logger)
+        vm.power_off(soft)

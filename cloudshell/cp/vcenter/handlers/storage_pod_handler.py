@@ -20,15 +20,15 @@ class StoragePodNotFound(BaseVCenterException):
 
 @attr.s(auto_attribs=True)
 class StoragePodHandler(ManagedEntityHandler):
-    def __str__(self) -> str:
-        return f"Storage Pod '{self.name}'"
-
     @property
     def datastores(self) -> list[DatastoreHandler]:
         return [
-            DatastoreHandler(store, self._si)
-            for store in self.find_items(vim.Datastore)
+            DatastoreHandler(store, self.si) for store in self.find_items(vim.Datastore)
         ]
+
+    @property
+    def _class_name(self) -> str:
+        return "Storage Pod"
 
     def get_datastore_by_name(self, name: str) -> DatastoreHandler:
         for datastore in self.datastores:

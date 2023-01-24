@@ -1,21 +1,20 @@
 from __future__ import annotations
 
 from contextlib import suppress
-from logging import Logger
 from threading import Lock
 from typing import ClassVar
 
 import attr
 from pyVmomi import vim
 
-from cloudshell.cp.vcenter.exceptions import BaseVCenterException, TaskFaultException
+from cloudshell.cp.vcenter.exceptions import BaseVCenterException
 from cloudshell.cp.vcenter.handlers.managed_entity_handler import (
     ManagedEntityHandler,
     ManagedEntityNotFound,
 )
 from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
+from cloudshell.cp.vcenter.handlers.task import ON_TASK_PROGRESS_TYPE, Task, TaskFailed
 from cloudshell.cp.vcenter.handlers.vcenter_path import VcenterPath
-from cloudshell.cp.vcenter.utils.task_waiter import VcenterTaskWaiter
 
 
 class FolderNotFound(BaseVCenterException):
@@ -53,27 +52,28 @@ class FolderHandler(ManagedEntityHandler):
 
         return cls(vc_folder, si)
 
-    def __str__(self) -> str:
-        return f"Folder '{self.name}'"
+    @property
+    def _class_name(self) -> str:
+        return "Folder"
 
     @property
     def _moId(self) -> str:
         # avoid using this property
-        return self._entity._moId
+        return self._vc_obj._moId
 
     @property
     def _wsdl_name(self) -> str:
-        return self._entity._wsdlName
+        return self._vc_obj._wsdlName
 
     def is_empty(self) -> bool:
-        return not bool(self._entity.childEntity)
+        return not bool(self._vc_obj.childEntity)
 
     def get_folder(self, path: str | VcenterPath) -> FolderHandler:
-        return self.get_folder_from_parent(self._entity, path, self._si)
+        return self.get_folder_from_parent(self._vc_obj, path, self.si)
 
     def create_folder(self, name: str) -> FolderHandler:
-        vc_folder = self._entity.CreateFolder(name)
-        return FolderHandler(vc_folder, self._si)
+        vc_folder = self._vc_obj.CreateFolder(name)
+        return FolderHandler(vc_folder, self.si)
 
     def get_or_create_folder(self, path: str | VcenterPath) -> FolderHandler:
         if not isinstance(path, VcenterPath):
@@ -84,18 +84,18 @@ class FolderHandler(ManagedEntityHandler):
             folder = folder.get_or_create_child(name)
         return folder
 
-    def destroy(self, logger: Logger, task_waiter: VcenterTaskWaiter | None = None):
-        logger.info(f"Deleting the {self}")
+    def destroy(self, on_task_progress: ON_TASK_PROGRESS_TYPE | None = None) -> None:
+        self.logger.info(f"Deleting the {self}")
         with suppress(ManagedEntityNotFound):
             if not self.is_empty():
                 raise FolderIsNotEmpty(self)
 
-            task = self._entity.Destroy_Task()
-            task_waiter = task_waiter or VcenterTaskWaiter(logger)
+            vc_task = self._vc_obj.Destroy_Task()
+            task = Task(vc_task, self.logger)
             try:
-                task_waiter.wait_for_task(task)
-            except TaskFaultException as e:
-                if "has already been deleted" not in str(e):
+                task.wait(on_progress=on_task_progress)
+            except TaskFailed as e:
+                if "has already been deleted" not in e.error_msg:
                     raise
 
     def get_or_create_child(self, name: str) -> FolderHandler:

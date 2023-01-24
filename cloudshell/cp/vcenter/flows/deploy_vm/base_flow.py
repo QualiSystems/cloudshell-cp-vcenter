@@ -29,7 +29,7 @@ from cloudshell.cp.vcenter.handlers.snapshot_handler import SnapshotHandler
 from cloudshell.cp.vcenter.handlers.vcenter_path import VcenterPath
 from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
 from cloudshell.cp.vcenter.handlers.vsphere_sdk_handler import VSphereSDKHandler
-from cloudshell.cp.vcenter.utils.task_waiter import VcenterCancellationContextTaskWaiter
+from cloudshell.cp.vcenter.utils.cs_helpers import on_task_progress_check_if_cancelled
 from cloudshell.cp.vcenter.utils.vm_console_link_attr import (
     get_deploy_app_vm_console_link_attr,
 )
@@ -62,8 +62,8 @@ class AbstractVCenterDeployVMFlow(AbstractDeployFlow):
         self._cs_api = cs_api
         self._cancellation_manager = cancellation_manager
         self._rollback_manager = RollbackCommandsManager(logger=self._logger)
-        self._task_waiter = VcenterCancellationContextTaskWaiter(
-            cancellation_manager=cancellation_manager, logger=self._logger
+        self._on_task_progress = on_task_progress_check_if_cancelled(
+            cancellation_manager
         )
         self._si = SiHandler.from_config(resource_config, logger)
         self._vsphere_client = VSphereSDKHandler.from_config(
@@ -112,7 +112,7 @@ class AbstractVCenterDeployVMFlow(AbstractDeployFlow):
         attrs = []
 
         link_attr = get_deploy_app_vm_console_link_attr(
-            deploy_app, self._resource_config, vm, vm._si
+            deploy_app, self._resource_config, vm, vm.si
         )
         if link_attr:
             attrs.append(link_attr)
@@ -287,7 +287,7 @@ class AbstractVCenterDeployVMFromTemplateFlow(AbstractVCenterDeployVMFlow):
             rollback_manager=self._rollback_manager,
             cancellation_manager=self._cancellation_manager,
             logger=self._logger,
-            task_waiter=self._task_waiter,
+            on_task_progress=self._on_task_progress,
             vm_template=vm_template,
             vm_name=vm_name,
             vm_resource_pool=vm_resource_pool,
