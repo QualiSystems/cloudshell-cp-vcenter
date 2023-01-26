@@ -65,9 +65,9 @@ class VmNotFound(BaseVCenterException):
         if not uuid and not name:
             raise ValueError("You should specify uuid or name")
         if uuid:
-            msg = f"VM with the uuid {uuid} in the {entity} not found"
+            msg = f"VM with the uuid '{uuid}' in the {entity} not found"
         else:
-            msg = f"VM with the name {name} in the {entity} not found"
+            msg = f"VM with the name '{name}' in the {entity} not found"
         super().__init__(msg)
 
 
