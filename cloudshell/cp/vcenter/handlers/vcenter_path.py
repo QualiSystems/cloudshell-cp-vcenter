@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import ClassVar, TypeVar
 
-import attr
+from attrs import define
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
 
@@ -14,7 +14,7 @@ class VcenterPathEmpty(BaseVCenterException):
     ...
 
 
-@attr.s(auto_attribs=True)
+@define(repr=False)
 class VcenterPath:
     SEPARATOR: ClassVar[str] = "/"
     _path: str = ""
@@ -22,7 +22,7 @@ class VcenterPath:
     def __attrs_post_init__(self):
         self._path = self._path.replace("\\", "/")
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         return self._path
 
     def __bool__(self) -> bool:

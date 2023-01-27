@@ -1,11 +1,16 @@
+from __future__ import annotations
+
 from abc import abstractmethod
 from logging import Logger
-from typing import Generic, TypeVar
+from typing import TYPE_CHECKING, Generic, TypeVar
 
 from attrs import define
 from pyVmomi import vim, vmodl
 
 from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
+
+if TYPE_CHECKING:
+    from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
 
 ManagedEntityNotFound = vmodl.fault.ManagedObjectNotFound
 
@@ -28,6 +33,15 @@ class ManagedEntityHandler(Generic[VC_TYPE]):
     @property
     def name(self) -> str:
         return self._vc_obj.name
+
+    @property
+    def dc(self) -> DcHandler:
+        from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
+
+        parent = self._vc_obj.parent
+        while not isinstance(parent, vim.Datacenter):
+            parent = parent.parent
+        return DcHandler(parent, self.si)
 
     @property
     @abstractmethod
