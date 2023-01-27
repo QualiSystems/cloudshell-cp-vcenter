@@ -108,11 +108,19 @@ def _get_dc(entity):
     return entity.parent
 
 
+_vm_locks: dict[str, Lock] = {}
+
+
+def _get_vm_lock(vm: VmHandler) -> Lock:
+    if vm.uuid not in _vm_locks:
+        _vm_locks[vm.uuid] = Lock()
+    return _vm_locks[vm.uuid]
+
+
 @attr.s(auto_attribs=True, repr=False)
 class VmHandler(ManagedEntityHandler):
     _vc_obj: vim.VirtualMachine
     si: SiHandler
-    _reconfig_vm_lock: Lock = attr.ib(init=False, factory=Lock, eq=False, order=False)
 
     @cached_property
     def vnic_class(self) -> type[_Vnic]:
@@ -215,6 +223,10 @@ class VmHandler(ManagedEntityHandler):
     @property
     def _wsdl_name(self) -> str:
         return self._vc_obj._wsdlName
+
+    @property
+    def _reconfig_vm_lock(self) -> Lock:
+        return _get_vm_lock(self)
 
     def _get_devices(self):
         return self._vc_obj.config.hardware.device
