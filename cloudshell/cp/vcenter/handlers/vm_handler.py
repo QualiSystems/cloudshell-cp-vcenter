@@ -102,12 +102,6 @@ class PowerState(Enum):
     SUSPENDED = "suspended"
 
 
-def _get_dc(entity):
-    while not isinstance(entity.parent, vim.Datacenter):
-        entity = entity.parent
-    return entity.parent
-
-
 _vm_locks: dict[str, Lock] = {}
 
 
@@ -198,11 +192,10 @@ class VmHandler(ManagedEntityHandler):
     @property
     def path(self) -> VcenterPath:
         """Path from DC.vmFolder."""
-        dc = _get_dc(self._vc_obj)
-
+        vm_folder = self.dc.get_vm_folder("")
         path = VcenterPath(self.name)
-        folder = self._vc_obj.parent
-        while folder != dc.vmFolder:
+        folder = FolderHandler(self._vc_obj.parent, self.si)
+        while folder != vm_folder:
             path = VcenterPath(folder.name) + path
             folder = folder.parent
         return path
