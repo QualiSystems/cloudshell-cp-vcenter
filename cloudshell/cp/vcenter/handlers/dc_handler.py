@@ -61,6 +61,10 @@ class DcHandler(ManagedEntityHandler):
     def datastores(self) -> list[DatastoreHandler]:
         return [DatastoreHandler(store, self.si) for store in self._vc_obj.datastore]
 
+    @property
+    def dc(self) -> DcHandler:
+        return self
+
     def get_network(self, name: str) -> NetworkHandler | DVPortGroupHandler:
         networks = (get_network_handler(net, self.si) for net in self._vc_obj.network)
         for network in networks:
@@ -102,6 +106,11 @@ class DcHandler(ManagedEntityHandler):
         if not vc_vm:
             raise VmNotFound(self, name=vm_name)
         return VmHandler(vc_vm, self.si)
+
+    def get_all_vms(self) -> list[VmHandler]:
+        return [
+            VmHandler(vm, self.si) for vm in self.find_items(vim.VirtualMachine, True)
+        ]
 
     def get_vm_folder(self, path: str | VcenterPath) -> FolderHandler:
         vm_folder = FolderHandler(self._vc_obj.vmFolder, self.si)

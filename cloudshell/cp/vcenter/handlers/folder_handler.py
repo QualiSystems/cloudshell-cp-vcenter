@@ -53,6 +53,12 @@ class FolderHandler(ManagedEntityHandler):
         return cls(vc_folder, si)
 
     @property
+    def parent(self) -> FolderHandler | None:
+        vc_parent = self._vc_obj.parent
+        if isinstance(vc_parent, vim.Folder):
+            return FolderHandler(vc_parent, self.si)
+
+    @property
     def _class_name(self) -> str:
         return "Folder"
 
