@@ -30,6 +30,7 @@ from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
 from cloudshell.cp.vcenter.handlers.switch_handler import (
     AbstractSwitchHandler,
     DvSwitchNotFound,
+    PortGroupExists,
 )
 from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
 from cloudshell.cp.vcenter.handlers.vsphere_api_handler import (
@@ -206,14 +207,17 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         try:
             network = dc.get_network(pg_name)
         except NetworkNotFound:
-            switch.create_port_group(
-                pg_name,
-                vlan_id,
-                port_mode,
-                promiscuous_mode,
-                forged_transmits,
-                mac_changes,
-            )
+            try:
+                switch.create_port_group(
+                    pg_name,
+                    vlan_id,
+                    port_mode,
+                    promiscuous_mode,
+                    forged_transmits,
+                    mac_changes,
+                )
+            except PortGroupExists:
+                pass
             port_group = switch.wait_port_group_appears(pg_name)
             network = dc.wait_network_appears(pg_name)
             if self._vsphere_client:
