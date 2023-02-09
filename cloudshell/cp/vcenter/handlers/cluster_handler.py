@@ -22,6 +22,7 @@ from cloudshell.cp.vcenter.handlers.network_handler import HostPortGroupHandler
 from cloudshell.cp.vcenter.handlers.resource_pool import ResourcePoolHandler
 from cloudshell.cp.vcenter.handlers.si_handler import ResourceInUse
 from cloudshell.cp.vcenter.handlers.switch_handler import (
+    PortGroupExists,
     VSwitchHandler,
     VSwitchNotFound,
 )
@@ -226,4 +227,7 @@ class HostHandler(BasicComputeEntityHandler):
             raise ResourceInUse(name)
 
     def add_port_group(self, port_group_spec):
-        self._vc_obj.configManager.networkSystem.AddPortGroup(port_group_spec)
+        try:
+            self._vc_obj.configManager.networkSystem.AddPortGroup(port_group_spec)
+        except vim.fault.AlreadyExists:
+            raise PortGroupExists(port_group_spec.name)

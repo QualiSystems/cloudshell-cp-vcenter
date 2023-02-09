@@ -41,6 +41,12 @@ class VSwitchNotFound(BaseVCenterException):
         super().__init__(f"VirtualSwitch with name {name} not found in the {entity}")
 
 
+class PortGroupExists(BaseVCenterException):
+    def __init__(self, name: str):
+        self.name = name
+        super().__init__(f"PortGroup with name {name} already exists")
+
+
 def get_vlan_spec(port_mode: ConnectionModeEnum, vlan_range: str):
     if port_mode is port_mode.ACCESS:
         spec = vim.dvs.VmwareDistributedVirtualSwitch.VlanIdSpec
