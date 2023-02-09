@@ -90,7 +90,7 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         all_actions_with_switch = all(
             a.connection_params.vlan_service_attrs.switch_name for a in actions
         )
-        if not self._resource_conf.default_dv_switch or not all_actions_with_switch:
+        if not self._resource_conf.default_dv_switch and not all_actions_with_switch:
             raise DvSwitchNameEmpty
 
     def _set_vlan(
