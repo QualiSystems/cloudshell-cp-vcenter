@@ -164,7 +164,9 @@ class DcHandler(ManagedEntityHandler):
             path = VcenterPath(path)
         dvs_name = path.pop()
         if path:
-            entity = FolderHandler.get_folder_from_parent(self._vc_obj, path, self.si)
+            entity = FolderHandler.get_folder_from_parent(
+                self._vc_obj.networkFolder, path, self.si
+            )
         else:
             entity = FolderHandler(self._vc_obj.networkFolder, self.si)
 
