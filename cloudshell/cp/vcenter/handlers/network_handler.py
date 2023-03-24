@@ -24,7 +24,7 @@ class NetworkNotFound(BaseVCenterException):
     def __init__(self, entity: ManagedEntityHandler, name: str):
         self.name = name
         self.entity = entity
-        super().__init__(f"Network {name} not found in {entity}")
+        super().__init__(f"Network '{name}' not found in {entity}")
 
 
 class PortGroupNotFound(BaseVCenterException):

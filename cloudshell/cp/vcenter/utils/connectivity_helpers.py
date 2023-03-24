@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import ipaddress
 import re
 from typing import TYPE_CHECKING
 
@@ -15,6 +14,7 @@ from cloudshell.cp.vcenter.handlers.network_handler import (
     NetworkHandler,
 )
 from cloudshell.cp.vcenter.handlers.si_handler import CustomSpecNotFound
+from cloudshell.cp.vcenter.handlers.vnic_handler import Vnic, VnicWithoutNetwork
 from cloudshell.cp.vcenter.models.connectivity_action_model import (
     VcenterConnectivityActionModel,
 )
@@ -22,7 +22,6 @@ from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 
 if TYPE_CHECKING:
     from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
-    from cloudshell.cp.vcenter.handlers.vnic_handler import Vnic
 
 
 MAX_DVSWITCH_LENGTH = 60
@@ -62,9 +61,20 @@ def get_available_vnic(
     reserved_networks: list[str],
 ) -> Vnic | None:
     for vnic in vm.vnics:
-        network = vnic.network
-        if is_vnic_network_can_be_replaced(network, default_network, reserved_networks):
+        try:
+            network = vnic.network
+        except VnicWithoutNetwork:
+            # when cloning a VM to the host which is not connected to the same dvswitch
+            # a new VM's vNIC is created without network
+            vm.logger.warning(
+                f"You have a wrong network configuration for the {vm.host}"
+            )
             break
+        else:
+            if is_vnic_network_can_be_replaced(
+                network, default_network, reserved_networks
+            ):
+                break
     else:
         vnic = None
     return vnic
@@ -125,16 +135,6 @@ def should_remove_port_group(name: str, action: VcenterConnectivityActionModel) 
     return not bool(get_existed_port_group_name(action)) and is_network_generated_name(
         name
     )
-
-
-def is_ipv4(ip: str | None) -> bool:
-    try:
-        ipaddress.IPv4Address(ip)
-    except ipaddress.AddressValueError:
-        result = False
-    else:
-        result = True
-    return result
 
 
 def get_forged_transmits(
