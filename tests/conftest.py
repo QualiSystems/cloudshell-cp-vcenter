@@ -70,6 +70,7 @@ def reservation_context_details() -> ReservationContextDetails:
         saved_sandbox_name="name",
         saved_sandbox_id="id",
         running_user="user",
+        cloud_info_access_key="",
     )
 
 
