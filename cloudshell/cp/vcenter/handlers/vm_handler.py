@@ -47,7 +47,8 @@ from cloudshell.cp.vcenter.handlers.vnic_handler import (
     VnicNotFound,
     VnicWithMacNotFound,
 )
-from cloudshell.cp.vcenter.utils.connectivity_helpers import is_correct_vnic, is_ipv4
+from cloudshell.cp.vcenter.utils.connectivity_helpers import is_correct_vnic
+from cloudshell.cp.vcenter.utils.network_helpers import is_ipv4
 from cloudshell.cp.vcenter.utils.units_converter import BASE_10
 
 

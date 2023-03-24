@@ -13,7 +13,7 @@ from cloudshell.cp.vcenter.handlers.network_handler import (
     NetworkHandler,
 )
 from cloudshell.cp.vcenter.handlers.virtual_device_handler import VirtualDevice
-from cloudshell.cp.vcenter.utils.connectivity_helpers import is_ipv4
+from cloudshell.cp.vcenter.utils.network_helpers import is_ipv4
 
 if TYPE_CHECKING:
     from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
@@ -61,8 +61,12 @@ class Vnic(VirtualDevice):
         return self._vc_obj.key
 
     @property
-    def mac_address(self) -> str:
-        return self._vc_obj.macAddress.upper()
+    def mac_address(self) -> str | None:
+        try:
+            mac = self._vc_obj.macAddress.upper()
+        except AttributeError:
+            mac = None
+        return mac
 
     @property
     def network(self) -> NetworkHandler | DVPortGroupHandler:
@@ -101,7 +105,7 @@ class Vnic(VirtualDevice):
             self._vc_obj = vnic.get_vc_obj()
 
     def _create_new_vnic_same_type(self) -> Vnic:
-        return Vnic(type(self._vc_obj)())
+        return self.vm.vnic_class(type(self._vc_obj)())
 
     def _create_spec_for_connecting_generic_network(
         self,
