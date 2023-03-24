@@ -42,21 +42,27 @@ class AffinityRulesFlow:
         vms = [self.dc.get_vm_by_uuid(uuid) for uuid in vm_uuids]
 
         if affinity_rule_name:
-            self._add_vms_to_existing_affinity_rule(vms, affinity_rule_name)
+            try:
+                self._add_vms_to_existing_affinity_rule(vms, affinity_rule_name)
+            except AffinityRuleNotFound:
+                self._create_rule(vms, affinity_rule_name)
         else:
-            affinity_rule_name = self._create_new_affinity_rule(vms)
+            affinity_rule_name = self._generate_new_affinity_rule(vms)
         return affinity_rule_name
 
-    def _create_new_affinity_rule(self, vms: list[VmHandler]) -> str:
+    def _generate_new_affinity_rule(self, vms: list[VmHandler]) -> str:
         rule_name = self._get_new_affinity_rule_name()
+        self._create_rule(vms, rule_name)
+        return rule_name
+
+    def _create_rule(self, vms: list[VmHandler], name: str) -> None:
         rule = AffinityRule(
-            name=rule_name,
+            name=name,
             enabled=True,
             mandatory=True,
             vms=vms,
         )
         self.cluster.add_affinity_rule(rule)
-        return rule_name
 
     def _get_new_affinity_rule_name(self) -> str:
         name = self.reservation_id
