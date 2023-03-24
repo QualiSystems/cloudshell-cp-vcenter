@@ -116,7 +116,7 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
 
             try:
                 if not vnic:
-                    create_new_vnic(vm, network)
+                    vnic = create_new_vnic(vm, network)
                 else:
                     vnic.connect(network)
             except Exception:
