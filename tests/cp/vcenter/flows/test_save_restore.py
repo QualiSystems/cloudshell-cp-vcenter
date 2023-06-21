@@ -18,8 +18,8 @@ from cloudshell.cp.vcenter.models.base_deployment_app import (
 
 
 @pytest.fixture
-def flow(resource_conf, cs_api, cancellation_manager, logger, si_handler):
-    flow = SaveRestoreAppFlow(resource_conf, cs_api, cancellation_manager, logger)
+def flow(resource_conf, cs_api, cancellation_manager, si_handler):
+    flow = SaveRestoreAppFlow(resource_conf, cs_api, cancellation_manager)
     return flow
 
 
@@ -94,7 +94,7 @@ def _get_save_action(
     )
 
 
-def test_save(flow, vm, dc_handler, resource_conf, logger):
+def test_save(flow, vm, dc_handler, resource_conf):
     vm_uuid = vm.uuid
     action_id = "action id"
     action = _get_save_action(vm_uuid, "Inherited", action_id)

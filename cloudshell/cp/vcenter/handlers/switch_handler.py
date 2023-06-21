@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import time
 from typing import TYPE_CHECKING, Protocol
 
@@ -24,6 +25,9 @@ from cloudshell.cp.vcenter.handlers.task import ON_TASK_PROGRESS_TYPE, Task
 
 if TYPE_CHECKING:
     from cloudshell.cp.vcenter.handlers.cluster_handler import HostHandler
+
+
+logger = logging.getLogger(__name__)
 
 
 class DvSwitchNotFound(BaseVCenterException):
@@ -132,8 +136,8 @@ class DvSwitchHandler(ManagedEntityHandler, AbstractSwitchHandler):
         )
 
         vc_task = self._vc_obj.AddDVPortgroup_Task([dv_pg_spec])
-        self.logger.info(f"DV Port Group '{dv_port_name}' CREATE Task")
-        task = Task(vc_task, self.logger)
+        logger.info(f"DV Port Group '{dv_port_name}' CREATE Task")
+        task = Task(vc_task)
         task.wait(on_progress=on_task_progress)
 
     def get_port_group(self, name: str) -> DVPortGroupHandler:

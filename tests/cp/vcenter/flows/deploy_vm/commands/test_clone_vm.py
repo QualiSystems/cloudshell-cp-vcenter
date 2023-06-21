@@ -16,7 +16,7 @@ def vm_folder():
 
 
 @pytest.fixture
-def command(vm_template, vm_folder, logger, cancellation_manager):
+def command(vm_template, vm_folder, cancellation_manager):
     return CloneVMCommand(
         vm_template=vm_template,
         rollback_manager=Mock(),
@@ -24,7 +24,6 @@ def command(vm_template, vm_folder, logger, cancellation_manager):
         vm_name="name",
         vm_storage=Mock(),
         vm_folder=vm_folder,
-        logger=logger,
     )
 
 

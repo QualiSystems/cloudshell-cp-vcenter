@@ -154,7 +154,7 @@ class ClusterHandler(BasicComputeEntityHandler):
             # if modify is False all skipped properties will be reset to default
             modify=True,
         )
-        task = Task(vc_task, self.logger)
+        task = Task(vc_task)
         task.wait()
 
     def _add_rules(self, rules: Collection[AffinityRule]) -> list[AffinityRule]:

@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import json
+import logging
 import pkgutil
 from abc import abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass, field, fields, is_dataclass
 from enum import Enum
-from logging import Logger
 from typing import TYPE_CHECKING, TypeVar
 
 import jsonschema
@@ -18,6 +18,8 @@ if TYPE_CHECKING:
     from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
     from cloudshell.cp.vcenter.models.deploy_app import BaseVCenterDeployApp
 
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
@@ -273,7 +275,7 @@ def get_custom_spec_params(
 
 
 def get_custom_spec_params_from_json(
-    custom_spec_params: str, vm: VmHandler, logger: Logger
+    custom_spec_params: str, vm: VmHandler
 ) -> WindowsCustomizationSpecParams | LinuxCustomizationSpecParams | None:
     if not custom_spec_params:
         return None

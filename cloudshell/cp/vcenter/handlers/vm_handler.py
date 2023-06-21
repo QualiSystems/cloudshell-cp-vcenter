@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from contextlib import suppress
 from datetime import datetime
 from enum import Enum
@@ -50,6 +51,8 @@ from cloudshell.cp.vcenter.handlers.vnic_handler import (
 from cloudshell.cp.vcenter.utils.connectivity_helpers import is_correct_vnic
 from cloudshell.cp.vcenter.utils.network_helpers import is_ipv4
 from cloudshell.cp.vcenter.utils.units_converter import BASE_10
+
+logger = logging.getLogger(__name__)
 
 
 class VmNotFound(BaseVCenterException):
@@ -232,7 +235,7 @@ class VmHandler(ManagedEntityHandler):
     ) -> None:
         with self._reconfig_vm_lock:
             vc_task = self._vc_obj.ReconfigVM_Task(config_spec)
-            task = Task(vc_task, self.logger)
+            task = Task(vc_task)
             task.wait(on_progress=on_task_progress)
 
     def get_vnic(self, name_or_id: str) -> _Vnic:
@@ -242,7 +245,7 @@ class VmHandler(ManagedEntityHandler):
         raise VnicNotFound(name_or_id, self)
 
     def get_vnic_by_mac(self, mac_address: str) -> _Vnic:
-        self.logger.info(f"Searching for vNIC of the {self} with mac {mac_address}")
+        logger.info(f"Searching for vNIC of the {self} with mac {mac_address}")
         for vnic in self.vnics:
             if vnic.mac_address == mac_address.upper():
                 return vnic
@@ -280,12 +283,12 @@ class VmHandler(ManagedEntityHandler):
         self, on_task_progress: ON_TASK_PROGRESS_TYPE | None = None
     ) -> datetime:
         if self.power_state is PowerState.ON:
-            self.logger.info("VM already powered on")
+            logger.info("VM already powered on")
             return datetime.now()
         else:
-            self.logger.info(f"Powering on the {self}")
+            logger.info(f"Powering on the {self}")
             vc_task = self._vc_obj.PowerOn()
-            task = Task(vc_task, self.logger)
+            task = Task(vc_task)
             task.wait(on_progress=on_task_progress)
             return task.complete_time
 
@@ -293,34 +296,32 @@ class VmHandler(ManagedEntityHandler):
         self, soft: bool, on_task_progress: ON_TASK_PROGRESS_TYPE | None = None
     ) -> None:
         if self.power_state is PowerState.OFF:
-            self.logger.info("VM already powered off")
+            logger.info("VM already powered off")
         else:
-            self.logger.info(f"Powering off the {self}")
+            logger.info(f"Powering off the {self}")
             if soft:
                 self.validate_guest_tools_installed()
                 self._vc_obj.ShutdownGuest()  # do not return task
             else:
                 vc_task = self._vc_obj.PowerOff()
-                task = Task(vc_task, self.logger)
+                task = Task(vc_task)
                 task.wait(on_progress=on_task_progress)
 
     def add_customization_spec(self, spec: CustomSpecHandler) -> None:
         vc_task = self._vc_obj.CustomizeVM_Task(spec.spec.spec)
-        task = Task(vc_task, self.logger)
+        task = Task(vc_task)
         task.wait()
 
     def wait_for_customization_ready(self, begin_time: datetime) -> None:
-        self.logger.info(f"Checking for the {self} OS customization events")
+        logger.info(f"Checking for the {self} OS customization events")
         em = EventManager()
         em.wait_for_vm_os_customization_start_event(
-            self.si, self._vc_obj, logger=self.logger, event_start_time=begin_time
+            self.si, self._vc_obj, event_start_time=begin_time
         )
 
-        self.logger.info(
-            f"Waiting for the {self} OS customization event to be proceeded"
-        )
+        logger.info(f"Waiting for the {self} OS customization event to be proceeded")
         em.wait_for_vm_os_customization_end_event(
-            self.si, self._vc_obj, logger=self.logger, event_start_time=begin_time
+            self.si, self._vc_obj, event_start_time=begin_time
         )
 
     def reconfigure_vm(
@@ -348,23 +349,21 @@ class VmHandler(ManagedEntityHandler):
         else:
             new_snapshot_path = VcenterPath(snapshot_name)
 
-        self.logger.info(
-            f"Creating a new snapshot for {self} with path {new_snapshot_path}"
-        )
+        logger.info(f"Creating a new snapshot for {self} with path {new_snapshot_path}")
         quiesce = True
         vc_task = self._vc_obj.CreateSnapshot(
             snapshot_name, "Created by CloudShell vCenterShell", dump_memory, quiesce
         )
-        task = Task(vc_task, self.logger)
+        task = Task(vc_task)
         task.wait(on_progress=on_task_progress)
 
         return str(new_snapshot_path)
 
     def restore_from_snapshot(self, snapshot_path: str | VcenterPath) -> None:
-        self.logger.info(f"Restore {self} from the snapshot '{snapshot_path}'")
+        logger.info(f"Restore {self} from the snapshot '{snapshot_path}'")
         snapshot = self.get_snapshot_by_path(snapshot_path)
         vc_task = snapshot.revert_to_snapshot_task()
-        task = Task(vc_task, self.logger)
+        task = Task(vc_task)
         task.wait()
 
     def remove_snapshot(
@@ -372,10 +371,10 @@ class VmHandler(ManagedEntityHandler):
         snapshot_path: str | VcenterPath,
         remove_child: bool,
     ) -> None:
-        self.logger.info(f"Removing snapshot '{snapshot_path}' from the {self}")
+        logger.info(f"Removing snapshot '{snapshot_path}' from the {self}")
         snapshot = self.get_snapshot_by_path(snapshot_path)
         vc_task = snapshot.remove_snapshot_task(remove_child)
-        task = Task(vc_task, self.logger)
+        task = Task(vc_task)
         task.wait()
 
     def get_snapshot_by_path(self, snapshot_path: str | VcenterPath) -> SnapshotHandler:
@@ -391,14 +390,14 @@ class VmHandler(ManagedEntityHandler):
         return snapshot
 
     def get_snapshot_paths(self) -> list[str]:
-        self.logger.info(f"Getting snapshots for the {self}")
+        logger.info(f"Getting snapshots for the {self}")
         return [str(s.path) for s in SnapshotHandler.yield_vm_snapshots(self._vc_obj)]
 
     def delete(self, on_task_progress: ON_TASK_PROGRESS_TYPE | None = None) -> None:
-        self.logger.info(f"Deleting the {self}")
+        logger.info(f"Deleting the {self}")
         with suppress(ManagedEntityNotFound):
             vc_task = self._vc_obj.Destroy_Task()
-            task = Task(vc_task, self.logger)
+            task = Task(vc_task)
             task.wait(on_progress=on_task_progress)
 
     def clone_vm(
@@ -411,7 +410,7 @@ class VmHandler(ManagedEntityHandler):
         config_spec: ConfigSpecHandler | None = None,
         on_task_progress: ON_TASK_PROGRESS_TYPE | None = None,
     ) -> VmHandler:
-        self.logger.info(f"Cloning the {self} to the new VM '{vm_name}'")
+        logger.info(f"Cloning the {self} to the new VM '{vm_name}'")
         clone_spec = vim.vm.CloneSpec(powerOn=False)
         placement = vim.vm.RelocateSpec()
         placement.datastore = vm_storage.get_vc_obj()
@@ -426,7 +425,7 @@ class VmHandler(ManagedEntityHandler):
         vc_task = self._vc_obj.Clone(
             folder=vm_folder.get_vc_obj(), name=vm_name, spec=clone_spec
         )
-        task = Task(vc_task, self.logger)
+        task = Task(vc_task)
         new_vc_vm = task.wait(on_progress=on_task_progress)
         new_vm = VmHandler(new_vc_vm, self.si)
 

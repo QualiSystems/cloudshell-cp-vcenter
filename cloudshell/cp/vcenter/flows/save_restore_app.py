@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterable
 from contextlib import contextmanager, suppress
-from logging import Logger
 
 import attr
 
@@ -40,6 +40,8 @@ from cloudshell.cp.vcenter.models.deploy_app import VMFromVMDeployApp
 from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 from cloudshell.cp.vcenter.utils.cs_helpers import on_task_progress_check_if_cancelled
 
+logger = logging.getLogger(__name__)
+
 SAVED_SANDBOXES_FOLDER = "Saved Sandboxes"
 SNAPSHOT_NAME = "artifact"
 
@@ -58,11 +60,10 @@ class SaveRestoreAppFlow:
     _resource_conf: VCenterResourceConfig
     _cs_api: CloudShellAPISession
     _cancellation_manager: CancellationContextManager
-    _logger: Logger
 
     def __attrs_post_init__(self):
-        self._si = SiHandler.from_config(self._resource_conf, self._logger)
-        self._rollback_manager = RollbackCommandsManager(logger=self._logger)
+        self._si = SiHandler.from_config(self._resource_conf)
+        self._rollback_manager = RollbackCommandsManager(logger)
         self._on_task_progress = on_task_progress_check_if_cancelled(
             self._cancellation_manager
         )
@@ -141,8 +142,8 @@ class SaveRestoreAppFlow:
         return compute_entity.get_resource_pool(r_pool_name)
 
     def _save_app(self, save_action: SaveApp, dc: DcHandler) -> SaveAppResult:
-        self._logger.info(f"Starting save app {save_action.actionParams.sourceAppName}")
-        self._logger.debug(f"Save action model: {save_action}")
+        logger.info(f"Starting save app {save_action.actionParams.sourceAppName}")
+        logger.debug(f"Save action model: {save_action}")
         with self._cancellation_manager:
             vm_uuid = save_action.actionParams.sourceVmUuid
             sandbox_id = save_action.actionParams.savedSandboxId
@@ -204,7 +205,6 @@ class SaveRestoreAppFlow:
         return CloneVMCommand(
             rollback_manager=self._rollback_manager,
             cancellation_manager=self._cancellation_manager,
-            logger=self._logger,
             on_task_progress=self._on_task_progress,
             vm_template=vm_template,
             vm_name=vm_name,

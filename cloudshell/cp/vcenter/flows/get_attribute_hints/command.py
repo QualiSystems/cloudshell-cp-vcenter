@@ -1,5 +1,3 @@
-from logging import Logger
-
 import jsonpickle
 
 from cloudshell.cp.vcenter.flows.get_attribute_hints.deployment_type_handlers import (
@@ -14,11 +12,10 @@ from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 def get_hints(
     resource_conf: VCenterResourceConfig,
     request: str,
-    logger: Logger,
 ) -> str:
     # todo replace with a model
     request = DeployDataHolder(jsonpickle.decode(request))
-    si = SiHandler.from_config(resource_conf, logger)
+    si = SiHandler.from_config(resource_conf)
     dc = DcHandler.get_dc(resource_conf.default_datacenter, si)
 
     handler = get_handler(request, dc)

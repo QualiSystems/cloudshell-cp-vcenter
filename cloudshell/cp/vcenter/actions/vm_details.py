@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from contextlib import suppress
 from typing import TYPE_CHECKING, Union
 
@@ -31,12 +32,12 @@ from cloudshell.cp.vcenter.models.deployed_app import (
 from cloudshell.cp.vcenter.utils.units_converter import format_bytes
 
 if TYPE_CHECKING:
-    from logging import Logger
-
     from cloudshell.cp.core.cancellation_manager import CancellationContextManager
 
     from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 
+
+logger = logging.getLogger(__name__)
 
 APP_MODEL_TYPES = Union[
     BaseVCenterDeployApp, BaseVCenterDeployedApp, StaticVCenterDeployedApp
@@ -48,11 +49,10 @@ class VMDetailsActions(VMNetworkActions):
         self,
         si: SiHandler,
         resource_conf: VCenterResourceConfig,
-        logger: Logger,
         cancellation_manager: CancellationContextManager,
     ):
         self._si = si
-        super().__init__(resource_conf, logger, cancellation_manager)
+        super().__init__(resource_conf, cancellation_manager)
 
     @staticmethod
     def _prepare_common_vm_instance_data(vm: VmHandler) -> list[VmDetailsProperty]:
@@ -76,7 +76,7 @@ class VMDetailsActions(VMNetworkActions):
         app_model: APP_MODEL_TYPES,
     ) -> list[VmDetailsNetworkInterface]:
         """Prepare VM Network data."""
-        self._logger.info(f"Preparing VM Details network data for the {vm}")
+        logger.info(f"Preparing VM Details network data for the {vm}")
         network_interfaces = []
         primary_ip = self._get_primary_ip(app_model, vm)
 
@@ -208,7 +208,7 @@ class VMDetailsActions(VMNetworkActions):
             instance_details.extend(self._get_extra_instance_details(app_model))
             network_details = self._prepare_vm_network_data(vm, app_model)
         except Exception as e:
-            self._logger.exception("Failed to created VM Details:")
+            logger.exception("Failed to created VM Details:")
             details = VmDetailsData(appName=app_name, errorMessage=str(e))
         else:
             details = VmDetailsData(
@@ -216,5 +216,5 @@ class VMDetailsActions(VMNetworkActions):
                 vmInstanceData=instance_details,
                 vmNetworkData=network_details,
             )
-        self._logger.info(f"VM Details: {details}")
+        logger.info(f"VM Details: {details}")
         return details

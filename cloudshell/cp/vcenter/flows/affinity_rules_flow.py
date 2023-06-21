@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import logging
 from functools import cached_property
-from logging import Logger
 
 from attrs import define
 
@@ -15,16 +15,17 @@ from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
 from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
 from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 
+logger = logging.getLogger(__name__)
+
 
 @define(slots=False)
 class AffinityRulesFlow:
     resource_conf: VCenterResourceConfig
     reservation_id: str
-    logger: Logger
 
     @cached_property
     def si(self) -> SiHandler:
-        return SiHandler.from_config(self.resource_conf, self.logger)
+        return SiHandler.from_config(self.resource_conf)
 
     @cached_property
     def dc(self) -> DcHandler:

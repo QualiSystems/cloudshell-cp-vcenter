@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from contextlib import suppress
 from threading import Lock
 from typing import ClassVar
@@ -15,6 +16,8 @@ from cloudshell.cp.vcenter.handlers.managed_entity_handler import (
 from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
 from cloudshell.cp.vcenter.handlers.task import ON_TASK_PROGRESS_TYPE, Task, TaskFailed
 from cloudshell.cp.vcenter.handlers.vcenter_path import VcenterPath
+
+logger = logging.getLogger(__name__)
 
 
 class FolderNotFound(BaseVCenterException):
@@ -91,13 +94,13 @@ class FolderHandler(ManagedEntityHandler):
         return folder
 
     def destroy(self, on_task_progress: ON_TASK_PROGRESS_TYPE | None = None) -> None:
-        self.logger.info(f"Deleting the {self}")
+        logger.info(f"Deleting the {self}")
         with suppress(ManagedEntityNotFound):
             if not self.is_empty():
                 raise FolderIsNotEmpty(self)
 
             vc_task = self._vc_obj.Destroy_Task()
-            task = Task(vc_task, self.logger)
+            task = Task(vc_task)
             try:
                 task.wait(on_progress=on_task_progress)
             except TaskFailed as e:

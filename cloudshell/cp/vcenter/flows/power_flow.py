@@ -1,4 +1,4 @@
-from logging import Logger
+import logging
 
 import attr
 
@@ -8,31 +8,32 @@ from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
 from cloudshell.cp.vcenter.models.deployed_app import BaseVCenterDeployedApp
 from cloudshell.cp.vcenter.resource_config import ShutdownMethod, VCenterResourceConfig
 
+logger = logging.getLogger(__name__)
+
 
 @attr.s(auto_attribs=True)
 class VCenterPowerFlow:
     _deployed_app: BaseVCenterDeployedApp
     _resource_config: VCenterResourceConfig
-    _logger: Logger
 
     def _get_vm(self, si: SiHandler) -> VmHandler:
-        self._logger.info(f"Getting VM by its UUID {self._deployed_app.vmdetails.uid}")
+        logger.info(f"Getting VM by its UUID {self._deployed_app.vmdetails.uid}")
         dc = DcHandler.get_dc(self._resource_config.default_datacenter, si)
         return dc.get_vm_by_uuid(self._deployed_app.vmdetails.uid)
 
     def power_on(self):
-        si = SiHandler.from_config(self._resource_config, self._logger)
+        si = SiHandler.from_config(self._resource_config)
         vm = self._get_vm(si)
 
-        self._logger.info(f"Powering On the {vm}")
+        logger.info(f"Powering On the {vm}")
         spec_name = vm.name
         spec = None
         try:
             spec = si.get_customization_spec(spec_name)
         except CustomSpecNotFound:
-            self._logger.info(f"No VM Customization Spec found, powering on the {vm}")
+            logger.info(f"No VM Customization Spec found, powering on the {vm}")
         else:
-            self._logger.info(f"Adding Customization Spec to the {vm}")
+            logger.info(f"Adding Customization Spec to the {vm}")
             vm.add_customization_spec(spec)
 
         powered_time = vm.power_on()
@@ -42,8 +43,8 @@ class VCenterPowerFlow:
             si.delete_customization_spec(spec_name)
 
     def power_off(self):
-        si = SiHandler.from_config(self._resource_config, self._logger)
+        si = SiHandler.from_config(self._resource_config)
         vm = self._get_vm(si)
-        self._logger.info(f"Powering Off {vm}")
+        logger.info(f"Powering Off {vm}")
         soft = self._resource_config.shutdown_method is ShutdownMethod.SOFT
         vm.power_off(soft)
