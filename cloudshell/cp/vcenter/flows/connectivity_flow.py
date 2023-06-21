@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 from cloudshell.shell.flows.connectivity.basic_flow import AbstractConnectivityFlow
 from cloudshell.shell.flows.connectivity.models.connectivity_model import (
+    ConnectionModeEnum,
     ConnectivityActionModel,
 )
 from cloudshell.shell.flows.connectivity.models.driver_response import (
@@ -23,6 +24,7 @@ from cloudshell.cp.vcenter.handlers.managed_entity_handler import ManagedEntityN
 from cloudshell.cp.vcenter.handlers.network_handler import (
     AbstractNetwork,
     DVPortGroupHandler,
+    HostPortGroupNotFound,
     NetworkHandler,
     NetworkNotFound,
 )
@@ -182,8 +184,26 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         promiscuous_mode: bool,
         forged_transmits: bool,
         mac_changes: bool,
+        port_mode: ConnectionModeEnum,
+        vlan_id: str,
     ) -> None:
-        pg = switch.get_port_group(network.name)
+        try:
+            pg = switch.get_port_group(network.name)
+        except HostPortGroupNotFound:
+            # In vCenter the host's port group can be deleted but the network remains.
+            # In this case we need to recreate the port group.
+            # It's possible if the network is used in a VM's snapshot
+            # but the VM is disconnected from the network.
+            switch.create_port_group(
+                network.name,
+                vlan_id,
+                port_mode,
+                promiscuous_mode,
+                forged_transmits,
+                mac_changes,
+            )
+            pg = switch.wait_port_group_appears(network.name)
+
         if pg.allow_promiscuous != promiscuous_mode:
             raise BaseVCenterException(f"{pg} has incorrect promiscuous mode setting")
         if pg.forged_transmits != forged_transmits:
@@ -231,7 +251,13 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         else:
             # we validate only network created by the Shell
             self._validate_network(
-                network, switch, promiscuous_mode, forged_transmits, mac_changes
+                network,
+                switch,
+                promiscuous_mode,
+                forged_transmits,
+                mac_changes,
+                port_mode,
+                vlan_id,
             )
         return network
 
