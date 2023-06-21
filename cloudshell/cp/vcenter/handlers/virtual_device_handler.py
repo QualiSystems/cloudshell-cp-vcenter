@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from logging import Logger
 from typing import TYPE_CHECKING, ClassVar
 
 from attrs import define
@@ -25,10 +24,6 @@ class VirtualDevice:
 
     def __repr__(self) -> str:
         return f"{self.name} of the {self.vm}"
-
-    @property
-    def logger(self) -> Logger:
-        return self.vm.logger
 
     @property
     def name(self) -> str:

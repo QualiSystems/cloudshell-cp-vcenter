@@ -1,5 +1,3 @@
-from logging import Logger
-
 import jsonpickle
 
 from cloudshell.cp.core.request_actions.models import (
@@ -25,18 +23,16 @@ from cloudshell.cp.vcenter.models.base_deployment_app import (
 from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 
 
-def validate_attributes(
-    resource_conf: VCenterResourceConfig, request: str, logger: Logger
-) -> str:
+def validate_attributes(resource_conf: VCenterResourceConfig, request: str) -> str:
     deployment_path_to_fn = {
         VM_FROM_VM_DEPLOYMENT_PATH: _validate_app_from_vm,
         VM_FROM_TEMPLATE_DEPLOYMENT_PATH: _validate_app_from_template,
         VM_FROM_LINKED_CLONE_DEPLOYMENT_PATH: _validate_app_from_clone,
         VM_FROM_IMAGE_DEPLOYMENT_PATH: _validate_app_from_image,
     }
-    si = SiHandler.from_config(resource_conf, logger)
+    si = SiHandler.from_config(resource_conf)
     action = ValidateAttributes.from_request(request)
-    validator = ValidationActions(si, resource_conf, logger)
+    validator = ValidationActions(si, resource_conf)
     _validate_common(action, validator)
 
     fn = deployment_path_to_fn[action.deployment_path]

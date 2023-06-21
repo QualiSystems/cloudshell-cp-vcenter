@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from logging import Logger
-
 from cloudshell.cp.core.cancellation_manager import CancellationContextManager
 
 from cloudshell.cp.vcenter.actions.vm_network import VMNetworkActions
@@ -19,15 +17,14 @@ def refresh_ip(
     deployed_app: BaseVCenterDeployedApp | StaticVCenterDeployedApp,
     resource_conf: VCenterResourceConfig,
     cancellation_manager: CancellationContextManager,
-    logger: Logger,
 ) -> str:
-    si = SiHandler.from_config(resource_conf, logger)
+    si = SiHandler.from_config(resource_conf)
     dc = DcHandler.get_dc(resource_conf.default_datacenter, si)
     vm = dc.get_vm_by_uuid(deployed_app.vmdetails.uid)
     if vm.power_state is not vm.power_state.ON:
         raise VmIsNotPowered(vm)
 
-    actions = VMNetworkActions(resource_conf, logger, cancellation_manager)
+    actions = VMNetworkActions(resource_conf, cancellation_manager)
     if isinstance(deployed_app, StaticVCenterDeployedApp):
         ip = actions.get_vm_ip(vm)
     else:

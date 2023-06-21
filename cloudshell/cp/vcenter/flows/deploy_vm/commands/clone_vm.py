@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from contextlib import suppress
-from logging import Logger
 
 from cloudshell.cp.core.cancellation_manager import CancellationContextManager
 from cloudshell.cp.core.rollback import RollbackCommand, RollbackCommandsManager
@@ -27,7 +26,6 @@ class CloneVMCommand(RollbackCommand):
         vm_name: str,
         vm_storage: DatastoreHandler,
         vm_folder: FolderHandler,
-        logger: Logger,
         vm_resource_pool: ResourcePoolHandler | None = None,
         vm_snapshot: SnapshotHandler | None = None,
         config_spec: ConfigSpecHandler | None = None,
@@ -43,7 +41,6 @@ class CloneVMCommand(RollbackCommand):
         self._vm_folder = vm_folder
         self._vm_snapshot = vm_snapshot
         self._config_spec = config_spec
-        self._logger = logger
         self._on_task_progress = on_task_progress
         self._cloned_vm: VmHandler | None = None
 

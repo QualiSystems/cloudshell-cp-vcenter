@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from logging import Logger
-
 from cloudshell.cp.core.cancellation_manager import CancellationContextManager
 from cloudshell.cp.core.rollback import RollbackCommand, RollbackCommandsManager
 
@@ -27,12 +25,10 @@ class DeployVMFromImageCommand(RollbackCommand):
         vm_storage: DatastoreHandler,
         vm_folder_path: VcenterPath,
         dc: DcHandler,
-        logger: Logger,
     ):
         super().__init__(
             rollback_manager=rollback_manager, cancellation_manager=cancellation_manager
         )
-        self._logger = logger
         self._resource_conf = resource_conf
         self._vcenter_image = vcenter_image
         self._vcenter_image_arguments = vcenter_image_arguments
@@ -41,7 +37,6 @@ class DeployVMFromImageCommand(RollbackCommand):
         self._vm_storage = vm_storage
         self._vm_folder_path = vm_folder_path
         self._dc = dc
-        self._logger = logger
         self._deployed_vm: VmHandler | None = None
 
     def _execute(self) -> VmHandler:
@@ -58,7 +53,6 @@ class DeployVMFromImageCommand(RollbackCommand):
             vcenter_user=self._resource_conf.user,
             vcenter_password=self._resource_conf.password,
             vcenter_host=self._resource_conf.address,
-            logger=self._logger,
         )
         ovf_tool_script.run()
 

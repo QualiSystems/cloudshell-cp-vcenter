@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import logging
 from contextlib import suppress
-from logging import Logger
 from threading import Lock
 
 from cloudshell.cp.core.reservation_info import ReservationInfo
@@ -18,6 +18,8 @@ from cloudshell.cp.vcenter.models.deployed_app import BaseVCenterDeployedApp
 from cloudshell.cp.vcenter.resource_config import ShutdownMethod, VCenterResourceConfig
 from cloudshell.cp.vcenter.utils.vm_helpers import get_vm_folder_path
 
+logger = logging.getLogger(__name__)
+
 folder_delete_lock = Lock()
 
 
@@ -30,13 +32,11 @@ def delete_instance(
     deployed_app: BaseVCenterDeployedApp,
     resource_conf: VCenterResourceConfig,
     reservation_info: ReservationInfo,
-    logger: Logger,
 ):
-    si = SiHandler.from_config(resource_conf, logger)
+    si = SiHandler.from_config(resource_conf)
     vsphere_client = VSphereSDKHandler.from_config(
         resource_config=resource_conf,
         reservation_info=reservation_info,
-        logger=logger,
         si=si,
     )
     dc = DcHandler.get_dc(resource_conf.default_datacenter, si)

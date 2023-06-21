@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from abc import abstractmethod
 from typing import TYPE_CHECKING
 
@@ -36,8 +37,6 @@ from cloudshell.cp.vcenter.utils.vm_console_link_attr import (
 from cloudshell.cp.vcenter.utils.vm_helpers import get_vm_folder_path
 
 if TYPE_CHECKING:
-    from logging import Logger
-
     from cloudshell.api.cloudshell_api import CloudShellAPISession
     from cloudshell.cp.core.cancellation_manager import CancellationContextManager
     from cloudshell.cp.core.request_actions import DeployVMRequestActions
@@ -47,6 +46,9 @@ if TYPE_CHECKING:
     from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 
 
+logger = logging.getLogger(__name__)
+
+
 class AbstractVCenterDeployVMFlow(AbstractDeployFlow):
     def __init__(
         self,
@@ -54,22 +56,20 @@ class AbstractVCenterDeployVMFlow(AbstractDeployFlow):
         cs_api: CloudShellAPISession,
         reservation_info: ReservationInfo,
         cancellation_manager: CancellationContextManager,
-        logger: Logger,
     ):
         super().__init__(logger=logger)
         self._resource_config = resource_config
         self._reservation_info = reservation_info
         self._cs_api = cs_api
         self._cancellation_manager = cancellation_manager
-        self._rollback_manager = RollbackCommandsManager(logger=self._logger)
+        self._rollback_manager = RollbackCommandsManager(logger)
         self._on_task_progress = on_task_progress_check_if_cancelled(
             cancellation_manager
         )
-        self._si = SiHandler.from_config(resource_config, logger)
+        self._si = SiHandler.from_config(resource_config)
         self._vsphere_client = VSphereSDKHandler.from_config(
             resource_config=self._resource_config,
             reservation_info=self._reservation_info,
-            logger=self._logger,
             si=self._si,
         )
         self.generate_name = NameGenerator(max_length=80)
@@ -96,12 +96,11 @@ class AbstractVCenterDeployVMFlow(AbstractDeployFlow):
 
     def _validate_deploy_app(self, deploy_app: BaseVCenterDeployApp) -> None:
         """Validate Deploy App before deployment."""
-        self._logger.info("Validating Deploy App data")
+        logger.info("Validating Deploy App data")
 
         validation_actions = ValidationActions(
             self._si,
             self._resource_config,
-            self._logger,
         )
         validation_actions.validate_deploy_app(deploy_app)
         validation_actions.validate_deploy_app_dc_objects(deploy_app)
@@ -130,7 +129,7 @@ class AbstractVCenterDeployVMFlow(AbstractDeployFlow):
             deploy_app=deploy_app,
         )
 
-        self._logger.info(f"Prepared VM details: {vm_details_data}")
+        logger.info(f"Prepared VM details: {vm_details_data}")
 
         return DeployAppResult(
             actionId=deploy_app.actionId,
@@ -150,17 +149,17 @@ class AbstractVCenterDeployVMFlow(AbstractDeployFlow):
         self, deploy_app: BaseVCenterDeployApp, dc: DcHandler
     ) -> ResourcePoolHandler:
         conf = self._resource_config
-        self._logger.info("Getting VM resource pool")
+        logger.info("Getting VM resource pool")
         vm_resource_pool_name = deploy_app.vm_resource_pool or conf.vm_resource_pool
         vm_cluster_name = deploy_app.vm_cluster or conf.vm_cluster
 
-        self._logger.info(f"Get resource pool: {vm_resource_pool_name or 'default'}")
+        logger.info(f"Get resource pool: {vm_resource_pool_name or 'default'}")
         compute_entity = dc.get_compute_entity(vm_cluster_name)
         resource_pool = compute_entity.get_resource_pool(vm_resource_pool_name)
         return resource_pool
 
     def _prepare_vm_folder_path(self, deploy_app: BaseVCenterDeployApp) -> VcenterPath:
-        self._logger.info("Preparing VM folder")
+        logger.info("Preparing VM folder")
         return get_vm_folder_path(
             deploy_app, self._resource_config, self._reservation_info.reservation_id
         )
@@ -174,7 +173,6 @@ class AbstractVCenterDeployVMFlow(AbstractDeployFlow):
             dc,
             folder_path,
             self._vsphere_client,
-            self._logger,
         ).execute()
 
     def _deploy(self, request_actions: DeployVMRequestActions) -> DeployAppResult:
@@ -191,28 +189,28 @@ class AbstractVCenterDeployVMFlow(AbstractDeployFlow):
         else:
             vm_name = deploy_app.app_name
 
-        self._logger.info(f"Generated name for the VM: {vm_name}")
+        logger.info(f"Generated name for the VM: {vm_name}")
 
         vm_folder_path = self._prepare_vm_folder_path(deploy_app)
-        self._logger.info(f"Prepared folder for the VM: {vm_folder_path}")
+        logger.info(f"Prepared folder for the VM: {vm_folder_path}")
 
         with self._cancellation_manager:
-            self._logger.info(f"Getting Datacenter {conf.default_datacenter}")
+            logger.info(f"Getting Datacenter {conf.default_datacenter}")
             dc = DcHandler.get_dc(conf.default_datacenter, self._si)
 
         with self._cancellation_manager:
             vm_resource_pool = self._get_vm_resource_pool(deploy_app, dc)
-        self._logger.info(f"Received VM resource pool: {vm_resource_pool}")
+        logger.info(f"Received VM resource pool: {vm_resource_pool}")
 
         with self._cancellation_manager:
             vm_storage_name = deploy_app.vm_storage or conf.vm_storage
-            self._logger.info(f"Getting VM storage {vm_storage_name}")
+            logger.info(f"Getting VM storage {vm_storage_name}")
             vm_storage = dc.get_datastore(vm_storage_name)
 
         with self._rollback_manager:
             vm_folder = self._get_or_create_vm_folder(vm_folder_path, dc)
 
-            self._logger.info(f"Creating VM {vm_name}")
+            logger.info(f"Creating VM {vm_name}")
             deployed_vm = self._create_vm(
                 deploy_app=deploy_app,
                 vm_name=vm_name,
@@ -225,7 +223,7 @@ class AbstractVCenterDeployVMFlow(AbstractDeployFlow):
             if self._vsphere_client is not None:
                 self._vsphere_client.assign_tags(obj=deployed_vm)
 
-        self._logger.info(f"Preparing Deploy App result for the {deployed_vm}")
+        logger.info(f"Preparing Deploy App result for the {deployed_vm}")
         return self._prepare_deploy_app_result(
             deployed_vm=deployed_vm,
             deploy_app=deploy_app,
@@ -286,7 +284,6 @@ class AbstractVCenterDeployVMFromTemplateFlow(AbstractVCenterDeployVMFlow):
         return CloneVMCommand(
             rollback_manager=self._rollback_manager,
             cancellation_manager=self._cancellation_manager,
-            logger=self._logger,
             on_task_progress=self._on_task_progress,
             vm_template=vm_template,
             vm_name=vm_name,

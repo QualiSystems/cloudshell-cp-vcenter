@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
 import time
 from datetime import datetime, timedelta
 
 from pyVmomi import vim
 
 from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
+
+logger = logging.getLogger(__name__)
 
 
 class EventManager:
@@ -47,7 +50,6 @@ class EventManager:
         event_type_id_list,
         timeout,
         wait_time,
-        logger,
         event_start_time: datetime | None = None,
     ):
         timeout_time = datetime.now() + timedelta(seconds=timeout)
@@ -78,7 +80,6 @@ class EventManager:
         self,
         si: SiHandler,
         vm,
-        logger,
         event_start_time: datetime | None = None,
         timeout=None,
         wait_time=None,
@@ -89,7 +90,6 @@ class EventManager:
         start_event = self._wait_for_event(
             si,
             vm,
-            logger=logger,
             event_type_id_list=[self.VMOSCustomization.START_EVENT],
             timeout=timeout,
             wait_time=wait_time,
@@ -106,7 +106,6 @@ class EventManager:
         self,
         si: SiHandler,
         vm,
-        logger,
         event_start_time: datetime | None = None,
         timeout=None,
         wait_time=None,
@@ -117,7 +116,6 @@ class EventManager:
         return self._wait_for_event(
             si,
             vm,
-            logger=logger,
             event_type_id_list=[
                 self.VMOSCustomization.SUCCESS_END_EVENT,
                 self.VMOSCustomization.FAILED_END_EVENT,

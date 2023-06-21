@@ -24,7 +24,6 @@ class VCenterDeployVMFromTemplateFlow(AbstractVCenterDeployVMFromTemplateFlow):
         validation_actions = ValidationActions(
             self._si,
             self._resource_config,
-            self._logger,
         )
         validation_actions.validate_deploy_app_from_template(deploy_app)
 
@@ -35,7 +34,6 @@ class VCenterDeployVMFromTemplateFlow(AbstractVCenterDeployVMFromTemplateFlow):
         vm_details_actions = VMDetailsActions(
             self._si,
             self._resource_config,
-            self._logger,
             self._cancellation_manager,
         )
         return vm_details_actions.create(deployed_vm, deploy_app)

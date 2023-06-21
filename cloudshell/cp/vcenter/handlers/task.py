@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from datetime import datetime
 from enum import Enum
-from logging import Logger
 from typing import Any
 
 from attrs import define, field, setters
@@ -11,6 +11,8 @@ from pyVim.task import WaitForTask
 from pyVmomi import vim
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
+
+logger = logging.getLogger(__name__)
 
 ON_TASK_PROGRESS_TYPE = Callable[["Task", Any], None]
 
@@ -32,7 +34,6 @@ class TaskState(Enum):
 @define(repr=False)
 class Task:
     _vc_obj: vim.Task = field(on_setattr=setters.frozen)
-    logger: Logger
 
     def __repr__(self):
         return f"Task {self.key}"
@@ -81,7 +82,7 @@ class Task:
         on_progress: ON_TASK_PROGRESS_TYPE | None = None,
     ) -> Any:
         if on_progress is not None:
-            on_progress = wrapper_on_progress(on_progress, self.logger)
+            on_progress = wrapper_on_progress(on_progress)
         try:
             WaitForTask(
                 self._vc_obj, raiseOnError=raise_on_error, onProgressUpdate=on_progress
@@ -95,10 +96,8 @@ class Task:
             self._vc_obj.CancelTask()
 
 
-def wrapper_on_progress(
-    fn: ON_TASK_PROGRESS_TYPE, logger: Logger
-) -> Callable[[vim.Task, Any], None]:
+def wrapper_on_progress(fn: ON_TASK_PROGRESS_TYPE) -> Callable[[vim.Task, Any], None]:
     def on_progress(task: vim.Task, progress: Any) -> None:
-        fn(Task(task, logger), progress)
+        fn(Task(task), progress)
 
     return on_progress

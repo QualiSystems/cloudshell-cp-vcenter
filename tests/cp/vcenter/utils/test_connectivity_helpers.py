@@ -162,9 +162,7 @@ def test_should_remove_port_group(
         ("default-net", ["another-name", "Local"], None),
     ),
 )
-def test_get_available_vnic(
-    default_net_name, reserved_networks, expected_vnic_name, logger
-):
+def test_get_available_vnic(default_net_name, reserved_networks, expected_vnic_name):
     # Default Network
     default_network = Mock()
     default_network.name = default_net_name

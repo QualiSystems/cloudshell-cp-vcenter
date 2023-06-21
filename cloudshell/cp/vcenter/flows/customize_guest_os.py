@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from logging import Logger
+import logging
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
 from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
@@ -9,6 +9,8 @@ from cloudshell.cp.vcenter.models.custom_spec import get_custom_spec_params_from
 from cloudshell.cp.vcenter.models.deployed_app import BaseVCenterDeployedApp
 from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 from cloudshell.cp.vcenter.utils.customization_params import prepare_custom_spec
+
+logger = logging.getLogger(__name__)
 
 
 class CustomSpecExists(BaseVCenterException):
@@ -27,14 +29,11 @@ def customize_guest_os(
     custom_spec_name: str,
     custom_spec_params: str,
     override_custom_spec: bool,
-    logger: Logger,
 ):
-    si = SiHandler.from_config(resource_conf, logger)
+    si = SiHandler.from_config(resource_conf)
     dc = DcHandler.get_dc(resource_conf.default_datacenter, si)
     vm = dc.get_vm_by_uuid(deployed_app.vmdetails.uid)
-    custom_spec_params = get_custom_spec_params_from_json(
-        custom_spec_params, vm, logger
-    )
+    custom_spec_params = get_custom_spec_params_from_json(custom_spec_params, vm)
 
     if override_custom_spec:
         logger.info(

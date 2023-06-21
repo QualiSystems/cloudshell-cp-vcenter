@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from logging import Logger
+import logging
 from typing import Union
 
 import attr
@@ -29,6 +29,8 @@ from cloudshell.cp.vcenter.handlers.vsphere_api_handler import (
 )
 from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 
+logger = logging.getLogger(__name__)
+
 OBJECTS_WITH_TAGS = Union[VmHandler, FolderHandler, NetworkHandler, DVPortGroupHandler]
 
 
@@ -36,7 +38,6 @@ OBJECTS_WITH_TAGS = Union[VmHandler, FolderHandler, NetworkHandler, DVPortGroupH
 class VSphereSDKHandler:
     _vsphere_client: VSphereAutomationAPI
     _tags_manager: VCenterTagsManager | None
-    _logger: Logger
 
     # From this version vCenter has vSphere Automation API that allows to work with tags
     VCENTER_VERSION = "6.5.0"
@@ -55,11 +56,10 @@ class VSphereSDKHandler:
         cls,
         resource_config: VCenterResourceConfig,
         reservation_info: ReservationInfo | None,
-        logger: Logger,
         si: SiHandler | None = None,
     ) -> VSphereSDKHandler | None:
         if not si:
-            si = SiHandler.from_config(resource_config, logger)
+            si = SiHandler.from_config(resource_config)
 
         if not resource_config.enable_tags:
             return None
@@ -78,7 +78,7 @@ class VSphereSDKHandler:
                 )
             else:
                 tags_manager = None
-            return cls(vsphere_client, tags_manager, logger)
+            return cls(vsphere_client, tags_manager)
         else:
             logger.warning(f"Tags available only from vCenter {cls.VCENTER_VERSION}")
             return None
@@ -88,20 +88,20 @@ class VSphereSDKHandler:
         result = {}
         categories = self._vsphere_client.get_category_list()
         if len(categories) > 0:
-            self._logger.debug("List of all existing categories user has access to...")
+            logger.debug("List of all existing categories user has access to...")
             for category_id in categories:
                 try:
                     category_info = self._vsphere_client.get_category_info(category_id)
                 except CategoryIdDoesntExists:
                     continue
                 else:
-                    self._logger.debug(
+                    logger.debug(
                         f"CategoryName: {category_info['name']}, "
                         f"CategoryID: {category_info['id']}"
                     )
                     result.update({category_info["name"]: category_info["id"]})
         else:
-            self._logger.info("No Tag Category Found...")
+            logger.info("No Tag Category Found...")
 
         return result
 
@@ -127,7 +127,7 @@ class VSphereSDKHandler:
         try:
             category_id = self._vsphere_client.create_category(name)
         except CategoryAlreadyExists:
-            self._logger.debug(f"Tag Category {name} already exists.")
+            logger.debug(f"Tag Category {name} already exists.")
             category_id = self._get_category_id(name)
 
         return category_id
@@ -149,19 +149,19 @@ class VSphereSDKHandler:
         result = {}
         tags = self._vsphere_client.get_all_category_tags(category_id=category_id)
         if len(tags) > 0:
-            self._logger.debug("List of all existing tags user has access to...")
+            logger.debug("List of all existing tags user has access to...")
             for tag_id in tags:
                 try:
                     tag_info = self._vsphere_client.get_tag_info(tag_id)
                 except TagIdDoesntExists:
                     continue  # tag already removed, skip it
                 else:
-                    self._logger.debug(
+                    logger.debug(
                         f"TagName: {tag_info['name']}, TagID: {tag_info['id']}"
                     )
                     result.update({tag_info["name"]: tag_info["id"]})
         else:
-            self._logger.info("No Tag Found...")
+            logger.info("No Tag Found...")
         return result
 
     def _get_tag_id(self, name: str, category_id: str) -> str:
@@ -189,7 +189,7 @@ class VSphereSDKHandler:
             if tag_id is None:
                 raise TagApiException("Error during tag creation.")
         except TagAlreadyExists as err:
-            self._logger.debug(err)
+            logger.debug(err)
             tag_id = self._get_tag_id(name, category_id=category_id)
 
         return tag_id
@@ -235,7 +235,7 @@ class VSphereSDKHandler:
         try:
             self._vsphere_client.delete_category(category_id)
         except CategoryIdDoesntExists as err:
-            self._logger.debug(err)
+            logger.debug(err)
 
     def _delete_tag(self, tag_id: str) -> None:
         """Delete an existing tag.
@@ -245,7 +245,7 @@ class VSphereSDKHandler:
         try:
             self._vsphere_client.delete_tag(tag_id)
         except TagIdDoesntExists as err:
-            self._logger.debug(err)
+            logger.debug(err)
 
     def delete_tags(self, obj):
         """Delete tags if it used ONLY in current reservation."""
@@ -258,10 +258,10 @@ class VSphereSDKHandler:
                     tag_info["category_id"]
                 )
             except TagIdDoesntExists:
-                self._logger.debug(f"Tag {tag_id} already removed")
+                logger.debug(f"Tag {tag_id} already removed")
                 continue
 
-            self._logger.debug(f"TagID: {tag_id}, Category: {category_info['name']}")
+            logger.debug(f"TagID: {tag_id}, Category: {category_info['name']}")
             if category_info["name"] == VCenterTagsManager.DefaultTagNames.sandbox_id:
                 try:
                     pattern_objects_list = sorted(
@@ -269,10 +269,10 @@ class VSphereSDKHandler:
                         key=lambda attached_object: attached_object["id"],
                     )
 
-                    self._logger.debug(f"TagID to delete: {tag_id}")
+                    logger.debug(f"TagID to delete: {tag_id}")
                     self._delete_tag(tag_id)
                 except TagIdDoesntExists:
-                    self._logger.debug(f"Pattern TagID {tag_id} doesn't exist.")
+                    logger.debug(f"Pattern TagID {tag_id} doesn't exist.")
                     break
             else:
                 try:
@@ -283,17 +283,17 @@ class VSphereSDKHandler:
 
                     tag_to_objects_mapping.update({tag_id: candidate_objects_list})
                 except TagIdDoesntExists:
-                    self._logger.debug(f"Candidate TagID {tag_id} doesn't exist.")
+                    logger.debug(f"Candidate TagID {tag_id} doesn't exist.")
 
         for tag_id, objects_list in tag_to_objects_mapping.items():
             if objects_list == pattern_objects_list:
-                self._logger.debug(f"TagID to delete: {tag_id}")
+                logger.debug(f"TagID to delete: {tag_id}")
                 self._delete_tag(tag_id)
 
     def _get_object_id_and_type(self, obj: OBJECTS_WITH_TAGS) -> tuple[str, str]:
         object_id = obj._moId
         object_type = obj._wsdl_name
-        self._logger.debug(f"Object type: {object_type}, Object ID: {object_id}")
+        logger.debug(f"Object type: {object_type}, Object ID: {object_id}")
         return object_id, object_type
 
 

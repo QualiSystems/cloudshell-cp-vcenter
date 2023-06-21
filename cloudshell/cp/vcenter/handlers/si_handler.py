@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import logging
 from contextlib import suppress
 from functools import partial
-from logging import Logger
 from typing import Any
 
 import attr
@@ -15,6 +15,8 @@ from cloudshell.cp.vcenter.handlers.custom_spec_handler import (
 )
 from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 from cloudshell.cp.vcenter.utils.client_helpers import get_si
+
+logger = logging.getLogger(__name__)
 
 
 class CustomSpecNotFound(BaseVCenterException):
@@ -31,17 +33,16 @@ class ResourceInUse(BaseVCenterException):
 @attr.s(auto_attribs=True, slots=True, frozen=True)
 class SiHandler:
     _vc_obj: vim.ServiceInstance
-    logger: Logger
 
     @classmethod
-    def from_config(cls, conf: VCenterResourceConfig, logger: Logger) -> SiHandler:
-        return cls.connect(conf.address, conf.user, conf.password, logger)
+    def from_config(cls, conf: VCenterResourceConfig) -> SiHandler:
+        return cls.connect(conf.address, conf.user, conf.password)
 
     @classmethod
-    def connect(cls, host: str, user: str, password: str, logger: Logger) -> SiHandler:
+    def connect(cls, host: str, user: str, password: str) -> SiHandler:
         logger.info("Initializing vCenter API client SI")
         si = get_si(host, user, password)
-        return cls(si, logger)
+        return cls(si)
 
     @property
     def root_folder(self):

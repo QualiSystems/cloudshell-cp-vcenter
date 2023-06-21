@@ -3,6 +3,8 @@ import subprocess
 
 from cloudshell.cp.vcenter import exceptions
 
+logger = logging.getLogger(__name__)
+
 
 class OVFToolScript:
     COMPLETED_SUCCESSFULLY = "completed successfully"
@@ -36,7 +38,6 @@ class OVFToolScript:
         vcenter_user: str,
         vcenter_password: str,
         vcenter_host: str,
-        logger: logging.Logger,
     ):
         self._ovf_tool_path = ovf_tool_path
         self._datacenter = datacenter
@@ -50,7 +51,6 @@ class OVFToolScript:
         self._vcenter_user = vcenter_user
         self._vcenter_password = vcenter_password
         self._vcenter_host = vcenter_host
-        self._logger = logger
 
     def run(self):
         process = subprocess.Popen(
@@ -68,7 +68,7 @@ class OVFToolScript:
             res = b"\n\r".join(result).decode()
 
             if self.COMPLETED_SUCCESSFULLY not in res.lower():
-                self._logger.error(
+                logger.error(
                     f"Failed to deploy VM image with OVF tool. Script args:"
                     f" {self._prepare_script_args(sensitive=True)}. Result: {res}"
                 )
