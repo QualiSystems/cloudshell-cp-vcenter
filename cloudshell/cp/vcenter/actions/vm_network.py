@@ -44,7 +44,7 @@ class VMNetworkActions:
     ) -> str | None:
         self._logger.info(f"Searching for the IPv4 address of the {vm}")
         ip = vm.primary_ipv4
-        if not ip:
+        if not ip or not is_ip_pass_regex(ip):
             self._logger.debug(f"{vm} doesn't have a primary IPv4 address")
             for vnic in vm.vnics:
                 if vnic.network not in skip_networks and is_ip_pass_regex(vnic.ipv4):
