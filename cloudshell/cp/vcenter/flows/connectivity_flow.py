@@ -143,6 +143,8 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
             if should_remove_port_group(network.name, action):
                 self._remove_network_tags(network)
                 self._remove_network(network, vm)
+            else:
+                self._logger.info(f"{network} should not be removed")
 
         msg = "Removing VLAN successfully completed"
         return ConnectivityActionResult.success_result_vm(action, msg, vnic.mac_address)
@@ -235,11 +237,15 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
 
     @staticmethod
     def _remove_network(network: DVPortGroupHandler | NetworkHandler, vm: VmHandler):
+        logger = network.logger
         if network.wait_network_become_free():
             if isinstance(network, DVPortGroupHandler):
                 network.destroy()
             else:
                 vm.host.remove_port_group(network.name)
+            logger.info(f"{network} was removed")
+        else:
+            logger.info(f"{network} is still in use, skip removing")
 
     def _remove_network_tags(self, network: AbstractNetwork):
         """Remove network's tags.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Generator
 from contextlib import suppress
 
 from pyVmomi import vim
@@ -111,6 +112,11 @@ class DcHandler(ManagedEntityHandler):
         return [
             VmHandler(vm, self.si) for vm in self.find_items(vim.VirtualMachine, True)
         ]
+
+    def get_vms(self, name: str) -> Generator[VmHandler, None, None]:
+        for vm in self.find_items(vim.VirtualMachine, True):
+            if vm.name == name:
+                yield VmHandler(vm, self.si)
 
     def get_vm_folder(self, path: str | VcenterPath) -> FolderHandler:
         vm_folder = FolderHandler(self._vc_obj.vmFolder, self.si)
