@@ -20,7 +20,6 @@ class VCenterDeployVMFromImageFlow(AbstractVCenterDeployVMFlow):
         validation_actions = ValidationActions(
             self._si,
             self._resource_config,
-            self._logger,
         )
         validation_actions.validate_deploy_app_from_image(deploy_app)
         validation_actions.validate_ovf_tool(self._resource_config.ovf_tool_path)
@@ -32,7 +31,6 @@ class VCenterDeployVMFromImageFlow(AbstractVCenterDeployVMFlow):
         vm_details_actions = VMDetailsActions(
             self._si,
             self._resource_config,
-            self._logger,
             self._cancellation_manager,
         )
         return vm_details_actions.create(deployed_vm, deploy_app)
@@ -60,5 +58,4 @@ class VCenterDeployVMFromImageFlow(AbstractVCenterDeployVMFlow):
             vm_storage=vm_storage,
             vm_folder_path=vm_folder_path,
             dc=dc,
-            logger=self._logger,
         ).execute()

@@ -9,7 +9,7 @@ from cloudshell.cp.vcenter.handlers.vsphere_sdk_handler import (
 )
 
 
-def test_tag_was_deleted_while_we_searching_for_it(logger):
+def test_tag_was_deleted_while_we_searching_for_it():
     # - try to create a tag - get the error that it exists
     # - try to get it - get the error that we can't find it
     #   (it can be deleted in another thread or even Shell's venv)
@@ -22,7 +22,7 @@ def test_tag_was_deleted_while_we_searching_for_it(logger):
         get_tag_info=Mock(side_effect=({"name": "tag name", "id": "tag_id"},)),
     )
 
-    handler = VSphereSDKHandler(client, None, logger)
+    handler = VSphereSDKHandler(client, None)
     assert handler._get_or_create_tag("tag_name", "category_id") == "tag_id"
 
 

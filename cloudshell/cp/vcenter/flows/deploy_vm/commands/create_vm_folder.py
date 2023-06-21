@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import logging
 from contextlib import suppress
-from logging import Logger
 
 from cloudshell.cp.core.cancellation_manager import CancellationContextManager
 from cloudshell.cp.core.rollback import RollbackCommand, RollbackCommandsManager
@@ -15,6 +15,8 @@ from cloudshell.cp.vcenter.handlers.folder_handler import (
 from cloudshell.cp.vcenter.handlers.vcenter_path import VcenterPath
 from cloudshell.cp.vcenter.handlers.vsphere_sdk_handler import VSphereSDKHandler
 
+logger = logging.getLogger(__name__)
+
 
 class CreateVmFolder(RollbackCommand):
     def __init__(
@@ -24,16 +26,14 @@ class CreateVmFolder(RollbackCommand):
         dc: DcHandler,
         vm_folder_path: VcenterPath,
         vsphere_client: VSphereSDKHandler | None,
-        logger: Logger,
     ):
         super().__init__(rollback_manager, cancellation_manager)
         self._dc = dc
         self._vm_folder_path = vm_folder_path
         self._vsphere_client = vsphere_client
-        self._logger = logger
 
     def _execute(self, *args, **kwargs) -> FolderHandler:
-        self._logger.info(f"Creating VM folders for path: {self._vm_folder_path}")
+        logger.info(f"Creating VM folders for path: {self._vm_folder_path}")
         vm_folder = self._dc.get_or_create_vm_folder(self._vm_folder_path)
         if self._vsphere_client is not None:
             try:

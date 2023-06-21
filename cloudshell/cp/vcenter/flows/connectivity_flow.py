@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Collection
 from contextlib import suppress
-from logging import Logger
 from threading import Lock
 from typing import TYPE_CHECKING
 
@@ -58,6 +58,9 @@ if TYPE_CHECKING:
     from cloudshell.cp.core.reservation_info import ReservationInfo
 
 
+logger = logging.getLogger(__name__)
+
+
 class DvSwitchNameEmpty(BaseVCenterException):
     def __init__(self):
         msg = (
@@ -73,16 +76,14 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         resource_conf: VCenterResourceConfig,
         reservation_info: ReservationInfo,
         parse_connectivity_request_service: AbstractParseConnectivityService,
-        logger: Logger,
     ):
         super().__init__(parse_connectivity_request_service, logger)
         self._resource_conf = resource_conf
         self._reservation_info = reservation_info
-        self._si = SiHandler.from_config(resource_conf, logger)
+        self._si = SiHandler.from_config(resource_conf)
         self._vsphere_client = VSphereSDKHandler.from_config(
             resource_config=self._resource_conf,
             reservation_info=self._reservation_info,
-            logger=self._logger,
             si=self._si,
         )
         self._network_lock = Lock()
@@ -104,7 +105,7 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         dc = DcHandler.get_dc(vc_conf.default_datacenter, self._si)
         vm = dc.get_vm_by_uuid(action.custom_action_attrs.vm_uuid)
         default_network = dc.get_network(vc_conf.holding_network)
-        self._logger.info(f"Start setting vlan {vlan_id} for the {vm}")
+        logger.info(f"Start setting vlan {vlan_id} for the {vm}")
 
         switch = self._get_switch(dc, vm, action)
         with self._network_lock:
@@ -137,7 +138,7 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         default_network = dc.get_network(vc_conf.holding_network)
         vnic = vm.get_vnic_by_mac(action.connector_attrs.interface)
         network = vnic.network
-        self._logger.info(f"Start disconnecting {network} from the {vnic} on the {vm}")
+        logger.info(f"Start disconnecting {network} from the {vnic} on the {vm}")
 
         vnic.connect(default_network)
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 from collections.abc import Iterable
 from typing import TYPE_CHECKING
@@ -30,9 +31,10 @@ from cloudshell.cp.vcenter.models.deploy_app import (
 )
 
 if TYPE_CHECKING:
-    from logging import Logger
-
     from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
+
+
+logger = logging.getLogger(__name__)
 
 
 class SwitchNotFound(BaseVCenterException):
@@ -55,13 +57,12 @@ BEHAVIOURS_DURING_SAVE = ("Remain Powered On", "Power Off")
 class ValidationActions:
     _si: SiHandler
     _resource_conf: VCenterResourceConfig
-    _logger: Logger
 
     def _get_dc(self) -> DcHandler:
         return DcHandler.get_dc(self._resource_conf.default_datacenter, self._si)
 
     def validate_resource_conf(self):
-        self._logger.info("Validating resource config")
+        logger.info("Validating resource config")
         conf = self._resource_conf
         _is_not_empty(conf.address, "address")
         _is_not_empty(conf.user, conf.ATTR_NAMES.user)
@@ -77,7 +78,7 @@ class ValidationActions:
         )
 
     def validate_resource_conf_dc_objects(self):
-        self._logger.info("Validating resource config objects on the vCenter")
+        logger.info("Validating resource config objects on the vCenter")
         conf = self._resource_conf
         dc = self._get_dc()
 
@@ -96,7 +97,7 @@ class ValidationActions:
             compute_entity.get_resource_pool(conf.vm_resource_pool)
 
     def validate_deploy_app_dc_objects(self, deploy_app):
-        self._logger.info("Validating deploy app objects on the vCenter")
+        logger.info("Validating deploy app objects on the vCenter")
         self.validate_base_app_dc_objects(
             deploy_app.vm_location, deploy_app.vm_cluster, deploy_app.vm_storage
         )
@@ -113,7 +114,7 @@ class ValidationActions:
             dc.get_datastore(vm_storage)
 
     def validate_deploy_app(self, deploy_app: BaseVCenterDeployApp):
-        self._logger.info("Validating deploy app")
+        logger.info("Validating deploy app")
 
         self.validate_base_app_attrs(
             deploy_app.vm_cluster, deploy_app.vm_storage, deploy_app.vm_location
@@ -128,7 +129,7 @@ class ValidationActions:
         _one_is_not_empty([vm_location, conf.vm_location], conf.ATTR_NAMES.vm_location)
 
     def validate_deploy_app_from_vm(self, deploy_app: VMFromVMDeployApp):
-        self._logger.info("Validating deploy app from VM")
+        logger.info("Validating deploy app from VM")
         self.validate_app_from_vm(deploy_app.vcenter_vm)
 
     def validate_app_from_vm(self, vm_path: str):
@@ -137,7 +138,7 @@ class ValidationActions:
         dc.get_vm_by_path(vm_path)
 
     def validate_deploy_app_from_template(self, deploy_app: VMFromTemplateDeployApp):
-        self._logger.info("Validating deploy app from Template")
+        logger.info("Validating deploy app from Template")
         self.validate_app_from_template(deploy_app.vcenter_template)
 
     def validate_app_from_template(self, vm_path: str):
@@ -146,7 +147,7 @@ class ValidationActions:
         dc.get_vm_by_path(vm_path)
 
     def validate_deploy_app_from_clone(self, deploy_app: VMFromLinkedCloneDeployApp):
-        self._logger.info("Validating deploy app from Linked Clone")
+        logger.info("Validating deploy app from Linked Clone")
         self.validate_app_from_clone(
             deploy_app.vcenter_vm, deploy_app.vcenter_vm_snapshot
         )
@@ -161,7 +162,7 @@ class ValidationActions:
         vm.get_snapshot_by_path(snapshot_path)
 
     def validate_deploy_app_from_image(self, deploy_app: VMFromImageDeployApp):
-        self._logger.info("Validating deploy app from Image")
+        logger.info("Validating deploy app from Image")
         self.validate_app_from_image(deploy_app.vcenter_image)
 
     def validate_app_from_image(self, image_url: str):
@@ -169,7 +170,7 @@ class ValidationActions:
         _is_valid_url(image_url, VMFromImageDeployApp.ATTR_NAMES.vcenter_image)
 
     def validate_ovf_tool(self, ovf_tool_path):
-        self._logger.info("Validating OVF Tool")
+        logger.info("Validating OVF Tool")
         _is_not_empty(ovf_tool_path, self._resource_conf.ATTR_NAMES.ovf_tool_path)
         _is_valid_url(ovf_tool_path, self._resource_conf.ATTR_NAMES.ovf_tool_path)
 

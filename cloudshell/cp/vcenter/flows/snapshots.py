@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime
-from logging import Logger
 
 import attr
 
@@ -15,6 +15,8 @@ from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
 from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
 from cloudshell.cp.vcenter.models.deployed_app import BaseVCenterDeployedApp
 from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
+
+logger = logging.getLogger(__name__)
 
 
 class InvalidOrchestrationType(BaseVCenterException):
@@ -37,10 +39,9 @@ def _validate_dump_memory_param(dump_memory: str):
 class SnapshotFlow:
     _resource_conf: VCenterResourceConfig
     _deployed_app: BaseVCenterDeployedApp
-    _logger: Logger
 
     def __attrs_post_init__(self):
-        self._si = SiHandler.from_config(self._resource_conf, self._logger)
+        self._si = SiHandler.from_config(self._resource_conf)
 
     def _get_vm(self) -> VmHandler:
         dc = DcHandler.get_dc(self._resource_conf.default_datacenter, self._si)
@@ -74,13 +75,13 @@ class SnapshotFlow:
         path = f"{type_}:{snapshot_path}"
 
         result = OrchestrationSaveRestore(
-            self._logger, self._resource_conf.name
+            logger, self._resource_conf.name
         ).prepare_orchestration_save_result(path)
         return result
 
     def orchestration_restore(self, artifacts_info: str, cs_api: CloudShellAPISession):
         result = OrchestrationSaveRestore(
-            self._logger, self._resource_conf.name
+            logger, self._resource_conf.name
         ).parse_orchestration_save_result(artifacts_info)
         type_, snapshot_path = result["path"].split(":", 1)
         if not type_ == "vcenter_snapshot":

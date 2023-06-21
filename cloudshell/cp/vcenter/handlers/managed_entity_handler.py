@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from logging import Logger
 from typing import TYPE_CHECKING, Generic, TypeVar
 
 from attrs import define
@@ -25,10 +24,6 @@ class ManagedEntityHandler(Generic[VC_TYPE]):
 
     def __repr__(self) -> str:
         return f"{self._class_name} '{self.name}'"
-
-    @property
-    def logger(self) -> Logger:
-        return self.si.logger
 
     @property
     def name(self) -> str:

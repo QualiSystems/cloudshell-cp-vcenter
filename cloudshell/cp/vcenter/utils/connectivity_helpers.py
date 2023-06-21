@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 from typing import TYPE_CHECKING
 
@@ -22,6 +23,9 @@ from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 
 if TYPE_CHECKING:
     from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
+
+
+logger = logging.getLogger(__name__)
 
 
 MAX_DVSWITCH_LENGTH = 60
@@ -66,9 +70,7 @@ def get_available_vnic(
         except VnicWithoutNetwork:
             # when cloning a VM to the host which is not connected to the same dvswitch
             # a new VM's vNIC is created without network
-            vm.logger.warning(
-                f"You have a wrong network configuration for the {vm.host}"
-            )
+            logger.warning(f"You have a wrong network configuration for the {vm.host}")
             break
         else:
             if is_vnic_network_can_be_replaced(
@@ -95,7 +97,7 @@ def create_new_vnic(
     else:
         # we need to have the same number of interfaces on the VM and in the
         # customization spec
-        vm.si.logger.info(f"Adding a new vNIC to the customization spec for the {vm}")
+        logger.info(f"Adding a new vNIC to the customization spec for the {vm}")
         if custom_spec.number_of_vnics > 0:
             custom_spec.add_new_vnic()
             vm.si.overwrite_customization_spec(custom_spec)
