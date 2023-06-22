@@ -26,7 +26,7 @@ from cloudshell.cp.vcenter.models.deployed_app import (
     VMFromTemplateDeployedApp,
     VMFromVMDeployedApp,
 )
-from cloudshell.cp.vcenter.utils.bytes_converter import format_bytes
+from cloudshell.cp.vcenter.utils.units_converter import format_bytes
 
 if TYPE_CHECKING:
     from logging import Logger
