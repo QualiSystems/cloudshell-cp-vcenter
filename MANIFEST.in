@@ -1,3 +1,2 @@
 include *.txt
-global-include *.ini, *.json
-prune .tox
+global-include *.json
