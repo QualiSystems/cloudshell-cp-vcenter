@@ -19,23 +19,25 @@ PREFIX_GHZ = "GHz"
 HERTZ_PREFIX_LABELS = [PREFIX_HZ, PREFIX_KHZ, PREFIX_MHZ, PREFIX_GHZ]
 
 
-def _format_units(size, prefix, prefixes, unit_step):
+def _format_units(size: int | float, prefix: str, prefixes: list[str], unit_step: int):
     prefix_idx = prefixes.index(prefix)
 
     while size // unit_step and prefix_idx < len(prefixes) - 1:
         prefix_idx += 1
         size /= unit_step
 
-    return f"{size:.2f} {prefixes[prefix_idx]}"
+    # remove trailing zeros and decimal point
+    num = f"{size:.2f}".strip("0").strip(".") or "0"
+    return f"{num} {prefixes[prefix_idx]}"
 
 
-def format_bytes(size, prefix=PREFIX_B):
+def format_bytes(size: int | float, prefix: str = PREFIX_B):
     return _format_units(
         size=size, prefix=prefix, prefixes=BYTES_PREFIX_LABELS, unit_step=BASE_10
     )
 
 
-def format_hertz(size, prefix=PREFIX_HZ):
+def format_hertz(size: int | float, prefix: str = PREFIX_HZ):
     return _format_units(
         size=size, prefix=prefix, prefixes=HERTZ_PREFIX_LABELS, unit_step=BASE_SI
     )
