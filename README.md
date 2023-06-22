@@ -1,5 +1,5 @@
 # cloudshell-cp-vcenter
-[![Build status](https://travis-ci.org/QualiSystems/cloudshell-cp-vcenter.svg?branch=dev)](https://travis-ci.org/QualiSystems/cloudshell-cp-vcenter)
+[![Build status](https://github.com/QualiSystems/cloudshell-cp-vcenter/workflows/CI/badge.svg?branch=master)](https://github.com/QualiSystems/cloudshell-cp-vcenter/actions?query=branch%3Amaster)
 [![codecov](https://codecov.io/gh/QualiSystems/cloudshell-cp-vcenter/branch/dev/graph/badge.svg)](https://codecov.io/gh/QualiSystems/cloudshell-cp-vcenter)
 [![PyPI version](https://badge.fury.io/py/cloudshell-cp-vcenter.svg)](https://badge.fury.io/py/cloudshell-cp-vcenter)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/python/black)
