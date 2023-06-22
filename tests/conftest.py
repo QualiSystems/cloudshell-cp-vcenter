@@ -1,5 +1,5 @@
 import json
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
@@ -24,6 +24,12 @@ from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 @pytest.fixture()
 def logger():
     return MagicMock()
+
+
+@pytest.fixture
+def sleepless(monkeypatch):
+    with patch("time.sleep"):
+        yield
 
 
 @pytest.fixture()
