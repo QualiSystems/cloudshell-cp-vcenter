@@ -209,6 +209,7 @@ class VSphereSDKHandler:
         """Get/Create tags and assign to provided vCenter object."""
         if not tags:
             tags = self._tags_manager.get_default_tags()
+        tags = _normalize_tags(tags)
 
         tag_ids = []
         for category_name, tag in tags.items():
@@ -294,3 +295,11 @@ class VSphereSDKHandler:
         object_type = obj._wsdl_name
         self._logger.debug(f"Object type: {object_type}, Object ID: {object_id}")
         return object_id, object_type
+
+
+def _normalize_tags(tags: dict[str, str]) -> dict[str, str]:
+    """Normalize tags.
+
+    vCenter automatically removes whitespaces from tag names.
+    """
+    return {key: value.strip() for key, value in tags.items()}
