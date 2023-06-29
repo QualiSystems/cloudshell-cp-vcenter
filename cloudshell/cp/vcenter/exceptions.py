@@ -1,4 +1,8 @@
+from __future__ import annotations
+
 from collections.abc import Iterable
+
+from attrs import define
 
 
 class BaseVCenterException(Exception):
@@ -26,8 +30,15 @@ class InvalidAttributeException(BaseVCenterException):
     """Attribute is not valid."""
 
 
+@define
 class VMIPNotFoundException(BaseVCenterException):
-    """Object not found."""
+    ip_regex: str | None = None
+
+    def __str__(self):
+        msg = "IP address not found"
+        if self.ip_regex:
+            msg = f"{msg} by regex: {self.ip_regex}"
+        return msg
 
 
 class EmptyOVFToolResultException(BaseVCenterException):

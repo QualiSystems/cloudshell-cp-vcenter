@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import suppress
 from typing import TYPE_CHECKING, Union
 
 from cloudshell.cp.core.request_actions.models import (
@@ -9,6 +10,7 @@ from cloudshell.cp.core.request_actions.models import (
 )
 
 from cloudshell.cp.vcenter.actions.vm_network import VMNetworkActions
+from cloudshell.cp.vcenter.exceptions import VMIPNotFoundException
 from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
 from cloudshell.cp.vcenter.handlers.vm_handler import PowerState, VmHandler
 from cloudshell.cp.vcenter.models.deploy_app import (
@@ -76,15 +78,7 @@ class VMDetailsActions(VMNetworkActions):
         """Prepare VM Network data."""
         self._logger.info(f"Preparing VM Details network data for the {vm}")
         network_interfaces = []
-
-        if isinstance(app_model, StaticVCenterDeployedApp):
-            # try to get VM IP without waiting
-            primary_ip = self.get_vm_ip(vm, timeout=0)
-        elif vm.power_state is PowerState.ON:
-            # try to get VM IP without waiting, use IP regex if present
-            primary_ip = self.get_vm_ip(vm, ip_regex=app_model.ip_regex, timeout=0)
-        else:
-            primary_ip = None
+        primary_ip = self._get_primary_ip(app_model, vm)
 
         for vnic in vm.vnics:
             network = vnic.network
@@ -93,7 +87,7 @@ class VMDetailsActions(VMNetworkActions):
 
             if vlan_id and (self.is_quali_network(network.name) or is_predefined):
                 vnic_ip = vnic.ipv4
-                is_primary = primary_ip == vnic_ip if vnic_ip and primary_ip else False
+                is_primary = primary_ip == vnic_ip if primary_ip else False
 
                 network_data = [
                     VmDetailsProperty(key="IP", value=vnic_ip),
@@ -113,6 +107,17 @@ class VMDetailsActions(VMNetworkActions):
                 network_interfaces.append(interface)
 
         return network_interfaces
+
+    def _get_primary_ip(self, app_model, vm) -> str | None:
+        primary_ip = None
+        with suppress(VMIPNotFoundException):
+            if isinstance(app_model, StaticVCenterDeployedApp):
+                # try to get VM IP without waiting
+                primary_ip = self.get_vm_ip(vm, timeout=0)
+            elif vm.power_state is PowerState.ON:
+                # try to get VM IP without waiting, use IP regex if present
+                primary_ip = self.get_vm_ip(vm, ip_regex=app_model.ip_regex, timeout=0)
+        return primary_ip
 
     @staticmethod
     def prepare_vm_from_vm_details(

@@ -42,11 +42,15 @@ class VMNetworkActions:
         skip_networks: list[NetworkHandler],
         is_ip_pass_regex: callable[[str | None], bool],
     ) -> str | None:
-        self._logger.info(f"Searching for the IPv4 address of the {vm}")
-        ip = vm.primary_ipv4
-        if not ip or not is_ip_pass_regex(ip):
-            self._logger.debug(f"{vm} doesn't have a primary IPv4 address")
+        self._logger.debug(f"Searching for the IPv4 address of the {vm}")
+        ip = None
+        primary_ip = vm.primary_ipv4
+        if is_ip_pass_regex(primary_ip):
+            ip = primary_ip
+            self._logger.debug(f"Use primary IPv4 address of the {vm}")
+        else:
             for vnic in vm.vnics:
+                self._logger.debug(f"Checking {vnic} with ip {vnic.ipv4}")
                 if vnic.network not in skip_networks and is_ip_pass_regex(vnic.ipv4):
                     self._logger.debug(f"Found IP {vnic.ipv4} on {vnic}")
                     ip = vnic.ipv4
@@ -71,7 +75,7 @@ class VMNetworkActions:
             if ip:
                 break
             if datetime.now() > timeout_time:
-                raise VMIPNotFoundException("Unable to get VM IP")
+                raise VMIPNotFoundException(ip_regex)
             time.sleep(self.DEFAULT_IP_DELAY)
         return ip
 
