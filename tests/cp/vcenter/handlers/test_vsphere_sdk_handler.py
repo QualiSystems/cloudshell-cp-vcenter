@@ -1,7 +1,12 @@
 from unittest.mock import Mock
 
+import pytest
+
 from cloudshell.cp.vcenter.handlers.vsphere_api_handler import TagAlreadyExists
-from cloudshell.cp.vcenter.handlers.vsphere_sdk_handler import VSphereSDKHandler
+from cloudshell.cp.vcenter.handlers.vsphere_sdk_handler import (
+    VSphereSDKHandler,
+    _normalize_tags,
+)
 
 
 def test_tag_was_deleted_while_we_searching_for_it(logger):
@@ -19,3 +24,14 @@ def test_tag_was_deleted_while_we_searching_for_it(logger):
 
     handler = VSphereSDKHandler(client, None, logger)
     assert handler._get_or_create_tag("tag_name", "category_id") == "tag_id"
+
+
+@pytest.mark.parametrize(
+    ("tags", "expected"),
+    [
+        ({"tag1": "value1"}, {"tag1": "value1"}),
+        ({"tag1": " value1 "}, {"tag1": "value1"}),
+    ],
+)
+def test__normalize_tags(tags, expected):
+    assert _normalize_tags(tags) == expected
