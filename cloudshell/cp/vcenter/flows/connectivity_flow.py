@@ -4,18 +4,19 @@ import logging
 from collections.abc import Collection
 from contextlib import suppress
 from threading import Lock
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from cloudshell.shell.flows.connectivity.basic_flow import AbstractConnectivityFlow
+from attrs import define, field
+
+from cloudshell.shell.flows.connectivity.cloud_providers_flow import (
+    AbcCloudProviderConnectivityFlow,
+    VnicInfo,
+)
 from cloudshell.shell.flows.connectivity.models.connectivity_model import (
     ConnectionModeEnum,
-    ConnectivityActionModel,
 )
 from cloudshell.shell.flows.connectivity.models.driver_response import (
     ConnectivityActionResult,
-)
-from cloudshell.shell.flows.connectivity.parse_request_service import (
-    AbstractParseConnectivityService,
 )
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
@@ -35,6 +36,7 @@ from cloudshell.cp.vcenter.handlers.switch_handler import (
     PortGroupExists,
 )
 from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
+from cloudshell.cp.vcenter.handlers.vnic_handler import Vnic, VnicNotFound
 from cloudshell.cp.vcenter.handlers.vsphere_api_handler import (
     NotEnoughPrivilegesListObjectTags,
 )
@@ -46,11 +48,11 @@ from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 from cloudshell.cp.vcenter.utils.connectivity_helpers import (
     create_new_vnic,
     generate_port_group_name,
-    get_available_vnic,
     get_existed_port_group_name,
     get_forged_transmits,
     get_mac_changes,
     get_promiscuous_mode,
+    is_network_generated_name,
     should_remove_port_group,
 )
 
@@ -70,26 +72,26 @@ class DvSwitchNameEmpty(BaseVCenterException):
         super().__init__(msg)
 
 
-class VCenterConnectivityFlow(AbstractConnectivityFlow):
-    def __init__(
-        self,
-        resource_conf: VCenterResourceConfig,
-        reservation_info: ReservationInfo,
-        parse_connectivity_request_service: AbstractParseConnectivityService,
-    ):
-        super().__init__(parse_connectivity_request_service, logger)
-        self._resource_conf = resource_conf
-        self._reservation_info = reservation_info
-        self._si = SiHandler.from_config(resource_conf)
+@define
+class VCenterConnectivityFlow(AbcCloudProviderConnectivityFlow):
+    _resource_conf: VCenterResourceConfig
+    _reservation_info: ReservationInfo
+    _network_lock: Lock = field(init=False, factory=Lock)
+
+    def __attrs_post_init__(self):
+        self._si = SiHandler.from_config(self._resource_conf)
         self._vsphere_client = VSphereSDKHandler.from_config(
             resource_config=self._resource_conf,
             reservation_info=self._reservation_info,
             si=self._si,
         )
-        self._network_lock = Lock()
+        self._dc = DcHandler.get_dc(self._resource_conf.default_datacenter, self._si)
+        self._default_network = self._dc.get_network(
+            self._resource_conf.holding_network
+        )
 
-    def _validate_received_actions(
-        self, actions: Collection[ConnectivityActionModel]
+    def validate_actions(
+        self, actions: Collection[VcenterConnectivityActionModel]
     ) -> None:
         all_actions_with_switch = all(
             a.connection_params.vlan_service_attrs.switch_name for a in actions
@@ -97,85 +99,83 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         if not self._resource_conf.default_dv_switch and not all_actions_with_switch:
             raise DvSwitchNameEmpty
 
-    def _set_vlan(
-        self, action: VcenterConnectivityActionModel
+    def load_target(self, target_name: str) -> Any:
+        return self._dc.get_vm_by_uuid(target_name)
+
+    def get_vnics(self, vm: VmHandler) -> Collection[VnicInfo]:
+        def get_vnic_info(vnic: Vnic) -> VnicInfo:
+            return VnicInfo(
+                vnic.name,
+                int(self.vnic_name_to_index(vnic.name, vm)),
+                self._network_can_be_replaced(vnic.network),
+            )
+
+        return tuple(map(get_vnic_info, vm.vnics))
+
+    def set_vlan(
+        self, action: VcenterConnectivityActionModel, target: VmHandler = None
     ) -> ConnectivityActionResult:
+        assert isinstance(target, VmHandler)
         vlan_id = action.connection_params.vlan_id
-        vc_conf = self._resource_conf
-        dc = DcHandler.get_dc(vc_conf.default_datacenter, self._si)
-        vm = dc.get_vm_by_uuid(action.custom_action_attrs.vm_uuid)
-        default_network = dc.get_network(vc_conf.holding_network)
-        logger.info(f"Start setting vlan {vlan_id} for the {vm}")
+        vnic_name = action.custom_action_attrs.vnic
+        logger.info(f"Start setting vlan {vlan_id} for the {target}")
 
-        switch = self._get_switch(dc, vm, action)
+        switch = self._get_switch(target, action)
         with self._network_lock:
-            network = self._get_or_create_network(dc, switch, action)
-            if action.custom_action_attrs.vnic:
-                vnic = vm.get_vnic(action.custom_action_attrs.vnic)
-            else:
-                vnic = get_available_vnic(
-                    vm, default_network, vc_conf.reserved_networks
-                )
-
+            network = self._get_or_create_network(switch, action)
             try:
-                if not vnic:
-                    vnic = create_new_vnic(vm, network)
-                else:
-                    vnic.connect(network)
-            except Exception:
-                if should_remove_port_group(network.name, action):
-                    self._remove_network(network, vm)
-                raise
+                vnic = target.get_vnic(vnic_name)
+            except VnicNotFound:
+                vnic = create_new_vnic(target, network, vnic_name)
+            else:
+                vnic.connect(network)
+
         msg = f"Setting VLAN {vlan_id} successfully completed"
         return ConnectivityActionResult.success_result_vm(action, msg, vnic.mac_address)
 
-    def _remove_vlan(
-        self, action: VcenterConnectivityActionModel
+    def remove_vlan(
+        self, action: VcenterConnectivityActionModel, target: VmHandler = None
     ) -> ConnectivityActionResult:
-        vc_conf = self._resource_conf
-        dc = DcHandler.get_dc(vc_conf.default_datacenter, self._si)
-        vm = dc.get_vm_by_uuid(action.custom_action_attrs.vm_uuid)
-        default_network = dc.get_network(vc_conf.holding_network)
-        vnic = vm.get_vnic_by_mac(action.connector_attrs.interface)
+        assert isinstance(target, VmHandler)
+        vnic = target.get_vnic_by_mac(action.connector_attrs.interface)
         network = vnic.network
-        logger.info(f"Start disconnecting {network} from the {vnic} on the {vm}")
+        logger.info(f"Start disconnecting {network} from the {vnic} on the {target}")
 
-        vnic.connect(default_network)
+        vnic.connect(self._default_network)
 
         with suppress(ManagedEntityNotFound):  # network can be already removed
             if should_remove_port_group(network.name, action):
                 self._remove_network_tags(network)
-                self._remove_network(network, vm)
+                self._remove_network(network, target)
             else:
-                self._logger.info(f"{network} should not be removed")
+                logger.info(f"{network} should not be removed")
 
         msg = "Removing VLAN successfully completed"
         return ConnectivityActionResult.success_result_vm(action, msg, vnic.mac_address)
 
     def _get_switch(
-        self, dc: DcHandler, vm: VmHandler, action: VcenterConnectivityActionModel
+        self, vm: VmHandler, action: VcenterConnectivityActionModel
     ) -> AbstractSwitchHandler:
         switch_name = (
             action.connection_params.vlan_service_attrs.switch_name
             or self._resource_conf.default_dv_switch
         )
         try:
-            switch = dc.get_dv_switch(switch_name)
+            switch = self._dc.get_dv_switch(switch_name)
         except DvSwitchNotFound:
             switch = vm.get_v_switch(switch_name)
         return switch
 
     def _get_or_create_network(
         self,
-        dc: DcHandler,
         switch: AbstractSwitchHandler,
         action: VcenterConnectivityActionModel,
     ) -> NetworkHandler | DVPortGroupHandler:
         pg_name = get_existed_port_group_name(action)
         if pg_name:
-            network = dc.get_network(pg_name)
+            network = self._dc.get_network(pg_name)
         else:
-            network = self._create_network_based_on_vlan_id(dc, switch, action)
+            network = self._create_network_based_on_vlan_id(switch, action)
         return network
 
     @staticmethod
@@ -216,7 +216,6 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
 
     def _create_network_based_on_vlan_id(
         self,
-        dc: DcHandler,
         switch: AbstractSwitchHandler,
         action: VcenterConnectivityActionModel,
     ) -> AbstractNetwork:
@@ -228,7 +227,7 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
         pg_name = generate_port_group_name(switch.name, vlan_id, port_mode)
 
         try:
-            network = dc.get_network(pg_name)
+            network = self._dc.get_network(pg_name)
         except NetworkNotFound:
             try:
                 switch.create_port_group(
@@ -242,7 +241,7 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
             except PortGroupExists:
                 pass
             port_group = switch.wait_port_group_appears(pg_name)
-            network = dc.wait_network_appears(pg_name)
+            network = self._dc.wait_network_appears(pg_name)
             if self._vsphere_client:
                 try:
                     self._vsphere_client.assign_tags(obj=network)
@@ -264,7 +263,6 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
 
     @staticmethod
     def _remove_network(network: DVPortGroupHandler | NetworkHandler, vm: VmHandler):
-        logger = network.logger
         if network.wait_network_become_free():
             if isinstance(network, DVPortGroupHandler):
                 network.destroy()
@@ -286,3 +284,16 @@ class VCenterConnectivityFlow(AbstractConnectivityFlow):
             except NotEnoughPrivilegesListObjectTags:
                 if not network.wait_network_disappears():
                     raise
+
+    def _network_can_be_replaced(self, net: AbstractNetwork) -> bool:
+        reserved_networks = self._resource_conf.reserved_networks
+        not_quali_name = not is_network_generated_name(net.name)
+        if not net.name:
+            result = True
+        elif net.name == self._resource_conf.holding_network:
+            result = True
+        elif net.name not in reserved_networks and not_quali_name:
+            result = True
+        else:
+            result = False
+        return result
