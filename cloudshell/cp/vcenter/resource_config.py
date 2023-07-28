@@ -1,59 +1,13 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Union
 
-from cloudshell.api.cloudshell_api import CloudShellAPISession, ResourceInfo
-from cloudshell.shell.core.driver_context import (
-    AutoLoadCommandContext,
-    ResourceCommandContext,
-    ResourceRemoteCommandContext,
-    UnreservedResourceCommandContext,
-)
-from cloudshell.shell.standards.core.resource_config_entities import (
-    GenericResourceConfig,
-    PasswordAttrRO,
-    ResourceAttrRO,
-    ResourceBoolAttrRO,
-    ResourceListAttrRO,
-)
+from attrs import define
+
+from cloudshell.api.cloudshell_api import ResourceInfo
+from cloudshell.shell.standards.core.resource_conf import BaseConfig, attr
 
 from cloudshell.cp.vcenter.constants import SHELL_NAME
-
-
-class ResourceAttrROShellName(ResourceAttrRO):
-    def __init__(self, name, namespace=ResourceAttrRO.NAMESPACE.SHELL_NAME):
-        super().__init__(name, namespace)
-
-
-class ResourceBoolAttrROShellName(ResourceBoolAttrRO):
-    def __init__(self, name, namespace=ResourceAttrRO.NAMESPACE.SHELL_NAME):
-        super().__init__(name, namespace)
-
-
-class ShutdownMethodAttrRO(ResourceAttrRO):
-    def __init__(self):
-        super().__init__(
-            VCenterAttributeNames.shutdown_method,
-            ResourceAttrROShellName.NAMESPACE.SHELL_NAME,
-        )
-
-    def __get__(self, instance, owner) -> ShutdownMethod:
-        val = super().__get__(instance, owner)
-        if val is self:
-            return val
-        try:
-            return ShutdownMethod(val)
-        except ValueError:
-            return ShutdownMethod.HARD
-
-
-CONTEXT_TYPES = Union[
-    ResourceCommandContext,
-    AutoLoadCommandContext,
-    ResourceRemoteCommandContext,
-    UnreservedResourceCommandContext,
-]
 
 
 class ShutdownMethod(Enum):
@@ -79,50 +33,33 @@ class VCenterAttributeNames:
     execution_server_selector = "Execution Server Selector"
     promiscuous_mode = "Promiscuous Mode"
     forged_transmits = "Forged Transmits"
-    mac_changes = "MAC address changes"
+    mac_changes = "MAC Address Changes"
     enable_tags = "Enable Tags"
 
 
-class VCenterResourceConfig(GenericResourceConfig):
+@define(slots=False, str=False)
+class VCenterResourceConfig(BaseConfig):
     ATTR_NAMES = VCenterAttributeNames
 
-    user = ResourceAttrROShellName(ATTR_NAMES.user)
-    password = PasswordAttrRO(ATTR_NAMES.password, PasswordAttrRO.NAMESPACE.SHELL_NAME)
-    default_datacenter = ResourceAttrROShellName(ATTR_NAMES.default_datacenter)
-    default_dv_switch = ResourceAttrROShellName(ATTR_NAMES.default_dv_switch)
-    holding_network = ResourceAttrROShellName(ATTR_NAMES.holding_network)
-    vm_cluster = ResourceAttrROShellName(ATTR_NAMES.vm_cluster)
-    vm_resource_pool = ResourceAttrROShellName(ATTR_NAMES.vm_resource_pool)
-    vm_storage = ResourceAttrROShellName(ATTR_NAMES.vm_storage)
-    saved_sandbox_storage = ResourceAttrROShellName(ATTR_NAMES.saved_sandbox_storage)
-    behavior_during_save = ResourceAttrROShellName(ATTR_NAMES.behavior_during_save)
-    vm_location = ResourceAttrROShellName(ATTR_NAMES.vm_location)
-    shutdown_method = ShutdownMethodAttrRO()
-    ovf_tool_path = ResourceAttrROShellName(ATTR_NAMES.ovf_tool_path)
-    reserved_networks = ResourceListAttrRO(
-        ATTR_NAMES.reserved_networks, ResourceListAttrRO.NAMESPACE.SHELL_NAME
-    )
-    execution_server_selector = ResourceAttrROShellName(
-        ATTR_NAMES.execution_server_selector
-    )
-    promiscuous_mode = ResourceBoolAttrROShellName(ATTR_NAMES.promiscuous_mode)
-    forged_transmits = ResourceBoolAttrROShellName(ATTR_NAMES.forged_transmits)
-    mac_changes = ResourceBoolAttrROShellName(ATTR_NAMES.mac_changes)
-    enable_tags = ResourceBoolAttrROShellName(ATTR_NAMES.enable_tags)
-
-    @classmethod
-    def from_context(
-        cls,
-        context: CONTEXT_TYPES,
-        shell_name: str = SHELL_NAME,
-        api: CloudShellAPISession | None = None,
-        supported_os: list[str] | None = None,
-    ) -> VCenterResourceConfig:
-        # noinspection PyTypeChecker
-        # return type is VCenterResourceConfig not GenericResourceConfig
-        return super().from_context(
-            context=context, shell_name=shell_name, api=api, supported_os=supported_os
-        )
+    user: str = attr(ATTR_NAMES.user)
+    password: str = attr(ATTR_NAMES.password, is_password=True)
+    default_datacenter: str = attr(ATTR_NAMES.default_datacenter)
+    default_dv_switch: str = attr(ATTR_NAMES.default_dv_switch)
+    holding_network: str = attr(ATTR_NAMES.holding_network)
+    vm_cluster: str = attr(ATTR_NAMES.vm_cluster)
+    vm_resource_pool: str = attr(ATTR_NAMES.vm_resource_pool)
+    vm_storage: str = attr(ATTR_NAMES.vm_storage)
+    saved_sandbox_storage: str = attr(ATTR_NAMES.saved_sandbox_storage)
+    # todo enum?
+    behavior_during_save: str = attr(ATTR_NAMES.behavior_during_save)
+    vm_location: str = attr(ATTR_NAMES.vm_location)
+    shutdown_method: ShutdownMethod = attr(ATTR_NAMES.shutdown_method)
+    ovf_tool_path: str = attr(ATTR_NAMES.ovf_tool_path)
+    reserved_networks: list[str] = attr(ATTR_NAMES.reserved_networks)
+    promiscuous_mode: bool = attr(ATTR_NAMES.promiscuous_mode)
+    forged_transmits: bool = attr(ATTR_NAMES.forged_transmits)
+    mac_changes: bool = attr(ATTR_NAMES.mac_changes)
+    enable_tags: bool = attr(ATTR_NAMES.enable_tags)
 
     @classmethod
     def from_cs_resource_details(
@@ -133,6 +70,7 @@ class VCenterResourceConfig(GenericResourceConfig):
         supported_os=None,
     ) -> VCenterResourceConfig:
         attrs = {attr.Name: attr.Value for attr in details.ResourceAttributes}
+        # todo static vcenter
         return cls(
             shell_name=shell_name,
             name=details.Name,
