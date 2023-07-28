@@ -83,13 +83,20 @@ def get_available_vnic(
 
 
 def create_new_vnic(
-    vm: VmHandler, network: NetworkHandler | DVPortGroupHandler
+    vm: VmHandler, network: NetworkHandler | DVPortGroupHandler, vnic_index: str
 ) -> Vnic:
     if len(vm.vnics) >= 10:
         raise BaseVCenterException("Limit of vNICs per VM is 10")
 
-    vnic = vm.vnic_class.create(network)
+    try:
+        last_vnic = vm.vnics[-1]
+    except IndexError:
+        pass  # no vNICs on the VM
+    else:
+        # connectivity flow should return new vNICs only if previous one exists
+        assert last_vnic.index == int(vnic_index) - 1
 
+    vnic = vm.vnic_class.create(network)
     try:
         custom_spec = vm.si.get_customization_spec(vm.name)
     except CustomSpecNotFound:
