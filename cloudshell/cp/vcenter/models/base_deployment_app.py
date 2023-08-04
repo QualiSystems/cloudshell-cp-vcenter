@@ -1,14 +1,9 @@
 from __future__ import annotations
 
 import re
+from typing import Any
 
-import attr
-
-from cloudshell.shell.standards.core.resource_config_entities import (
-    ResourceAttrRO,
-    ResourceBoolAttrRO,
-    ResourceListAttrRO,
-)
+from attrs import define, field
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
 
@@ -62,19 +57,49 @@ class VCenterVMFromImageDeploymentAppAttributeNames(VCenterDeploymentAppAttribut
     vcenter_image_arguments = "vCenter Image Arguments"
 
 
-class ResourceAttrRODeploymentPath(ResourceAttrRO):
-    def __init__(self, name, namespace="DEPLOYMENT_PATH"):
-        super().__init__(name, namespace)
+@define
+class ResourceAttrRODeploymentPath:
+    name: str
+    default: Any = None
+
+    def get_key(self, instance) -> str:
+        dp = instance.DEPLOYMENT_PATH
+        return f"{dp}.{self.name}"
+
+    def __get__(self, instance, owner):
+        if instance is None:
+            return self
+
+        return instance.attributes.get(self.get_key(instance), self.default)
 
 
-class ResourceBoolAttrRODeploymentPath(ResourceBoolAttrRO):
-    def __init__(self, name, namespace="DEPLOYMENT_PATH", *args, **kwargs):
-        super().__init__(name, namespace, *args, **kwargs)
+class ResourceBoolAttrRODeploymentPath(ResourceAttrRODeploymentPath):
+    TRUE_VALUES = {"true", "yes", "y"}
+    FALSE_VALUES = {"false", "no", "n"}
+
+    def __get__(self, instance, owner):
+        val = super().__get__(instance, owner)
+        if val is self or val is self.default or not isinstance(val, str):
+            return val
+        if val.lower() in self.TRUE_VALUES:
+            return True
+        if val.lower() in self.FALSE_VALUES:
+            return False
+        raise ValueError(f"{self.name} is boolean attr, but value is {val}")
 
 
-class ResourceListAttrRODeploymentPath(ResourceListAttrRO):
-    def __init__(self, name, namespace="DEPLOYMENT_PATH", *args, **kwargs):
-        super().__init__(name, namespace, *args, **kwargs)
+class ResourceListAttrRODeploymentPath(ResourceAttrRODeploymentPath):
+    def __init__(self, name, sep=";", default=None):
+        if default is None:
+            default = []
+        super().__init__(name, default)
+        self._sep = sep
+
+    def __get__(self, instance, owner):
+        val = super().__get__(instance, owner)
+        if val is self or val is self.default or not isinstance(val, str):
+            return val
+        return list(filter(bool, map(str.strip, val.split(self._sep))))
 
 
 class IncorrectHddSpecFormat(BaseVCenterException):
@@ -86,11 +111,7 @@ class IncorrectHddSpecFormat(BaseVCenterException):
         )
 
 
-# todo move to shell standards
-class ResourceIntAttrRO(ResourceAttrRO):
-    def __init__(self, name, namespace, default=0):
-        super().__init__(name, namespace, default)
-
+class ResourceIntAttrRODeploymentPath(ResourceAttrRODeploymentPath):
     def __get__(self, instance, owner) -> int:
         val = super().__get__(instance, owner)
         if val is self or val is self.default:
@@ -98,25 +119,12 @@ class ResourceIntAttrRO(ResourceAttrRO):
         return int(val) if val else None
 
 
-class ResourceFloatAttrRO(ResourceAttrRO):
-    def __init__(self, name, namespace, default=0.0):
-        super().__init__(name, namespace, default)
-
+class ResourceFloatAttrRODeploymentPath(ResourceAttrRODeploymentPath):
     def __get__(self, instance, owner) -> float:
         val = super().__get__(instance, owner)
         if val is self or val is self.default:
             return val
         return float(val) if val else None
-
-
-class ResourceIntAttrRODeploymentPath(ResourceIntAttrRO):
-    def __init__(self, name, namespace="DEPLOYMENT_PATH", *args, **kwargs):
-        super().__init__(name, namespace, *args, **kwargs)
-
-
-class ResourceFloatAttrRODeploymentPath(ResourceFloatAttrRO):
-    def __init__(self, name, namespace="DEPLOYMENT_PATH", *args, **kwargs):
-        super().__init__(name, namespace, *args, **kwargs)
 
 
 class HddSpecsAttrRO(ResourceListAttrRODeploymentPath):
@@ -127,10 +135,10 @@ class HddSpecsAttrRO(ResourceListAttrRODeploymentPath):
         return val
 
 
-@attr.s(auto_attribs=True)
+@define
 class HddSpec:
     num: int
-    size: float = attr.ib(..., cmp=False)
+    size: float = field(order=False)
 
     @classmethod
     def from_str(cls, text: str) -> HddSpec:
