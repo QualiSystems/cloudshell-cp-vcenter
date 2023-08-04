@@ -52,7 +52,7 @@ def resource_context_details() -> ResourceContextDetails:
         fullname="fullname",
         type="type",
         address="192.168.1.2",
-        model="model",
+        model=SHELL_NAME,
         family="family",
         description="",
         attributes={},
@@ -117,6 +117,9 @@ def resource_conf(resource_command_context, cs_api) -> VCenterResourceConfig:
     reserved_networks = "10.1.0.0/24;10.1.1.0/24"
     execution_server_selector = "Execution Server Selector"
     promiscuous_mode = "true"
+    forged_transmits = "true"
+    mac_address_changes = "false"
+    enable_tags = "true"
 
     a_name = VCenterResourceConfig.ATTR_NAMES
     get_full_a_name = lambda n: f"{SHELL_NAME}.{n}"  # noqa: E731
@@ -140,14 +143,12 @@ def resource_conf(resource_command_context, cs_api) -> VCenterResourceConfig:
                 a_name.execution_server_selector
             ): execution_server_selector,
             get_full_a_name(a_name.promiscuous_mode): promiscuous_mode,
+            get_full_a_name(a_name.forged_transmits): forged_transmits,
+            get_full_a_name(a_name.mac_changes): mac_address_changes,
+            get_full_a_name(a_name.enable_tags): enable_tags,
         }
     )
-    conf = VCenterResourceConfig.from_context(
-        context=resource_command_context,
-        shell_name=SHELL_NAME,
-        api=cs_api,
-        supported_os=None,
-    )
+    conf = VCenterResourceConfig.from_context(resource_command_context, cs_api)
 
     return conf
 

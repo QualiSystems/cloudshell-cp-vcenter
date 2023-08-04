@@ -11,8 +11,8 @@ from cloudshell.cp.vcenter.actions.vm_network import (
 
 
 @pytest.fixture()
-def vm_net_actions(logger, cancellation_manager, resource_conf):
-    return VMNetworkActions(resource_conf, logger, cancellation_manager)
+def vm_net_actions(cancellation_manager, resource_conf):
+    return VMNetworkActions(resource_conf, cancellation_manager)
 
 
 @pytest.mark.parametrize(
