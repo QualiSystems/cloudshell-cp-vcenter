@@ -1,13 +1,20 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from enum import Enum
 
+from attr import Attribute
 from attrs import define
 
-from cloudshell.api.cloudshell_api import ResourceInfo
+from cloudshell.api.cloudshell_api import CloudShellAPISession, ResourceInfo
+from cloudshell.shell.standards.core.namespace_type import NameSpaceType
 from cloudshell.shell.standards.core.resource_conf import BaseConfig, attr
-
-from cloudshell.cp.vcenter.constants import SHELL_NAME
+from cloudshell.shell.standards.core.resource_conf.attrs_getter import (
+    MODEL,
+    AbsAttrsGetter,
+)
+from cloudshell.shell.standards.core.resource_conf.base_conf import password_decryptor
+from cloudshell.shell.standards.core.resource_conf.resource_attr import AttrMeta
 
 
 class ShutdownMethod(Enum):
@@ -65,20 +72,48 @@ class VCenterResourceConfig(BaseConfig):
     def from_cs_resource_details(
         cls,
         details: ResourceInfo,
-        shell_name: str = SHELL_NAME,
-        api=None,
-        supported_os=None,
+        api: CloudShellAPISession,
     ) -> VCenterResourceConfig:
-        attrs = {attr.Name: attr.Value for attr in details.ResourceAttributes}
-        # todo static vcenter
+        attrs = ResourceInfoAttrGetter(
+            cls, password_decryptor(api), details
+        ).get_attrs()
+        converter = cls._CONVERTER(cls, attrs)
         return cls(
-            shell_name=shell_name,
             name=details.Name,
-            fullname=details.Name,
-            address=details.Address,
+            shell_name=details.ResourceModelName,
             family_name=details.ResourceFamilyName,
-            attributes=attrs,
-            supported_os=supported_os,
+            address=details.Address,
             api=api,
-            cs_resource_id=details.UniqeIdentifier,
+            **converter.convert(),
         )
+
+
+class ResourceInfoAttrGetter(AbsAttrsGetter):
+    def __init__(
+        self,
+        model_cls: type[MODEL],
+        decrypt_password: Callable[[str], str],
+        details: ResourceInfo,
+    ):
+        super().__init__(model_cls, decrypt_password)
+        self.details = details
+        self._attrs = {a.Name: a.Value for a in details.ResourceAttributes}
+        self.shell_name = details.ResourceModelName
+        self.family_name = details.ResourceFamilyName
+
+    def _extract_attr_val(self, f: Attribute, meta: AttrMeta) -> str:
+        key = self._get_key(meta)
+        return self._attrs[key]
+
+    def _get_key(self, meta: AttrMeta) -> str:
+        namespace = self._get_namespace(meta.namespace_type)
+        return f"{namespace}.{meta.name}"
+
+    def _get_namespace(self, namespace_type: NameSpaceType) -> str:
+        if namespace_type is NameSpaceType.SHELL_NAME:
+            namespace = self.shell_name
+        elif namespace_type is NameSpaceType.FAMILY_NAME:
+            namespace = self.family_name
+        else:
+            raise ValueError(f"Unknown namespace: {namespace_type}")
+        return namespace
