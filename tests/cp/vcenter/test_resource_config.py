@@ -22,6 +22,12 @@ def test_resource_config(resource_command_context, cs_api):
     execution_server_selector = "Execution Server Selector"
     promiscuous_mode = "true"
     expected_promiscuous_mode = True
+    forged_transmits = "true"
+    expected_forged_transmits = True
+    mac_address_changes = "false"
+    expected_mac_address_changes = False
+    enable_tags = "true"
+    expected_enable_tags = True
 
     a_name = VCenterResourceConfig.ATTR_NAMES
     get_full_a_name = lambda n: f"{SHELL_NAME}.{n}"  # noqa: E731
@@ -45,14 +51,12 @@ def test_resource_config(resource_command_context, cs_api):
                 a_name.execution_server_selector
             ): execution_server_selector,
             get_full_a_name(a_name.promiscuous_mode): promiscuous_mode,
+            get_full_a_name(a_name.forged_transmits): forged_transmits,
+            get_full_a_name(a_name.mac_changes): mac_address_changes,
+            get_full_a_name(a_name.enable_tags): enable_tags,
         }
     )
-    conf = VCenterResourceConfig.from_context(
-        context=resource_command_context,
-        shell_name=SHELL_NAME,
-        api=cs_api,
-        supported_os=None,
-    )
+    conf = VCenterResourceConfig.from_context(resource_command_context, cs_api)
 
     assert conf.user == user
     assert conf.password == password
@@ -68,5 +72,7 @@ def test_resource_config(resource_command_context, cs_api):
     assert conf.shutdown_method == expected_shutdown_method
     assert conf.ovf_tool_path == ovf_tool_path
     assert conf.reserved_networks == expected_reserved_networks
-    assert conf.execution_server_selector == execution_server_selector
     assert conf.promiscuous_mode == expected_promiscuous_mode
+    assert conf.forged_transmits == expected_forged_transmits
+    assert conf.mac_changes == expected_mac_address_changes
+    assert conf.enable_tags == expected_enable_tags
