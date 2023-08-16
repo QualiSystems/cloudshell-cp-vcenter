@@ -7,6 +7,7 @@ from collections.abc import Callable
 import attr
 import requests
 import urllib3
+from retrying import retry
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
 from cloudshell.cp.vcenter.models.vsphere_tagging import CategorySpec, TagSpec
@@ -369,6 +370,12 @@ class VSphereAutomationAPI(BaseAPIClient):
         )
 
     @Decorators.get_data
+    @retry(
+        wait_random_min=2 * 1000,
+        wait_random_max=8 * 1000,
+        stop_max_delay=60 * 1000,
+        retry_on_exception=lambda e: isinstance(e, NotEnoughPrivilegesListObjectTags),
+    )
     def list_attached_tags(self, obj_id: str, obj_type: str):
         """Get the list of tags attached to the given object.
 
@@ -388,6 +395,12 @@ class VSphereAutomationAPI(BaseAPIClient):
         )
 
     @Decorators.get_data
+    @retry(
+        wait_random_min=2 * 1000,
+        wait_random_max=8 * 1000,
+        stop_max_delay=60 * 1000,
+        retry_on_exception=lambda e: isinstance(e, NotEnoughPrivilegesReadTag),
+    )
     def list_attached_objects(self, tag_id: str):
         """Get the list of attached objects for the given tag.
 

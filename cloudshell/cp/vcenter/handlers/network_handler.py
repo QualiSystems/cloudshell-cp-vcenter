@@ -58,11 +58,16 @@ class AbstractNetwork(ManagedEntityHandler):
     def in_use(self) -> bool:
         return bool(self._vc_obj.vm)
 
-    def wait_network_become_free(self, delay: int = 2, timeout: int = 30) -> bool:
+    def wait_network_become_free(
+        self, delay: int = 2, timeout: int = 30, raise_: bool = False
+    ) -> bool:
         """Will wait for empty list of VMs."""
         end_time = time.time() + timeout
         while self.in_use and time.time() < end_time:
             time.sleep(delay)
+
+        if self.in_use and raise_:
+            raise ResourceInUse(self.name)
         return not self.in_use
 
     def wait_network_disappears(self, delay: int = 2, timeout: int = 60 * 2) -> bool:
