@@ -16,6 +16,8 @@ from cloudshell.shell.standards.core.resource_conf.attrs_getter import (
 from cloudshell.shell.standards.core.resource_conf.base_conf import password_decryptor
 from cloudshell.shell.standards.core.resource_conf.resource_attr import AttrMeta
 
+from cloudshell.cp.vcenter.constants import STATIC_SHELL_NAME
+
 
 class ShutdownMethod(Enum):
     SOFT = "soft"
@@ -86,6 +88,10 @@ class VCenterResourceConfig(BaseConfig):
             api=api,
             **converter.convert(),
         )
+
+    @property
+    def is_static(self) -> bool:
+        return STATIC_SHELL_NAME == self.shell_name
 
 
 class ResourceInfoAttrGetter(AbsAttrsGetter):
