@@ -4,6 +4,8 @@ import logging
 import re
 from typing import TYPE_CHECKING
 
+from attrs import define
+
 from cloudshell.shell.flows.connectivity.models.connectivity_model import (
     ConnectionModeEnum,
 )
@@ -19,7 +21,6 @@ from cloudshell.cp.vcenter.handlers.vnic_handler import Vnic, VnicWithoutNetwork
 from cloudshell.cp.vcenter.models.connectivity_action_model import (
     VcenterConnectivityActionModel,
 )
-from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 
 if TYPE_CHECKING:
     from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
@@ -31,6 +32,14 @@ logger = logging.getLogger(__name__)
 MAX_DVSWITCH_LENGTH = 60
 QS_NAME_PREFIX = "QS"
 PORT_GROUP_NAME_PATTERN = re.compile(rf"{QS_NAME_PREFIX}_.+_VLAN")
+
+
+@define
+class PgCanNotBeRemoved(BaseVCenterException):
+    name: str
+
+    def __str__(self):
+        return f"Port group {self.name} can't be removed, it's not created by the Shell"
 
 
 def generate_port_group_name(
@@ -146,28 +155,6 @@ def should_remove_port_group(name: str, action: VcenterConnectivityActionModel) 
     )
 
 
-def get_forged_transmits(
-    action: VcenterConnectivityActionModel, r_conf: VCenterResourceConfig
-) -> bool:
-    forged_transmits = action.connection_params.vlan_service_attrs.forged_transmits
-    if forged_transmits is None:
-        forged_transmits = r_conf.forged_transmits
-    return forged_transmits
-
-
-def get_promiscuous_mode(
-    action: VcenterConnectivityActionModel, r_conf: VCenterResourceConfig
-) -> bool:
-    promiscuous_mode = action.connection_params.vlan_service_attrs.promiscuous_mode
-    if promiscuous_mode is None:
-        promiscuous_mode = r_conf.promiscuous_mode
-    return promiscuous_mode
-
-
-def get_mac_changes(
-    action: VcenterConnectivityActionModel, r_conf: VCenterResourceConfig
-) -> bool:
-    mac_changes = action.connection_params.vlan_service_attrs.mac_changes
-    if mac_changes is None:
-        mac_changes = r_conf.mac_changes
-    return mac_changes
+def check_pg_can_be_removed(name: str, action: VcenterConnectivityActionModel) -> None:
+    if not should_remove_port_group(name, action):
+        raise PgCanNotBeRemoved(name)

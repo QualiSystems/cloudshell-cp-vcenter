@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import logging
+import time
+from collections.abc import Collection
 from typing import Union
 
 import attr
 from packaging import version
 from retrying import retry
+from typing_extensions import Self
 
 from cloudshell.cp.core.reservation_info import ReservationInfo
 
@@ -82,6 +85,16 @@ class VSphereSDKHandler:
         else:
             logger.warning(f"Tags available only from vCenter {cls.VCENTER_VERSION}")
             return None
+
+    @classmethod
+    def connect(cls, address: str, user: str, password: str) -> Self:
+        vsphere_client = VSphereAutomationAPI(
+            address=address,
+            username=user,
+            password=password,
+        )
+        vsphere_client.connect()
+        return cls(vsphere_client, None)
 
     def _get_all_categories(self) -> dict[str:str]:
         """Get all existing categories."""
@@ -219,13 +232,29 @@ class VSphereSDKHandler:
 
         self._create_multiple_tag_association(obj=obj, tag_ids=tag_ids)
 
-    def _get_attached_tags(self, obj: OBJECTS_WITH_TAGS) -> list[str]:
+    def get_attached_tags(self, obj: OBJECTS_WITH_TAGS) -> list[str]:
         """Determine all tags attached to vCenter object."""
         object_id, object_type = self._get_object_id_and_type(obj)
         tag_ids = self._vsphere_client.list_attached_tags(
             obj_id=object_id, obj_type=object_type
         )
         return tag_ids
+
+    def delete_unused_tags(self, tags: Collection[str], wait: float = 15) -> list[str]:
+        """Remove tags that are not used in any vCenter object."""
+        remained_tags = list(tags)
+        exit_time = time.time() + wait
+        time_remains = True
+        while remained_tags and time_remains:
+            for tag in remained_tags[:]:
+                try:
+                    if not self._vsphere_client.list_attached_objects(tag):
+                        self._delete_tag(tag)
+                        remained_tags.remove(tag)
+                except TagIdDoesntExists:
+                    remained_tags.remove(tag)
+            time_remains = time.time() < exit_time
+        return remained_tags
 
     def _delete_tag_category(self, category_id):
         """Delete an existing tag category.
@@ -251,7 +280,7 @@ class VSphereSDKHandler:
         """Delete tags if it used ONLY in current reservation."""
         tag_to_objects_mapping = {}
         pattern_objects_list = None
-        for tag_id in self._get_attached_tags(obj=obj):
+        for tag_id in self.get_attached_tags(obj=obj):
             try:
                 tag_info = self._vsphere_client.get_tag_info(tag_id)
                 category_info = self._vsphere_client.get_category_info(
