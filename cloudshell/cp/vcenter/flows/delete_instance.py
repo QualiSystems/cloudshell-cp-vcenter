@@ -4,6 +4,8 @@ import logging
 from contextlib import suppress
 from threading import Lock
 
+from attrs import define, field
+
 from cloudshell.cp.core.reservation_info import ReservationInfo
 
 from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
@@ -23,47 +25,76 @@ logger = logging.getLogger(__name__)
 folder_delete_lock = Lock()
 
 
-def _delete_tags(vsphere_client: VSphereSDKHandler | None, obj) -> None:
-    if vsphere_client:
-        vsphere_client.delete_tags(obj)
-
-
 def delete_instance(
     deployed_app: BaseVCenterDeployedApp,
     resource_conf: VCenterResourceConfig,
     reservation_info: ReservationInfo,
-):
-    si = SiHandler.from_config(resource_conf)
-    vsphere_client = VSphereSDKHandler.from_config(
-        resource_config=resource_conf,
-        reservation_info=reservation_info,
-        si=si,
-    )
-    dc = DcHandler.get_dc(resource_conf.default_datacenter, si)
+) -> None:
+    DeleteFlow(deployed_app, resource_conf, reservation_info).delete()
 
-    vm_uuid = deployed_app.vmdetails.uid
-    try:
-        vm = dc.get_vm_by_uuid(vm_uuid)
-    except VmNotFound:
-        logger.warning(f"Trying to remove vm {vm_uuid} but it is not exists")
-    else:
-        _delete_tags(vsphere_client, vm)
-        si.delete_customization_spec(vm.name)
 
-        soft = resource_conf.shutdown_method is ShutdownMethod.SOFT
-        vm.power_off(soft=soft)
-        vm.delete()
+@define
+class DeleteFlow:
+    _deployed_app: BaseVCenterDeployedApp
+    _resource_conf: VCenterResourceConfig
+    _reservation_info: ReservationInfo
+    _si: SiHandler = field(init=False)
+    _vsphere_client: VSphereSDKHandler = field(init=False)
+    _dc: DcHandler = field(init=False)
 
-    path = get_vm_folder_path(
-        deployed_app, resource_conf, reservation_info.reservation_id
-    )
-    with folder_delete_lock:
+    def __attrs_post_init__(self):
+        self._si = SiHandler.from_config(self._resource_conf)
+        self._vsphere_client = VSphereSDKHandler.from_config(
+            resource_config=self._resource_conf,
+            reservation_info=self._reservation_info,
+            si=self._si,
+        )
+        self._dc = DcHandler.get_dc(self._resource_conf.default_datacenter, self._si)
+
+    def delete(self) -> None:
+        tags = self._delete_vm()
+        tags |= self._delete_folder()
+        self._delete_tags(tags)
+
+    def _delete_vm(self) -> set[str]:
+        vm_uuid = self._deployed_app.vmdetails.uid
+        tags = set()
         try:
-            folder = dc.get_vm_folder(path)
-        except FolderNotFound:
-            pass
+            vm = self._dc.get_vm_by_uuid(vm_uuid)
+        except VmNotFound:
+            logger.warning(f"Trying to remove vm {vm_uuid} but it is not exists")
         else:
-            _delete_tags(vsphere_client, folder)
+            self._si.delete_customization_spec(vm.name)
+            tags |= self._get_tags(vm)
 
-            with suppress(FolderIsNotEmpty):
-                folder.destroy()
+            soft = self._resource_conf.shutdown_method is ShutdownMethod.SOFT
+            vm.power_off(soft=soft)
+
+            vm.delete()
+        return tags
+
+    def _delete_folder(self) -> set[str]:
+        path = get_vm_folder_path(
+            self._deployed_app,
+            self._resource_conf,
+            self._reservation_info.reservation_id,
+        )
+        tags = set()
+        with folder_delete_lock:
+            try:
+                folder = self._dc.get_vm_folder(path)
+            except FolderNotFound:
+                pass
+            else:
+                tags |= self._get_tags(folder)
+                with suppress(FolderIsNotEmpty):
+                    folder.destroy()
+        return tags
+
+    def _get_tags(self, obj) -> set[str]:
+        if self._vsphere_client:
+            return set(self._vsphere_client.get_attached_tags(obj))
+
+    def _delete_tags(self, tags: set[str]) -> None:
+        if self._vsphere_client:
+            self._vsphere_client.delete_unused_tags(tags)
