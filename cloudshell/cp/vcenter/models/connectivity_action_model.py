@@ -14,10 +14,10 @@ class VcenterVlanServiceModel(VlanServiceModel):
     port_group_name: Optional[str] = Field(None, alias="Port Group Name")
 
     def __getattribute__(self, item):
-        if "port_group_name" == item:
+        if item in ("port_group_name", "virtual_network"):
             msg = (
-                "'Port Group Name' attribute is deprecated, "
-                "use 'Virtual Network' instead"
+                "'Port Group Name' and 'Virtual Network' attributes are deprecated, "
+                "use 'Existing Network' instead"
             )
             warnings.warn(msg, DeprecationWarning, stacklevel=2)
         return super().__getattribute__(item)
