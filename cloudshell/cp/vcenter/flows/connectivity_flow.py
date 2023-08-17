@@ -15,6 +15,7 @@ from cloudshell.shell.flows.connectivity.cloud_providers_flow import (
 )
 from cloudshell.shell.flows.connectivity.models.connectivity_model import (
     ConnectionModeEnum,
+    is_set_action,
 )
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
@@ -100,7 +101,7 @@ class VCenterConnectivityFlow(AbcCloudProviderConnectivityFlow):
         existed_pg_names = set()
         net_to_create = {}  # {(pg_name, host_name): action}
 
-        for action in actions:
+        for action in filter(is_set_action, actions):
             if pg_name := get_existed_port_group_name(action):
                 existed_pg_names.add(pg_name)
             else:
@@ -306,12 +307,13 @@ class VCenterConnectivityFlow(AbcCloudProviderConnectivityFlow):
 
         if isinstance(network, DVPortGroupHandler):
             network.destroy()
+            del network
         else:
             vm = self.get_target(action)
             # remove from the host where the VM is located
             vm.host.remove_port_group(network.name)
-        logger.info(f"{network} was removed")
-
+            del network
+        logger.info(f"Network {pg_name} was removed")
         return tags
 
     def _get_network_tags(
