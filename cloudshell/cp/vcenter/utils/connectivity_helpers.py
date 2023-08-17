@@ -138,7 +138,8 @@ def is_vnic_network_can_be_replaced(
 
 def get_existed_port_group_name(action: VcenterConnectivityActionModel) -> str | None:
     pg_name = (
-        action.connection_params.vlan_service_attrs.virtual_network
+        action.connection_params.vlan_service_attrs.existing_network
+        or action.connection_params.vlan_service_attrs.virtual_network  # deprecated
         or action.connection_params.vlan_service_attrs.port_group_name  # deprecated
     )
     return pg_name
