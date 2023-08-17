@@ -63,6 +63,10 @@ class DcHandler(ManagedEntityHandler):
         return [DatastoreHandler(store, self.si) for store in self._vc_obj.datastore]
 
     @property
+    def networks(self) -> list[NetworkHandler | DVPortGroupHandler]:
+        return [get_network_handler(net, self.si) for net in self._vc_obj.network]
+
+    @property
     def dc(self) -> DcHandler:
         return self
 
