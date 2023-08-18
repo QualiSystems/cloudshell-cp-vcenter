@@ -266,13 +266,12 @@ class VCenterConnectivityFlow(AbcCloudProviderConnectivityFlow):
                 pass
             port_group = switch.wait_port_group_appears(pg_name)
             network = self._dc.wait_network_appears(pg_name)
-            if self._vsphere_client:
-                try:
-                    self._vsphere_client.assign_tags(obj=network)
-                except Exception:
-                    with suppress(ResourceInUse):
-                        port_group.destroy()
-                    raise
+            try:
+                self._add_tags(network)
+            except Exception:
+                with suppress(ResourceInUse):
+                    port_group.destroy()
+                raise
         else:
             # we validate only network created by the Shell
             self._validate_network(
@@ -324,7 +323,10 @@ class VCenterConnectivityFlow(AbcCloudProviderConnectivityFlow):
         """Get network's tag IDs."""
         tags = set()
         if self._vsphere_client and self._resource_conf.is_static:
-            tags |= self._vsphere_client.get_attached_tags(network)
+            try:
+                tags |= self._vsphere_client.get_attached_tags(network)
+            except Exception as e:
+                logger.warning(f"Failed to get {network} tags. Error: {e}")
         return tags
 
     def _remove_tags(self, tags: set[str]) -> None:
@@ -332,6 +334,10 @@ class VCenterConnectivityFlow(AbcCloudProviderConnectivityFlow):
         # in other cases tags would be removed in Delete Instance command
         if self._vsphere_client and self._resource_conf.is_static:
             self._vsphere_client.delete_unused_tags(tags)
+
+    def _add_tags(self, network: NetworkHandler | DVPortGroupHandler) -> None:
+        if self._vsphere_client:
+            self._vsphere_client.assign_tags(network)
 
     def _network_can_be_replaced(self, net: AbstractNetwork) -> bool:
         reserved_networks = self._resource_conf.reserved_networks

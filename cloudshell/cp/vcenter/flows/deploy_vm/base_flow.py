@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from abc import abstractmethod
+from contextlib import suppress
 from typing import TYPE_CHECKING
 
 from cloudshell.cp.core.flows.deploy import AbstractDeployFlow
@@ -23,7 +24,10 @@ from cloudshell.cp.vcenter.handlers.config_spec_handler import ConfigSpecHandler
 from cloudshell.cp.vcenter.handlers.custom_spec_handler import CustomSpecHandler
 from cloudshell.cp.vcenter.handlers.datastore_handler import DatastoreHandler
 from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
-from cloudshell.cp.vcenter.handlers.folder_handler import FolderHandler
+from cloudshell.cp.vcenter.handlers.folder_handler import (
+    FolderHandler,
+    FolderIsNotEmpty,
+)
 from cloudshell.cp.vcenter.handlers.resource_pool import ResourcePoolHandler
 from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
 from cloudshell.cp.vcenter.handlers.snapshot_handler import SnapshotHandler
@@ -219,9 +223,7 @@ class AbstractVCenterDeployVMFlow(AbstractDeployFlow):
                 vm_folder=vm_folder,
                 dc=dc,
             )
-
-            if self._vsphere_client is not None:
-                self._vsphere_client.assign_tags(obj=deployed_vm)
+            self._add_tags(deployed_vm, vm_folder)
 
         logger.info(f"Preparing Deploy App result for the {deployed_vm}")
         return self._prepare_deploy_app_result(
@@ -229,6 +231,17 @@ class AbstractVCenterDeployVMFlow(AbstractDeployFlow):
             deploy_app=deploy_app,
             vm_name=vm_name,
         )
+
+    def _add_tags(self, vm: VmHandler, folder: FolderHandler) -> None:
+        if self._vsphere_client is not None:
+            try:
+                self._vsphere_client.assign_tags(obj=vm)
+            except Exception as e:
+                logger.warning(f"Failed to assign tags to {vm}. Error: {e}")
+                vm.delete()
+                with suppress(FolderIsNotEmpty):
+                    folder.destroy()
+                raise
 
 
 class AbstractVCenterDeployVMFromTemplateFlow(AbstractVCenterDeployVMFlow):

@@ -94,7 +94,10 @@ class DeleteFlow:
     def _get_tags(self, obj) -> set[str]:
         tags = set()
         if self._vsphere_client:
-            tags |= set(self._vsphere_client.get_attached_tags(obj))
+            try:
+                tags |= set(self._vsphere_client.get_attached_tags(obj))
+            except Exception as e:
+                logger.warning(f"Failed to get {obj} tags. Error: {e}")
         return tags
 
     def _delete_tags(self, tags: set[str]) -> None:
