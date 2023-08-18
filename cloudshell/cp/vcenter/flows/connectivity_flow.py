@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Collection
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import suppress
 from itertools import chain
 from threading import Lock
 from typing import TYPE_CHECKING, Any
@@ -269,7 +270,8 @@ class VCenterConnectivityFlow(AbcCloudProviderConnectivityFlow):
                 try:
                     self._vsphere_client.assign_tags(obj=network)
                 except Exception:
-                    port_group.destroy()
+                    with suppress(ResourceInUse):
+                        port_group.destroy()
                     raise
         else:
             # we validate only network created by the Shell
