@@ -31,6 +31,7 @@ from cloudshell.cp.vcenter.handlers.network_handler import (
 from cloudshell.cp.vcenter.handlers.si_handler import ResourceInUse, SiHandler
 from cloudshell.cp.vcenter.handlers.switch_handler import (
     AbstractSwitchHandler,
+    DvSwitchHandler,
     DvSwitchNotFound,
     PortGroupExists,
 )
@@ -107,8 +108,12 @@ class VCenterConnectivityFlow(AbcCloudProviderConnectivityFlow):
                 existed_pg_names.add(pg_name)
             else:
                 vm = self.get_target(action)
-                # we need to create network only once for every used host
-                key = (self._generate_pg_name(action), vm.host.name)
+                if isinstance(self._get_switch(action), DvSwitchHandler):
+                    # for DvSwitch creates only one dv port group
+                    key = self._generate_pg_name(action)
+                else:
+                    # for VSwitch creates a port group on every host that is used by VM
+                    key = (self._generate_pg_name(action), vm.host.name)
                 net_to_create[key] = action
 
         # check that existed networks exist
