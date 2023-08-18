@@ -23,7 +23,9 @@ class VSphereApiConnectionException(BaseVCenterException):
 
 class VSphereApiInvalidCredentials(VSphereApiConnectionException):
     def __init__(self):
-        super().__init__("Connection failed. Please, check credentials.")
+        super().__init__(
+            "Connection to vSphere Automation API failed. Please, check credentials."
+        )
 
 
 class VSphereApiServiceUnavailable(VSphereApiConnectionException):
@@ -37,7 +39,7 @@ class TagApiException(VSphereApiException):
 
 class UserCannotBeAuthenticated(TagApiException):
     def __init__(self):
-        super().__init__("User can not be authenticated...")
+        super().__init__("User can not be authenticated in vSphere Automation API...")
 
 
 class EntityAlreadyExists(TagApiException):
@@ -48,13 +50,13 @@ class TagAlreadyExists(EntityAlreadyExists):
     def __init__(self, name: str, category_id: str):
         self.name = name
         self.category_id = category_id
-        super().__init__(f"Tag '{name}' already exists in Category ID '{category_id}'.")
+        super().__init__(f"Tag '{name}' already exists in category ID '{category_id}'.")
 
 
 class CategoryAlreadyExists(EntityAlreadyExists):
     def __init__(self, name: str):
         self.name = name
-        super().__init__(f"Category '{name}' already exists.")
+        super().__init__(f"Tag's category '{name}' already exists.")
 
 
 class NotEnoughPrivileges(TagApiException):
@@ -63,17 +65,17 @@ class NotEnoughPrivileges(TagApiException):
 
 class NotEnoughPrivilegesCreateCategory(NotEnoughPrivileges):
     def __init__(self):
-        super().__init__("Not enough privileges to create the category.")
+        super().__init__("Not enough privileges to create the tag's category.")
 
 
 class NotEnoughPrivilegesReadCategory(NotEnoughPrivileges):
     def __init__(self):
-        super().__init__("Not enough privileges to read the category.")
+        super().__init__("Not enough privileges to read the tag's category.")
 
 
 class NotEnoughPrivilegesDeleteCategory(NotEnoughPrivileges):
     def __init__(self):
-        super().__init__("Not enough privileges to delete the category.")
+        super().__init__("Not enough privileges to delete the tag's category.")
 
 
 class NotEnoughPrivilegesCreateTag(NotEnoughPrivileges):
@@ -83,12 +85,12 @@ class NotEnoughPrivilegesCreateTag(NotEnoughPrivileges):
 
 class NotEnoughPrivilegesReadTag(NotEnoughPrivileges):
     def __init__(self):
-        super().__init__("Not enough privileges to read the Tag.")
+        super().__init__("Not enough privileges to read the tag.")
 
 
 class NotEnoughPrivilegesDeleteTag(NotEnoughPrivileges):
     def __init__(self):
-        super().__init__("Not enough privileges to delete the Tag.")
+        super().__init__("Not enough privileges to delete the tag.")
 
 
 class NotEnoughPrivilegesListObjectTags(NotEnoughPrivileges):
@@ -119,13 +121,13 @@ class EntityDoesntExists(TagApiException):
 class CategoryIdDoesntExists(EntityDoesntExists):
     def __init__(self, category_id: str):
         self.category_id = category_id
-        super().__init__(f"Category with ID '{category_id}' doesn't exist.")
+        super().__init__(f"Tag's category with ID '{category_id}' doesn't exist.")
 
 
 class CategoryNameDoesntExists(EntityDoesntExists):
     def __init__(self, name: str):
         self.name = name
-        super().__init__(f"Category with name '{name}' doesn't exists.")
+        super().__init__(f"Tag's category with name '{name}' doesn't exists.")
 
 
 class TagIdDoesntExists(EntityDoesntExists):
