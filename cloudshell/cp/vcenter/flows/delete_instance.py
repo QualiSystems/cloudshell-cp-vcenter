@@ -92,8 +92,10 @@ class DeleteFlow:
         return tags
 
     def _get_tags(self, obj) -> set[str]:
+        tags = set()
         if self._vsphere_client:
-            return set(self._vsphere_client.get_attached_tags(obj))
+            tags |= set(self._vsphere_client.get_attached_tags(obj))
+        return tags
 
     def _delete_tags(self, tags: set[str]) -> None:
         if self._vsphere_client:
