@@ -304,15 +304,16 @@ class VCenterConnectivityFlow(AbcCloudProviderConnectivityFlow):
         check_pg_can_be_removed(pg_name, action)
         network = self._dc.get_network(pg_name)
         network.wait_network_become_free(raise_=True)
-        tags = self._get_network_tags(network)
 
-        if isinstance(network, DVPortGroupHandler):
-            network.destroy()
-            del network
-        else:
-            vm = self.get_target(action)
-            # remove from the host where the VM is located
-            vm.host.remove_port_group(network.name)
+        try:
+            tags = self._get_network_tags(network)
+        finally:
+            if isinstance(network, DVPortGroupHandler):
+                network.destroy()
+            else:
+                vm = self.get_target(action)
+                # remove from the host where the VM is located
+                vm.host.remove_port_group(network.name)
             del network
         logger.info(f"Network {pg_name} was removed")
         return tags
@@ -323,10 +324,7 @@ class VCenterConnectivityFlow(AbcCloudProviderConnectivityFlow):
         """Get network's tag IDs."""
         tags = set()
         if self._vsphere_client and self._resource_conf.is_static:
-            try:
-                tags |= self._vsphere_client.get_attached_tags(network)
-            except Exception as e:
-                logger.warning(f"Failed to get {network} tags. Error: {e}")
+            tags |= self._vsphere_client.get_attached_tags(network)
         return tags
 
     def _remove_tags(self, tags: set[str]) -> None:

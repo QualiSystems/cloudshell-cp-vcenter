@@ -52,9 +52,14 @@ class DeleteFlow:
         self._dc = DcHandler.get_dc(self._resource_conf.default_datacenter, self._si)
 
     def delete(self) -> None:
-        tags = self._delete_vm()
-        tags |= self._delete_folder()
-        self._delete_tags(tags)
+        tags = set()
+        try:
+            tags |= self._delete_vm()
+        finally:
+            try:
+                tags |= self._delete_folder()
+            finally:
+                self._delete_tags(tags)
 
     def _delete_vm(self) -> set[str]:
         vm_uuid = self._deployed_app.vmdetails.uid
@@ -64,13 +69,15 @@ class DeleteFlow:
         except VmNotFound:
             logger.warning(f"Trying to remove vm {vm_uuid} but it is not exists")
         else:
-            self._si.delete_customization_spec(vm.name)
-            tags |= self._get_tags(vm)
-
-            soft = self._resource_conf.shutdown_method is ShutdownMethod.SOFT
-            vm.power_off(soft=soft)
-
-            vm.delete()
+            try:
+                self._si.delete_customization_spec(vm.name)
+            finally:
+                try:
+                    tags |= self._get_tags(vm)
+                finally:
+                    soft = self._resource_conf.shutdown_method is ShutdownMethod.SOFT
+                    vm.power_off(soft=soft)
+                    vm.delete()
         return tags
 
     def _delete_folder(self) -> set[str]:
@@ -86,18 +93,17 @@ class DeleteFlow:
             except FolderNotFound:
                 pass
             else:
-                tags |= self._get_tags(folder)
-                with suppress(FolderIsNotEmpty):
-                    folder.destroy()
+                try:
+                    tags |= self._get_tags(folder)
+                finally:
+                    with suppress(FolderIsNotEmpty):
+                        folder.destroy()
         return tags
 
     def _get_tags(self, obj) -> set[str]:
         tags = set()
         if self._vsphere_client:
-            try:
-                tags |= set(self._vsphere_client.get_attached_tags(obj))
-            except Exception as e:
-                logger.warning(f"Failed to get {obj} tags. Error: {e}")
+            tags |= set(self._vsphere_client.get_attached_tags(obj))
         return tags
 
     def _delete_tags(self, tags: set[str]) -> None:
