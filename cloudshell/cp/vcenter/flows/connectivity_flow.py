@@ -35,7 +35,7 @@ from cloudshell.cp.vcenter.handlers.switch_handler import (
     DvSwitchNotFound,
     PortGroupExists,
 )
-from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
+from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler, VmNotFound
 from cloudshell.cp.vcenter.handlers.vnic_handler import Vnic, VnicNotFound
 from cloudshell.cp.vcenter.handlers.vsphere_sdk_handler import VSphereSDKHandler
 from cloudshell.cp.vcenter.models.connectivity_action_model import (
@@ -55,6 +55,7 @@ if TYPE_CHECKING:
     from cloudshell.cp.core.reservation_info import ReservationInfo
 
 
+VM_NOT_FOUND_MSG = "VM {} is not found. Skip disconnecting vNIC"
 logger = logging.getLogger(__name__)
 
 
@@ -123,7 +124,11 @@ class VCenterConnectivityFlow(AbcCloudProviderConnectivityFlow):
         tuple(executor.map(self._create_network, net_to_create.values()))
 
     def load_target(self, target_name: str) -> Any:
-        return self._dc.get_vm_by_uuid(target_name)
+        try:
+            vm = self._dc.get_vm_by_uuid(target_name)
+        except VmNotFound:
+            vm = None
+        return vm
 
     def get_vnics(self, vm: VmHandler) -> Collection[VnicInfo]:
         def get_vnic_info(vnic: Vnic) -> VnicInfo:
@@ -156,13 +161,22 @@ class VCenterConnectivityFlow(AbcCloudProviderConnectivityFlow):
     def remove_vlan(
         self, action: VcenterConnectivityActionModel, target: VmHandler = None
     ) -> str:
-        assert isinstance(target, VmHandler)
+        if not isinstance(target, VmHandler):
+            # skip disconnecting vNIC
+            # CloudShell would call Connectivity one more time in teardown after VM was
+            # deleted if disconnect for the first time failed
+            logger.warning(VM_NOT_FOUND_MSG.format(action.custom_action_attrs.vm_uuid))
+            return ""
         vnic = target.get_vnic_by_mac(action.connector_attrs.interface)
         logger.info(f"Disconnecting {vnic.network} from the {vnic} on the {target}")
         vnic.connect(self._default_network)
         return vnic.mac_address
 
     def clear(self, action: VcenterConnectivityActionModel, target: Any) -> str:
+        """Executes before set VLAN actions or for rolling back failed.
+
+        Returns updated interface if it's different from target name.
+        """
         assert isinstance(target, VmHandler)
         vnic_name = action.custom_action_attrs.vnic
         try:
@@ -187,7 +201,8 @@ class VCenterConnectivityFlow(AbcCloudProviderConnectivityFlow):
             if not get_existed_port_group_name(action):
                 vm = self.get_target(action)
                 # we need to remove network only once for every used host
-                key = (self._generate_pg_name(action), vm.host.name)
+                host_name = getattr(vm, "host.name", None)
+                key = (self._generate_pg_name(action), host_name)
                 net_to_remove[key] = action
 
         # remove unused networks
@@ -318,10 +333,25 @@ class VCenterConnectivityFlow(AbcCloudProviderConnectivityFlow):
             else:
                 vm = self.get_target(action)
                 # remove from the host where the VM is located
-                vm.host.remove_port_group(network.name)
+                if vm:
+                    vm.host.remove_port_group(network.name)
+                else:
+                    self._delete_pg_from_every_host(network)
             del network
         logger.info(f"Network {pg_name} was removed")
         return tags
+
+    def _delete_pg_from_every_host(self, network: NetworkHandler) -> None:
+        """Delete Virtual Port Group from every host in the cluster."""
+        cluster = self._dc.get_cluster(self._resource_conf.vm_cluster)
+        logger.info(f"Removing {network} from every host in the {cluster}")
+        for host in cluster.hosts:
+            try:
+                host.remove_port_group(network.name)
+            except ResourceInUse:
+                logger.info(f"{network} is still in use on the {host}")
+            else:
+                logger.debug(f"{network} was removed from the {host}")
 
     def _get_network_tags(
         self, network: NetworkHandler | DVPortGroupHandler
