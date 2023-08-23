@@ -10,15 +10,14 @@ from cloudshell.cp.core.reservation_info import ReservationInfo
 
 from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
 from cloudshell.cp.vcenter.handlers.folder_handler import (
+    FolderHandler,
     FolderIsNotEmpty,
-    FolderNotFound,
 )
 from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
 from cloudshell.cp.vcenter.handlers.vm_handler import VmNotFound
 from cloudshell.cp.vcenter.handlers.vsphere_sdk_handler import VSphereSDKHandler
 from cloudshell.cp.vcenter.models.deployed_app import BaseVCenterDeployedApp
 from cloudshell.cp.vcenter.resource_config import ShutdownMethod, VCenterResourceConfig
-from cloudshell.cp.vcenter.utils.vm_helpers import get_vm_folder_path
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +27,7 @@ folder_delete_lock = Lock()
 def delete_instance(
     deployed_app: BaseVCenterDeployedApp,
     resource_conf: VCenterResourceConfig,
-    reservation_info: ReservationInfo,
+    reservation_info: ReservationInfo | None,
 ) -> None:
     DeleteFlow(deployed_app, resource_conf, reservation_info).delete()
 
@@ -37,7 +36,7 @@ def delete_instance(
 class DeleteFlow:
     _deployed_app: BaseVCenterDeployedApp
     _resource_conf: VCenterResourceConfig
-    _reservation_info: ReservationInfo
+    _reservation_info: ReservationInfo | None
     _si: SiHandler = field(init=False)
     _vsphere_client: VSphereSDKHandler = field(init=False)
     _dc: DcHandler = field(init=False)
@@ -53,46 +52,45 @@ class DeleteFlow:
 
     def delete(self) -> None:
         tags = set()
+        folder = None
         try:
-            tags |= self._delete_vm()
+            vm_tags, folder = self._delete_vm()
+            tags |= vm_tags
         finally:
             try:
-                tags |= self._delete_folder()
+                tags |= self._delete_folder(folder)
             finally:
                 self._delete_tags(tags)
 
-    def _delete_vm(self) -> set[str]:
+    def _delete_vm(self) -> tuple[set[str], FolderHandler | None]:
         vm_uuid = self._deployed_app.vmdetails.uid
         tags = set()
+        folder = None
         try:
             vm = self._dc.get_vm_by_uuid(vm_uuid)
         except VmNotFound:
             logger.warning(f"Trying to remove vm {vm_uuid} but it is not exists")
         else:
             try:
-                self._si.delete_customization_spec(vm.name)
+                folder = vm.parent
             finally:
                 try:
-                    tags |= self._get_tags(vm)
+                    self._si.delete_customization_spec(vm.name)
                 finally:
-                    soft = self._resource_conf.shutdown_method is ShutdownMethod.SOFT
-                    vm.power_off(soft=soft)
-                    vm.delete()
-        return tags
+                    try:
+                        tags |= self._get_tags(vm)
+                    finally:
+                        soft = (
+                            self._resource_conf.shutdown_method is ShutdownMethod.SOFT
+                        )
+                        vm.power_off(soft=soft)
+                        vm.delete()
+        return tags, folder
 
-    def _delete_folder(self) -> set[str]:
-        path = get_vm_folder_path(
-            self._deployed_app,
-            self._resource_conf,
-            self._reservation_info.reservation_id,
-        )
+    def _delete_folder(self, folder: FolderHandler | None) -> set[str]:
         tags = set()
-        with folder_delete_lock:
-            try:
-                folder = self._dc.get_vm_folder(path)
-            except FolderNotFound:
-                pass
-            else:
+        if folder is not None:
+            with folder_delete_lock:
                 try:
                     tags |= self._get_tags(folder)
                 finally:

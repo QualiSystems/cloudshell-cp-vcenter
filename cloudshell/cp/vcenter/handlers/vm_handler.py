@@ -205,6 +205,10 @@ class VmHandler(ManagedEntityHandler):
         return path
 
     @property
+    def parent(self) -> FolderHandler:
+        return FolderHandler(self._vc_obj.parent, self.si)
+
+    @property
     def power_state(self) -> PowerState:
         return PowerState(self._vc_obj.summary.runtime.powerState)
 
