@@ -77,6 +77,14 @@ class FolderHandler(ManagedEntityHandler):
     def is_empty(self) -> bool:
         return not bool(self._vc_obj.childEntity)
 
+    def is_exists(self) -> bool:
+        try:
+            self.is_empty()
+        except ManagedEntityNotFound:
+            return False
+
+        return True
+
     def get_folder(self, path: str | VcenterPath) -> FolderHandler:
         return self.get_folder_from_parent(self._vc_obj, path, self.si)
 

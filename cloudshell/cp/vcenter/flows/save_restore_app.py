@@ -19,6 +19,7 @@ from cloudshell.cp.core.request_actions.models import (
 )
 from cloudshell.cp.core.rollback import RollbackCommandsManager
 
+from cloudshell.cp.vcenter.actions.vm_network import VMNetworkActions
 from cloudshell.cp.vcenter.constants import VM_FROM_LINKED_CLONE_DEPLOYMENT_PATH
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
 from cloudshell.cp.vcenter.flows.deploy_vm.commands import CloneVMCommand
@@ -168,6 +169,17 @@ class SaveRestoreAppFlow:
                 vm_storage,
                 vm_folder,
             )
+
+            net_actions = VMNetworkActions(
+                self._resource_conf, self._cancellation_manager
+            )
+            default_network = dc.get_network(self._resource_conf.holding_network)
+            for vnic in cloned_vm.vnics:
+                network = vnic.network
+
+                if net_actions.is_quali_network(network.name):
+                    vnic.connect(default_network)
+
             cloned_vm.create_snapshot(
                 SNAPSHOT_NAME,
                 dump_memory=False,
