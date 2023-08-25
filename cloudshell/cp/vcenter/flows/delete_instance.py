@@ -91,11 +91,12 @@ class DeleteFlow:
         tags = set()
         if folder is not None:
             with folder_delete_lock:
-                try:
-                    tags |= self._get_tags(folder)
-                finally:
-                    with suppress(FolderIsNotEmpty):
-                        folder.destroy()
+                if folder.is_exists():
+                    try:
+                        tags |= self._get_tags(folder)
+                    finally:
+                        with suppress(FolderIsNotEmpty):
+                            folder.destroy()
         return tags
 
     def _get_tags(self, obj) -> set[str]:
