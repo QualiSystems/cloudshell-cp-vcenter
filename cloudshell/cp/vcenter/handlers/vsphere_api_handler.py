@@ -99,7 +99,7 @@ class NotEnoughPrivilegesListObjectTags(NotEnoughPrivileges):
         self.obj_type = obj_type
         msg = (
             f"Cannot list tags of the object '{obj_type}' with id '{obj_id}'. "
-            f"Not enough privileges."
+            f"Not enough privileges or the object doesn't exist."
         )
         super().__init__(msg)
 
@@ -375,7 +375,7 @@ class VSphereAutomationAPI(BaseAPIClient):
     @retry(
         wait_random_min=2 * 1000,
         wait_random_max=8 * 1000,
-        stop_max_delay=60 * 1000,
+        stop_max_delay=15 * 1000,
         retry_on_exception=lambda e: isinstance(e, NotEnoughPrivilegesListObjectTags),
     )
     def list_attached_tags(self, obj_id: str, obj_type: str):
@@ -387,6 +387,7 @@ class VSphereAutomationAPI(BaseAPIClient):
         """
         error_map = {
             401: UserCannotBeAuthenticated,
+            # can return this error if the object doesn't exist
             403: NotEnoughPrivilegesListObjectTags(obj_id, obj_type),
         }
         get_association = {"object_id": {"id": obj_id, "type": obj_type}}
