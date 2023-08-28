@@ -18,7 +18,7 @@ from cloudshell.cp.vcenter.models.base_deployment_app import (
 
 
 @pytest.fixture
-def flow(resource_conf, cs_api, cancellation_manager, si_handler):
+def flow(resource_conf, cs_api, cancellation_manager, si_handler, dc_handler):
     flow = SaveRestoreAppFlow(resource_conf, cs_api, cancellation_manager)
     return flow
 
@@ -102,6 +102,7 @@ def test_save(flow, vm, dc_handler, resource_conf):
     cloned_vm_name = f"Clone of {vm.name}"
     cloned_vm = Mock(name=cloned_vm_name, path=f"folder/{cloned_vm_name}", uuid="uuid")
     cloned_vm.name = cloned_vm_name
+    cloned_vm.vnics = [Mock(name="Network adapter 1")]
     vm.clone_vm.return_value = cloned_vm
 
     result = flow.save_apps([action])
@@ -158,6 +159,7 @@ def test_save(flow, vm, dc_handler, resource_conf):
         call.get_compute_entity(resource_conf.vm_cluster),
         call.get_datastore(resource_conf.saved_sandbox_storage),
         call.get_or_create_vm_folder(save_apps_folder_path),
+        call.get_network(resource_conf.holding_network),
     ]
     assert dc_handler.method_calls == expected_dc_calls
 
