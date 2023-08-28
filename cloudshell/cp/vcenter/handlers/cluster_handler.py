@@ -75,6 +75,10 @@ class BasicComputeEntityHandler(ManagedEntityHandler):
     def get_v_switch(self, name: str) -> VSwitchHandler:
         ...
 
+    @abstractmethod
+    def get_resource_pool(self, path: str | None) -> ResourcePoolHandler:
+        ...
+
 
 class ClusterHandler(BasicComputeEntityHandler):
     _vc_obj: vim.ComputeResource | vim.ClusterComputeResource
