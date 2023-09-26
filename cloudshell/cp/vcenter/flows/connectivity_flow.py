@@ -70,13 +70,13 @@ class DvSwitchNameEmpty(BaseVCenterException):
 
 @define
 class VCenterConnectivityFlow(AbcCloudProviderConnectivityFlow):
+    _si: SiHandler
     _resource_conf: VCenterResourceConfig
     _reservation_info: ReservationInfo
     _network_lock: Lock = field(init=False, factory=Lock)
     _switches: dict[str, AbstractSwitchHandler] = field(init=False, factory=dict)
 
     def __attrs_post_init__(self):
-        self._si = SiHandler.from_config(self._resource_conf)
         self._vsphere_client = VSphereSDKHandler.from_config(
             resource_config=self._resource_conf,
             reservation_info=self._reservation_info,

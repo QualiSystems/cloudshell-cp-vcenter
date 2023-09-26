@@ -14,15 +14,15 @@ from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 
 @attr.s(auto_attribs=True)
 class VCenterAutoloadFlow:
+    _si: SiHandler
     _resource_config: VCenterResourceConfig
 
     def discover(self) -> AutoLoadDetails:
-        si = SiHandler.from_config(self._resource_config)
-        validation_actions = ValidationActions(si, self._resource_config)
+        validation_actions = ValidationActions(self._si, self._resource_config)
         validation_actions.validate_resource_conf()
         validation_actions.validate_resource_conf_dc_objects()
 
-        dc = DcHandler.get_dc(self._resource_config.default_datacenter, si)
+        dc = DcHandler.get_dc(self._resource_config.default_datacenter, self._si)
         deployed_apps_folder_path = VcenterPath(self._resource_config.vm_location)
         deployed_apps_folder_path.append(DEPLOYED_APPS_FOLDER)
         deployed_apps_folder = dc.get_or_create_vm_folder(deployed_apps_folder_path)
@@ -30,7 +30,7 @@ class VCenterAutoloadFlow:
         vsphere_client = VSphereSDKHandler.from_config(
             resource_config=self._resource_config,
             reservation_info=None,
-            si=si,
+            si=self._si,
         )
         if vsphere_client is not None:
             vsphere_client.create_categories()

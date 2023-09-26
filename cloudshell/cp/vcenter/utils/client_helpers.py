@@ -1,7 +1,6 @@
-import atexit
 import ssl
 
-from pyVim.connect import Disconnect, SmartConnect
+from pyVim.connect import SmartConnect
 from pyVmomi import vim  # noqa
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException, LoginException
@@ -66,7 +65,6 @@ def get_si(host: str, user: str, password: str, port: int = 443):
         except vim.fault.InvalidLogin:
             raise LoginException("Cannot connect to the vCenter. Invalid user/password")
         else:
-            atexit.register(Disconnect, si)
             break
     else:
         if connect_issue:

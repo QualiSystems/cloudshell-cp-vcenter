@@ -37,11 +37,9 @@ def _validate_dump_memory_param(dump_memory: str):
 
 @attr.s(auto_attribs=True)
 class SnapshotFlow:
+    _si: SiHandler
     _resource_conf: VCenterResourceConfig
     _deployed_app: BaseVCenterDeployedApp
-
-    def __attrs_post_init__(self):
-        self._si = SiHandler.from_config(self._resource_conf)
 
     def _get_vm(self) -> VmHandler:
         dc = DcHandler.get_dc(self._resource_conf.default_datacenter, self._si)

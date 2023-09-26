@@ -10,12 +10,12 @@ from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 
 
 def get_hints(
+    si: SiHandler,
     resource_conf: VCenterResourceConfig,
     request: str,
 ) -> str:
     # todo replace with a model
     request = DeployDataHolder(jsonpickle.decode(request))
-    si = SiHandler.from_config(resource_conf)
     dc = DcHandler.get_dc(resource_conf.default_datacenter, si)
 
     handler = get_handler(request, dc)

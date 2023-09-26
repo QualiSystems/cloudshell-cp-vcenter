@@ -23,14 +23,15 @@ from cloudshell.cp.vcenter.models.base_deployment_app import (
 from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 
 
-def validate_attributes(resource_conf: VCenterResourceConfig, request: str) -> str:
+def validate_attributes(
+    si: SiHandler, resource_conf: VCenterResourceConfig, request: str
+) -> str:
     deployment_path_to_fn = {
         VM_FROM_VM_DEPLOYMENT_PATH: _validate_app_from_vm,
         VM_FROM_TEMPLATE_DEPLOYMENT_PATH: _validate_app_from_template,
         VM_FROM_LINKED_CLONE_DEPLOYMENT_PATH: _validate_app_from_clone,
         VM_FROM_IMAGE_DEPLOYMENT_PATH: _validate_app_from_image,
     }
-    si = SiHandler.from_config(resource_conf)
     action = ValidateAttributes.from_request(request)
     validator = ValidationActions(si, resource_conf)
     _validate_common(action, validator)

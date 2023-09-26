@@ -20,12 +20,9 @@ logger = logging.getLogger(__name__)
 
 @define(slots=False)
 class AffinityRulesFlow:
+    si: SiHandler
     resource_conf: VCenterResourceConfig
     reservation_id: str
-
-    @cached_property
-    def si(self) -> SiHandler:
-        return SiHandler.from_config(self.resource_conf)
 
     @cached_property
     def dc(self) -> DcHandler:
