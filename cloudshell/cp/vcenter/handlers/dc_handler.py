@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import time
+import logging
 from collections.abc import Generator
-from contextlib import suppress
 
+from attrs import define
 from pyVmomi import vim
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
@@ -17,14 +17,10 @@ from cloudshell.cp.vcenter.handlers.datastore_handler import (
     DatastoreNotFound,
 )
 from cloudshell.cp.vcenter.handlers.folder_handler import FolderHandler
-from cloudshell.cp.vcenter.handlers.managed_entity_handler import (
-    ManagedEntityHandler,
-    ManagedEntityNotFound,
-)
+from cloudshell.cp.vcenter.handlers.managed_entity_handler import ManagedEntityHandler
 from cloudshell.cp.vcenter.handlers.network_handler import (
     DVPortGroupHandler,
     NetworkHandler,
-    NetworkNotFound,
     get_network_handler,
 )
 from cloudshell.cp.vcenter.handlers.resource_pool import (
@@ -42,6 +38,9 @@ from cloudshell.cp.vcenter.handlers.switch_handler import (
 )
 from cloudshell.cp.vcenter.handlers.vcenter_path import VcenterPath
 from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler, VmNotFound
+from cloudshell.cp.vcenter.utils.network_watcher import NetworkWatcher
+
+logger = logging.getLogger(__name__)
 
 
 class DcNotFound(BaseVCenterException):
@@ -50,9 +49,11 @@ class DcNotFound(BaseVCenterException):
         super().__init__(f"Datacenter with name '{dc_name}' not found.")
 
 
+@define(str=False)
 class DcHandler(ManagedEntityHandler):
     @classmethod
     def get_dc(cls, name: str, si: SiHandler) -> DcHandler:
+        logger.debug(f"Searching for datacenter {name}")
         for vc_dc in si.find_items(vim.Datacenter):
             if vc_dc.name == name:
                 return DcHandler(vc_dc, si)
@@ -63,38 +64,34 @@ class DcHandler(ManagedEntityHandler):
         return [DatastoreHandler(store, self.si) for store in self._vc_obj.datastore]
 
     @property
-    def networks(self) -> list[NetworkHandler | DVPortGroupHandler]:
-        return [get_network_handler(net, self.si) for net in self._vc_obj.network]
-
-    @property
     def dc(self) -> DcHandler:
         return self
 
+    @property
+    def clusters(self) -> list[ClusterHandler]:
+        vc_clusters = self.si.find_items(
+            [vim.ComputeResource, vim.ClusterComputeResource],
+            container=self._vc_obj.hostFolder,
+        )
+        return [ClusterHandler(vc_cluster, self.si) for vc_cluster in vc_clusters]
+
     def get_network(self, name: str) -> NetworkHandler | DVPortGroupHandler:
-        networks = (get_network_handler(net, self.si) for net in self._vc_obj.network)
-        for network in networks:
-            with suppress(ManagedEntityNotFound):
-                # We can get the error if the resource has been removed...
-                if network.name == name:
-                    return network
-        raise NetworkNotFound(self, name)
+        """Collecting all networks is not quick for many networks.
+
+        If you need to get a network several times in the flow use NetworkWatcher
+        separately.
+        """
+        network_folder = self.get_network_folder()
+        if not (net := network_folder.find_child(name)):
+            with NetworkWatcher(self.si, network_folder) as networks:
+                network = networks.get_network(name)
+        else:
+            network = get_network_handler(net, self.si)
+        return network
 
     @property
     def _class_name(self) -> str:
         return "Datacenter"
-
-    def wait_network_appears(
-        self, name: str, delay: int = 2, timeout: int = 60 * 5
-    ) -> NetworkHandler | DVPortGroupHandler:
-        end_time = time.time() + timeout
-        while time.time() < end_time:
-            try:
-                network = self.get_network(name)
-            except NetworkNotFound:
-                time.sleep(delay)
-            else:
-                return network
-        raise NetworkNotFound(self, name)
 
     def get_vm_by_uuid(self, uuid: str) -> VmHandler:
         vm = self.si.find_by_uuid(self._vc_obj, uuid, vm_search=True)
@@ -134,6 +131,20 @@ class DcHandler(ManagedEntityHandler):
             vm_folder = vm_folder.get_or_create_folder(path)
         return vm_folder
 
+    def get_network_folder(
+        self, path: str | VcenterPath | None = None
+    ) -> FolderHandler:
+        network_folder = FolderHandler(self._vc_obj.networkFolder, self.si)
+        if path:
+            network_folder = network_folder.get_folder(path)
+        return network_folder
+
+    def get_or_create_network_folder(self, path: str | VcenterPath) -> FolderHandler:
+        network_folder = FolderHandler(self._vc_obj.networkFolder, self.si)
+        if path:
+            network_folder = network_folder.get_or_create_folder(path)
+        return network_folder
+
     def get_cluster(self, name: str) -> ClusterHandler:
         for vc_cluster in self.si.find_items(
             [vim.ComputeResource, vim.ClusterComputeResource],
@@ -144,6 +155,7 @@ class DcHandler(ManagedEntityHandler):
         raise ClusterNotFound(self, name)
 
     def get_compute_entity(self, path: str | VcenterPath) -> BasicComputeEntityHandler:
+        logger.debug(f"Getting compute entity by path {path}")
         if not isinstance(path, VcenterPath):
             path = VcenterPath(path)
         cluster_name = path.pop_head()

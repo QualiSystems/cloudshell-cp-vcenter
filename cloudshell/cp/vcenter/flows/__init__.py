@@ -1,6 +1,6 @@
 from .autoload import VCenterAutoloadFlow
 from .cluster_usage import get_cluster_usage
-from .delete_instance import delete_instance
+from .delete_instance import DeleteFlow
 from .deploy_vm import get_deploy_flow
 from .get_attribute_hints.command import get_hints
 from .get_vm_web_console import get_vm_web_console
@@ -16,7 +16,7 @@ __all__ = (
     VCenterAutoloadFlow,
     VCenterPowerFlow,
     get_deploy_flow,
-    delete_instance,
+    DeleteFlow,
     get_vm_uuid_by_name,
     get_cluster_usage,
     reconfigure_vm,

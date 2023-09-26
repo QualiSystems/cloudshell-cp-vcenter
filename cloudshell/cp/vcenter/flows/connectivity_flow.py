@@ -1,11 +1,8 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Collection
-from concurrent.futures import ThreadPoolExecutor
-from contextlib import suppress
+from functools import cached_property
 from itertools import chain
-from threading import Lock
 from typing import TYPE_CHECKING, Any
 
 from attrs import define, field
@@ -15,7 +12,7 @@ from cloudshell.shell.flows.connectivity.cloud_providers_flow import (
     VnicInfo,
 )
 from cloudshell.shell.flows.connectivity.models.connectivity_model import (
-    ConnectionModeEnum,
+    is_remove_action,
     is_set_action,
 )
 
@@ -24,7 +21,6 @@ from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
 from cloudshell.cp.vcenter.handlers.network_handler import (
     AbstractNetwork,
     DVPortGroupHandler,
-    HostPortGroupNotFound,
     NetworkHandler,
     NetworkNotFound,
 )
@@ -34,6 +30,7 @@ from cloudshell.cp.vcenter.handlers.switch_handler import (
     DvSwitchHandler,
     DvSwitchNotFound,
     PortGroupExists,
+    VSwitchHandler,
 )
 from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler, VmNotFound
 from cloudshell.cp.vcenter.handlers.vnic_handler import Vnic, VnicNotFound
@@ -43,20 +40,26 @@ from cloudshell.cp.vcenter.models.connectivity_action_model import (
 )
 from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 from cloudshell.cp.vcenter.utils.connectivity_helpers import (
+    NetworkSettings,
     PgCanNotBeRemoved,
     check_pg_can_be_removed,
     create_new_vnic,
-    generate_port_group_name,
-    get_existed_port_group_name,
     is_network_generated_name,
 )
+from cloudshell.cp.vcenter.utils.network_watcher import NetworkWatcher
+from cloudshell.cp.vcenter.utils.threading import LockHandler
 
 if TYPE_CHECKING:
+    from collections.abc import Collection
+    from concurrent.futures import ThreadPoolExecutor
+
     from cloudshell.cp.core.reservation_info import ReservationInfo
 
 
 VM_NOT_FOUND_MSG = "VM {} is not found. Skip disconnecting vNIC"
 logger = logging.getLogger(__name__)
+network_lock = LockHandler()
+switch_lock = LockHandler()
 
 
 class DvSwitchNameEmpty(BaseVCenterException):
@@ -68,13 +71,18 @@ class DvSwitchNameEmpty(BaseVCenterException):
         super().__init__(msg)
 
 
-@define
+@define(slots=False)
 class VCenterConnectivityFlow(AbcCloudProviderConnectivityFlow):
     _si: SiHandler
     _resource_conf: VCenterResourceConfig
     _reservation_info: ReservationInfo
-    _network_lock: Lock = field(init=False, factory=Lock)
-    _switches: dict[str, AbstractSwitchHandler] = field(init=False, factory=dict)
+    _switches: dict[tuple[str, str], AbstractSwitchHandler] = field(
+        init=False, factory=dict
+    )
+    _networks: dict[str, NetworkHandler | DVPortGroupHandler] = field(
+        init=False, factory=dict
+    )
+    _networks_watcher: NetworkWatcher = field(init=False)
 
     def __attrs_post_init__(self):
         self._vsphere_client = VSphereSDKHandler.from_config(
@@ -83,18 +91,22 @@ class VCenterConnectivityFlow(AbcCloudProviderConnectivityFlow):
             si=self._si,
         )
         self._dc = DcHandler.get_dc(self._resource_conf.default_datacenter, self._si)
-        self._default_network = self._dc.get_network(
-            self._resource_conf.holding_network
-        )
+        self._networks_watcher = NetworkWatcher(self._si, self._dc)
+        self._networks_watcher.populate_in_bg()
+        self._sandbox_id = self._reservation_info.reservation_id
+
+    @cached_property
+    def _holding_network(self) -> NetworkHandler | DVPortGroupHandler:
+        return self._networks_watcher.get_network(self._resource_conf.holding_network)
 
     def validate_actions(
         self, actions: Collection[VcenterConnectivityActionModel]
     ) -> None:
-        all_actions_with_switch = all(
-            a.connection_params.vlan_service_attrs.switch_name for a in actions
-        )
-        if not self._resource_conf.default_dv_switch and not all_actions_with_switch:
-            raise DvSwitchNameEmpty
+        for net_settings in map(self._get_network_settings, actions):
+            without_switch = not net_settings.switch_name
+            new_network = not net_settings.existed
+            if without_switch and new_network:
+                raise DvSwitchNameEmpty
 
     def pre_connectivity(
         self,
@@ -105,23 +117,26 @@ class VCenterConnectivityFlow(AbcCloudProviderConnectivityFlow):
         net_to_create = {}  # {(pg_name, host_name): action}
 
         for action in filter(is_set_action, actions):
-            if pg_name := get_existed_port_group_name(action):
-                existed_pg_names.add(pg_name)
+            net_settings = self._get_network_settings(action)
+            if net_settings.existed:
+                existed_pg_names.add(net_settings.name)
             else:
-                vm = self.get_target(action)
-                if isinstance(self._get_switch(action), DvSwitchHandler):
+                if isinstance(self._get_switch(net_settings), DvSwitchHandler):
                     # for DvSwitch creates only one dv port group
-                    key = self._generate_pg_name(action)
+                    key = net_settings.name
                 else:
                     # for VSwitch creates a port group on every host that is used by VM
-                    key = (self._generate_pg_name(action), vm.host.name)
-                net_to_create[key] = action
+                    vm = self.get_target(action)
+                    key = (net_settings.name, vm.host.name)
+                net_to_create[key] = net_settings
 
         # check that existed networks exist
-        tuple(executor.map(self._dc.get_network, existed_pg_names))
+        self._networks.update(
+            {n: self._networks_watcher.get_network(n) for n in existed_pg_names}
+        )
 
         # create networks
-        tuple(executor.map(self._create_network, net_to_create.values()))
+        tuple(executor.map(self._get_or_create_network, net_to_create.values()))
 
     def load_target(self, target_name: str) -> Any:
         try:
@@ -145,10 +160,10 @@ class VCenterConnectivityFlow(AbcCloudProviderConnectivityFlow):
     ) -> str:
         assert isinstance(target, VmHandler)
         vnic_name = action.custom_action_attrs.vnic
-        pg_name = get_existed_port_group_name(action) or self._generate_pg_name(action)
-        logger.info(f"Connecting {pg_name} to the {target}.{vnic_name} iface")
+        net_settings = self._get_network_settings(action)
+        network = self._networks[net_settings.name]
 
-        network = self._dc.get_network(pg_name)
+        logger.info(f"Connecting {network} to the {target}.{vnic_name} iface")
         try:
             vnic = target.get_vnic(vnic_name)
         except VnicNotFound:
@@ -168,8 +183,8 @@ class VCenterConnectivityFlow(AbcCloudProviderConnectivityFlow):
             logger.warning(VM_NOT_FOUND_MSG.format(action.custom_action_attrs.vm_uuid))
             return ""
         vnic = target.get_vnic_by_mac(action.connector_attrs.interface)
-        logger.info(f"Disconnecting {vnic.network} from the {vnic} on the {target}")
-        vnic.connect(self._default_network)
+        logger.info(f"Disconnecting {vnic.network} from the {vnic}")
+        vnic.connect(self._holding_network)
         return vnic.mac_address
 
     def clear(self, action: VcenterConnectivityActionModel, target: Any) -> str:
@@ -185,8 +200,8 @@ class VCenterConnectivityFlow(AbcCloudProviderConnectivityFlow):
             logger.info(f"VNIC {vnic_name} is not created. Skip disconnecting")
             mac = ""
         else:
-            logger.info(f"Disconnecting {vnic} from the {vnic.network} on the {target}")
-            vnic.connect(self._default_network)
+            logger.info(f"Disconnecting {vnic.network} from the {vnic}")
+            vnic.connect(self._holding_network)
             mac = vnic.mac_address
         return mac
 
@@ -198,131 +213,130 @@ class VCenterConnectivityFlow(AbcCloudProviderConnectivityFlow):
         net_to_remove = {}  # {(pg_name, host_name): action}
 
         for action in actions:
-            if not get_existed_port_group_name(action):
-                vm = self.get_target(action)
-                # we need to remove network only once for every used host
-                host_name = getattr(vm, "host.name", None)
-                key = (self._generate_pg_name(action), host_name)
-                net_to_remove[key] = action
+            if self._is_remove_vlan_or_failed(action):
+                net_settings = self._get_network_settings(action)
+                if not net_settings.existed:
+                    vm = self.get_target(action)
+                    # we need to remove network only once for every used host
+                    host_name = getattr(vm, "host.name", None)
+                    key = (net_settings.name, host_name)
+                    net_to_remove[key] = net_settings
 
         # remove unused networks
         r = executor.map(self._remove_pg_with_checks, net_to_remove.values())
         tags = set(chain.from_iterable(r))
+
+        # remove property collector
+        self._networks_watcher.destroy()
+
+        # remove tags
         self._remove_tags(tags)
 
-    def _get_switch(
-        self, action: VcenterConnectivityActionModel
-    ) -> AbstractSwitchHandler:
-        switch_name = self._get_switch_name(action)
-        if not (switch := self._switches.get(switch_name)):
-            try:
-                switch = self._dc.get_dv_switch(switch_name)
-            except DvSwitchNotFound:
-                vm = self.get_target(action)
-                switch = vm.get_v_switch(switch_name)
-            self._switches[switch_name] = switch
+    def _get_switch(self, net_settings: NetworkSettings) -> AbstractSwitchHandler:
+        switch_name = net_settings.switch_name
+        vm = self.get_target(net_settings.vm_uuid)
+        host_name = vm.host.name
+        key = (switch_name, host_name)
+
+        switch = self._switches.get(key)
+        if not switch:
+            with switch_lock.lock(switch_name):
+                if not (switch := self._switches.get(key)):
+                    try:
+                        switch = self._dc.get_dv_switch(switch_name)
+                    except DvSwitchNotFound:
+                        switch = vm.get_v_switch(switch_name)
+                    self._switches[key] = switch
         return switch
 
     @staticmethod
     def _validate_network(
         network: NetworkHandler | DVPortGroupHandler,
         switch: AbstractSwitchHandler,
-        promiscuous_mode: bool,
-        forged_transmits: bool,
-        mac_changes: bool,
-        port_mode: ConnectionModeEnum,
-        vlan_id: str,
+        net_settings: NetworkSettings,
     ) -> None:
-        try:
-            pg = switch.get_port_group(network.name)
-        except HostPortGroupNotFound:
-            # In vCenter the host's port group can be deleted but the network remains.
-            # In this case we need to recreate the port group.
-            # It's possible if the network is used in a VM's snapshot
-            # but the VM is disconnected from the network.
-            switch.create_port_group(
-                network.name,
-                vlan_id,
-                port_mode,
-                promiscuous_mode,
-                forged_transmits,
-                mac_changes,
-            )
-            pg = switch.wait_port_group_appears(network.name)
-
-        if pg.allow_promiscuous != promiscuous_mode:
-            raise BaseVCenterException(f"{pg} has incorrect promiscuous mode setting")
-        if pg.forged_transmits != forged_transmits:
-            raise BaseVCenterException(f"{pg} has incorrect forged transmits setting")
-        if pg.mac_changes != mac_changes:
-            raise BaseVCenterException(
-                f"{pg} has incorrect MAC address changes setting"
-            )
-
-    def _create_network(
-        self, action: VcenterConnectivityActionModel
-    ) -> AbstractNetwork:
-        port_mode = action.connection_params.mode
-        vlan_id = action.connection_params.vlan_id
-        promiscuous_mode = self._get_promiscuous_mode(action)
-        forged_transmits = self._get_forged_transmits(action)
-        mac_changes = self._get_mac_changes(action)
-        pg_name = self._generate_pg_name(action)
-
-        switch = self._get_switch(action)
-        try:
-            network = self._dc.get_network(pg_name)
-        except NetworkNotFound:
-            try:
+        if isinstance(network, NetworkHandler) and isinstance(switch, VSwitchHandler):
+            if not switch.port_group_exists(network.name):
+                # In vCenter the host's PG can be deleted but the network remains.
+                # In this case we need to recreate the port group.
+                # It's possible if the network is used in a VM's snapshot
+                # but the VM is disconnected from the network.
+                # Or Host PG might be created on one host and we need it on another
                 switch.create_port_group(
-                    pg_name,
-                    vlan_id,
-                    port_mode,
-                    promiscuous_mode,
-                    forged_transmits,
-                    mac_changes,
+                    network.name,
+                    net_settings.vlan_id,
+                    net_settings.port_mode,
+                    net_settings.promiscuous_mode,
+                    net_settings.forged_transmits,
+                    net_settings.mac_changes,
                 )
-            except PortGroupExists:
-                pass
-            port_group = switch.wait_port_group_appears(pg_name)
-            network = self._dc.wait_network_appears(pg_name)
+
+    def _get_or_create_network(self, net_settings: NetworkSettings) -> AbstractNetwork:
+        switch = self._get_switch(net_settings)
+        with network_lock.lock(net_settings.name):
+            if net_settings.exclusive:
+                # remove other networks with the same VLAN ID
+                self._clear_networks_for_exclusive(net_settings)
             try:
-                self._add_tags(network)
-            except Exception:
-                with suppress(ResourceInUse):
-                    port_group.destroy()
-                raise
-        else:
-            # we validate only network created by the Shell
-            self._validate_network(
-                network,
-                switch,
-                promiscuous_mode,
-                forged_transmits,
-                mac_changes,
-                port_mode,
-                vlan_id,
-            )
+                # getting earlier created network
+                network = self._networks_watcher.get_network(net_settings.name)
+            except NetworkNotFound:
+                network = self._create_network(switch, net_settings)
+            else:
+                self._validate_network(network, switch, net_settings)
+            self._networks[net_settings.name] = network
         return network
 
-    def _remove_pg_with_checks(
-        self, action: VcenterConnectivityActionModel
-    ) -> set[str]:
-        tags = set()
+    def _create_network(
+        self, switch: AbstractSwitchHandler, net_settings: NetworkSettings
+    ) -> AbstractNetwork:
         try:
-            tags |= self._remove_pg(action)
-        except PgCanNotBeRemoved as e:
-            logger.info(f"Port group {e.name} should not be removed")
-        except NetworkNotFound as e:
-            logger.info(f"Network {e.name} is already removed")
-        except ResourceInUse as e:
-            logger.info(f"Network {e.name} is still in use, skip removing")
+            # create Port Group - Host PG or DV PG
+            switch.create_port_group(
+                net_settings.name,
+                net_settings.vlan_id,
+                net_settings.port_mode,
+                net_settings.promiscuous_mode,
+                net_settings.forged_transmits,
+                net_settings.mac_changes,
+            )
+        except PortGroupExists:
+            pass
+        network = self._networks_watcher.wait_appears(net_settings.name)
+        self._add_tags(network)
+        return network
+
+    def _remove_pg_with_checks(self, net_settings: NetworkSettings) -> set[str]:
+        def remove(name: str, existed: bool, vm_uuid: str) -> tuple[set[str], bool]:
+            net_tags = set()
+            net_not_found = False
+
+            try:
+                net_tags = self._remove_pg(name, existed, vm_uuid)
+            except PgCanNotBeRemoved as e:
+                logger.info(f"Port group {e.name} should not be removed")
+            except NetworkNotFound as e:
+                logger.info(f"Network {e.name} is already removed")
+                net_not_found = True
+            except ResourceInUse as e:
+                logger.info(f"Network {e.name} is still in use, skip removing")
+            return net_tags, net_not_found
+
+        # remove network with new standard name
+        tags, not_found = remove(
+            net_settings.name, net_settings.existed, net_settings.vm_uuid
+        )
+        if not_found:
+            # remove network with old standard name
+            tags, _ = remove(
+                net_settings.old_name, net_settings.existed, net_settings.vm_uuid
+            )
+
         return tags
 
-    def _remove_pg(self, action: VcenterConnectivityActionModel) -> set[str]:
-        pg_name = get_existed_port_group_name(action) or self._generate_pg_name(action)
-        check_pg_can_be_removed(pg_name, action)
-        network = self._dc.get_network(pg_name)
+    def _remove_pg(self, pg_name: str, existed: bool, vm_uuid: str) -> set[str]:
+        check_pg_can_be_removed(pg_name, existed)
+        network = self._networks_watcher.get_network(pg_name)
         network.wait_network_become_free(raise_=True)
 
         try:
@@ -331,7 +345,7 @@ class VCenterConnectivityFlow(AbcCloudProviderConnectivityFlow):
             if isinstance(network, DVPortGroupHandler):
                 network.destroy()
             else:
-                vm = self.get_target(action)
+                vm = self.get_target(vm_uuid)
                 # remove from the host where the VM is located
                 if vm:
                     vm.host.remove_port_group(network.name)
@@ -345,13 +359,12 @@ class VCenterConnectivityFlow(AbcCloudProviderConnectivityFlow):
         """Delete Virtual Port Group from every host in the cluster."""
         cluster = self._dc.get_cluster(self._resource_conf.vm_cluster)
         logger.info(f"Removing {network} from every host in the {cluster}")
+        net_name = network.name
         for host in cluster.hosts:
             try:
-                host.remove_port_group(network.name)
+                host.remove_port_group(net_name)
             except ResourceInUse:
-                logger.info(f"{network} is still in use on the {host}")
-            else:
-                logger.debug(f"{network} was removed from the {host}")
+                logger.info(f"Network '{net_name}' is still in use on the {host}")
 
     def _get_network_tags(
         self, network: NetworkHandler | DVPortGroupHandler
@@ -385,28 +398,53 @@ class VCenterConnectivityFlow(AbcCloudProviderConnectivityFlow):
             result = False
         return result
 
-    def _generate_pg_name(self, action: VcenterConnectivityActionModel) -> str:
-        switch_name = self._get_switch_name(action)
-        vlan_id = action.connection_params.vlan_id
-        port_mode = action.connection_params.mode
-        return generate_port_group_name(switch_name, vlan_id, port_mode)
+    def _get_network_settings(
+        self, action: VcenterConnectivityActionModel
+    ) -> NetworkSettings:
+        return NetworkSettings.convert(action, self._resource_conf)
 
-    def _get_switch_name(self, action: VcenterConnectivityActionModel) -> str:
-        if not (switch_name := action.connection_params.vlan_service_attrs.switch_name):
-            switch_name = self._resource_conf.default_dv_switch
-        return switch_name
+    def _is_remove_vlan_or_failed(self, action: VcenterConnectivityActionModel) -> bool:
+        if is_remove_action(action):
+            result = True
+        else:
+            results = self.results[action.action_id]
+            success = results and all(result.success for result in results)
+            result = not success
+        return result
 
-    def _get_forged_transmits(self, action: VcenterConnectivityActionModel) -> bool:
-        if not (ft := action.connection_params.vlan_service_attrs.forged_transmits):
-            ft = self._resource_conf.forged_transmits
-        return ft
+    def _clear_networks_for_exclusive(self, net_settings: NetworkSettings) -> None:
+        """If network is exclusive only this one could use the VLAN ID."""
 
-    def _get_promiscuous_mode(self, action: VcenterConnectivityActionModel) -> bool:
-        if not (pm := action.connection_params.vlan_service_attrs.promiscuous_mode):
-            pm = self._resource_conf.promiscuous_mode
-        return pm
+        def same_vlan(name: str) -> bool:
+            _same_vlan = f"VLAN_{net_settings.vlan_id}_" in name
+            return _same_vlan and is_network_generated_name(name)
 
-    def _get_mac_changes(self, action: VcenterConnectivityActionModel) -> bool:
-        if not (mc := action.connection_params.vlan_service_attrs.mac_changes):
-            mc = self._resource_conf.mac_changes
-        return mc
+        logger.info(
+            f"Network {net_settings.name} is exclusive, "
+            f"removing other quali networks with the same VLAN ID"
+        )
+        for network in self._networks_watcher.find_networks(key=same_vlan):
+            # all networks (except current ) should be disconnected from VMs and removed
+            if net_settings.name == network.name:
+                self._migrate_vms_from_another_sandbox(network)
+            else:
+                self._migrate_vms_to_holding_network(network)
+                network.wait_network_become_free()
+                if isinstance(network, DVPortGroupHandler):
+                    network.destroy()
+                else:
+                    self._delete_pg_from_every_host(network)
+
+    def _migrate_vms_to_holding_network(self, source_net: AbstractNetwork):
+        logger.info(f"Migrating all VMs from {source_net} to the holding network")
+        for vm in source_net.vms:
+            for vnic in vm.vnics:
+                if vnic.is_connected_to_network(source_net):
+                    vnic.connect(self._holding_network)
+
+    def _migrate_vms_from_another_sandbox(self, network: AbstractNetwork):
+        for vm in network.vms:
+            if vm.folder_name != self._sandbox_id:
+                for vnic in vm.vnics:
+                    if vnic.is_connected_to_network(network):
+                        vnic.connect(self._holding_network)
