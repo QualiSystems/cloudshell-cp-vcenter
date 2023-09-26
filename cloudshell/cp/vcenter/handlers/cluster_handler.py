@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import logging
 from abc import abstractmethod
-from collections.abc import Collection
+from collections.abc import Collection, Generator
 from typing import TYPE_CHECKING
 
 from pyVmomi import vim
@@ -18,7 +19,10 @@ from cloudshell.cp.vcenter.handlers.managed_entity_handler import (
     ManagedEntityHandler,
     ManagedEntityNotFound,
 )
-from cloudshell.cp.vcenter.handlers.network_handler import HostPortGroupHandler
+from cloudshell.cp.vcenter.handlers.network_handler import (
+    HostPortGroupHandler,
+    HostPortGroupNotFound,
+)
 from cloudshell.cp.vcenter.handlers.resource_pool import ResourcePoolHandler
 from cloudshell.cp.vcenter.handlers.si_handler import ResourceInUse
 from cloudshell.cp.vcenter.handlers.switch_handler import (
@@ -40,6 +44,9 @@ from cloudshell.cp.vcenter.utils.units_converter import (
 
 if TYPE_CHECKING:
     from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
+
+
+logger = logging.getLogger(__name__)
 
 
 class ClusterNotFound(BaseVCenterException):
@@ -128,6 +135,7 @@ class ClusterHandler(BasicComputeEntityHandler):
         return rp
 
     def get_v_switch(self, name: str) -> VSwitchHandler:
+        logger.debug(f"Getting vSwitch {name} from {self}")
         for host in self.hosts:
             try:
                 v_switch = host.get_v_switch(name)
@@ -203,26 +211,31 @@ class HostHandler(BasicComputeEntityHandler):
         )
 
     @property
-    def port_groups(self) -> list[HostPortGroupHandler]:
-        return [
-            HostPortGroupHandler(pg, self)
-            for pg in self._vc_obj.config.network.portgroup
-        ]
-
-    @property
     def _class_name(self) -> str:
         return "Host"
+
+    def iter_port_groups(self) -> Generator[HostPortGroupHandler, None, None]:
+        for pg in self._vc_obj.config.network.portgroup:
+            yield HostPortGroupHandler(pg, self)
+
+    def get_port_group(self, name: str) -> HostPortGroupHandler:
+        for pg in self.iter_port_groups():
+            if pg.name == name:
+                return pg
+        raise HostPortGroupNotFound(self, name)
 
     def get_resource_pool(self, path: str | None) -> ResourcePoolHandler:
         return self.cluster.get_resource_pool(path)
 
     def get_v_switch(self, name: str) -> VSwitchHandler:
+        logger.debug(f"Getting vSwitch {name} from {self}")
         for v_switch in self._vc_obj.config.network.vswitch:
             if v_switch.name == name:
                 return VSwitchHandler(v_switch, self)
         raise VSwitchNotFound(self, name)
 
     def remove_port_group(self, name: str):
+        logger.debug(f"Removing port group {name} from {self}")
         try:
             self._vc_obj.configManager.networkSystem.RemovePortGroup(name)
         except (vim.fault.NotFound, ManagedEntityNotFound):

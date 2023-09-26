@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 from abc import abstractmethod
+from collections.abc import Generator
 from typing import TYPE_CHECKING, Protocol
 
 import attr
@@ -9,6 +10,7 @@ from attrs import field, setters
 from pyVmomi import vim
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
+from cloudshell.cp.vcenter.handlers.folder_handler import FolderHandler
 from cloudshell.cp.vcenter.handlers.managed_entity_handler import (
     ManagedEntityHandler,
     ManagedEntityNotFound,
@@ -18,6 +20,7 @@ from cloudshell.cp.vcenter.handlers.si_handler import ResourceInUse, SiHandler
 if TYPE_CHECKING:
     from cloudshell.cp.vcenter.handlers.cluster_handler import HostHandler
     from cloudshell.cp.vcenter.handlers.switch_handler import AbstractSwitchHandler
+    from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
 
 
 class NetworkNotFound(BaseVCenterException):
@@ -58,6 +61,17 @@ class AbstractNetwork(ManagedEntityHandler):
     def in_use(self) -> bool:
         return bool(self._vc_obj.vm)
 
+    @property
+    def folder(self) -> FolderHandler:
+        return FolderHandler(self._vc_obj.parent, self.si)
+
+    @property
+    def vms(self) -> Generator[VmHandler, None, None]:
+        from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
+
+        for vm in self._vc_obj.vm:
+            yield VmHandler(vm, self.si)
+
     def wait_network_become_free(
         self, delay: int = 2, timeout: int = 30, raise_: bool = False
     ) -> bool:
@@ -69,17 +83,6 @@ class AbstractNetwork(ManagedEntityHandler):
         if self.in_use and raise_:
             raise ResourceInUse(self.name)
         return not self.in_use
-
-    def wait_network_disappears(self, delay: int = 2, timeout: int = 60 * 2) -> bool:
-        end_time = time.time() + timeout
-        while time.time() < end_time:
-            try:
-                _ = self.name
-            except ManagedEntityNotFound:
-                return True
-            else:
-                time.sleep(delay)
-        return False
 
 
 class NetworkHandler(AbstractNetwork):
