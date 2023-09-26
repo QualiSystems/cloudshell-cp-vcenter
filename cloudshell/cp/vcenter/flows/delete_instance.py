@@ -24,21 +24,12 @@ logger = logging.getLogger(__name__)
 folder_delete_lock = Lock()
 
 
-def delete_instance(
-    deployed_app: BaseVCenterDeployedApp,
-    resource_conf: VCenterResourceConfig,
-    reservation_info: ReservationInfo | None,
-) -> None:
-    DeleteFlow(deployed_app, resource_conf, reservation_info).delete()
-
-
 @define
 class DeleteFlow:
     _si: SiHandler
     _deployed_app: BaseVCenterDeployedApp
     _resource_conf: VCenterResourceConfig
     _reservation_info: ReservationInfo | None
-    _si: SiHandler = field(init=False)
     _vsphere_client: VSphereSDKHandler = field(init=False)
     _dc: DcHandler = field(init=False)
 

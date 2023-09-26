@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 from functools import cached_property
 from typing import TYPE_CHECKING
@@ -9,6 +10,7 @@ from pyVmomi import vim
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
 from cloudshell.cp.vcenter.handlers.managed_entity_handler import ManagedEntityHandler
 from cloudshell.cp.vcenter.handlers.network_handler import (
+    AbstractNetwork,
     DVPortGroupHandler,
     NetworkHandler,
 )
@@ -17,6 +19,9 @@ from cloudshell.cp.vcenter.utils.network_helpers import is_ipv4
 
 if TYPE_CHECKING:
     from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
+
+
+logger = logging.getLogger(__name__)
 
 
 class VnicNotFound(BaseVCenterException):
@@ -44,6 +49,7 @@ class VnicWithoutNetwork(BaseVCenterException):
 class Vnic(VirtualDevice):
     @classmethod
     def create(cls, network: NetworkHandler | DVPortGroupHandler) -> Vnic:
+        logger.debug(f"Creating new vNIC and connect to {network}")
         try:
             self = cls.vm.vnics[0]._create_new_vnic_same_type()
         except IndexError:
@@ -103,6 +109,22 @@ class Vnic(VirtualDevice):
             vnic = self.vm.vnics[-1]
             assert vnic.network == network
             self._vc_obj = vnic.get_vc_obj()
+
+    def is_connected_to_network(self, network: AbstractNetwork) -> bool:
+        result = False
+        if isinstance(network, NetworkHandler):
+            try:
+                result = self._vc_obj.backing.network == network.get_vc_obj()
+            except (ValueError, AttributeError):
+                # vNIC can be connected to DV Port Group
+                result = False
+        elif isinstance(network, DVPortGroupHandler):
+            try:
+                result = self._vc_obj.backing.port.portgroupKey == network.key
+            except (ValueError, AttributeError):
+                # vNIC can be connected to Host Port Group
+                result = False
+        return result
 
     def _create_new_vnic_same_type(self) -> Vnic:
         return self.vm.vnic_class(type(self._vc_obj)())

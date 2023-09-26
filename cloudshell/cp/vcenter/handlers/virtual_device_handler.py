@@ -23,7 +23,13 @@ class VirtualDevice:
     _vc_obj: vim.vm.device.VirtualDevice
 
     def __repr__(self) -> str:
-        return f"{self.name} of the {self.vm}"
+        try:
+            name = self.name
+        except AttributeError:
+            # new object without name
+            name = f"New {type(self).__name__}"
+
+        return f"{name} of the {self.vm}"
 
     @property
     def name(self) -> str:

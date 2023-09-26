@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import time
 from typing import TYPE_CHECKING, Protocol
 
 from attrs import define, field, setters
@@ -13,14 +12,7 @@ from cloudshell.shell.flows.connectivity.models.connectivity_model import (
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
 from cloudshell.cp.vcenter.handlers.managed_entity_handler import ManagedEntityHandler
-from cloudshell.cp.vcenter.handlers.network_handler import (
-    AbstractPortGroupHandler,
-    DVPortGroupHandler,
-    DVPortGroupNotFound,
-    HostPortGroupHandler,
-    HostPortGroupNotFound,
-    PortGroupNotFound,
-)
+from cloudshell.cp.vcenter.handlers.network_handler import PortGroupNotFound
 from cloudshell.cp.vcenter.handlers.task import ON_TASK_PROGRESS_TYPE, Task
 
 if TYPE_CHECKING:
@@ -71,22 +63,6 @@ class AbstractSwitchHandler(Protocol):
     def name(self) -> str:
         raise NotImplementedError
 
-    def wait_port_group_appears(
-        self, name: str, delay: int = 2, timeout: int = 60 * 5
-    ) -> AbstractPortGroupHandler:
-        end_time = time.time() + timeout
-        while time.time() < end_time:
-            try:
-                pg = self.get_port_group(name)
-            except PortGroupNotFound:
-                time.sleep(delay)
-            else:
-                return pg
-        raise PortGroupNotFound(self, name)
-
-    def get_port_group(self, name: str) -> AbstractPortGroupHandler:
-        raise NotImplementedError
-
     def create_port_group(
         self,
         port_name: str,
@@ -117,6 +93,7 @@ class DvSwitchHandler(ManagedEntityHandler, AbstractSwitchHandler):
         num_ports: int = 32,
         on_task_progress: ON_TASK_PROGRESS_TYPE | None = None,
     ) -> None:
+        logger.debug(f"Creating dv port group {dv_port_name} on {self}")
         port_conf_policy = (
             vim.dvs.VmwareDistributedVirtualSwitch.VmwarePortConfigPolicy(
                 securityPolicy=vim.dvs.VmwareDistributedVirtualSwitch.SecurityPolicy(
@@ -140,19 +117,13 @@ class DvSwitchHandler(ManagedEntityHandler, AbstractSwitchHandler):
         task = Task(vc_task)
         task.wait(on_progress=on_task_progress)
 
-    def get_port_group(self, name: str) -> DVPortGroupHandler:
-        for port_group in self._vc_obj.portgroup:
-            if port_group.name == name:
-                return DVPortGroupHandler(port_group, self.si)
-        raise DVPortGroupNotFound(self, name)
 
-
-@define
+@define(repr=False)
 class VSwitchHandler(AbstractSwitchHandler):
     _vc_obj: vim.host.VirtualSwitch = field(on_setattr=setters.frozen)
     host: HostHandler
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         return f"VirtualSwitch '{self.name}'"
 
     @property
@@ -162,12 +133,6 @@ class VSwitchHandler(AbstractSwitchHandler):
     @property
     def name(self) -> str:
         return self._vc_obj.name
-
-    def get_port_group(self, name: str) -> HostPortGroupHandler:
-        for pg in self.host.port_groups:
-            if pg.name == name and pg.v_switch_key == self.key:
-                return pg
-        raise HostPortGroupNotFound(self, name)
 
     def create_port_group(
         self,
@@ -180,6 +145,7 @@ class VSwitchHandler(AbstractSwitchHandler):
         num_ports: int = 32,
         on_task_progress: ON_TASK_PROGRESS_TYPE | None = None,
     ) -> None:
+        logger.debug(f"Creating port group {port_name} on {self}")
         pg_spec = vim.host.PortGroup.Specification()
         pg_spec.vswitchName = self.name
         pg_spec.name = port_name
@@ -192,3 +158,12 @@ class VSwitchHandler(AbstractSwitchHandler):
         pg_spec.policy = network_policy
 
         self.host.add_port_group(pg_spec)
+
+    def port_group_exists(self, name: str) -> bool:
+        try:
+            self.host.get_port_group(name)
+        except PortGroupNotFound:
+            result = False
+        else:
+            result = True
+        return result

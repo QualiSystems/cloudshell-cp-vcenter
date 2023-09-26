@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import logging
+import time
+from collections.abc import Generator
 from contextlib import suppress
 from threading import Lock
 from typing import ClassVar
 
-import attr
+from attrs import define
 from pyVmomi import vim
+from typing_extensions import Self
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
 from cloudshell.cp.vcenter.handlers.managed_entity_handler import (
@@ -34,7 +37,7 @@ class FolderIsNotEmpty(BaseVCenterException):
         super().__init__(f"{folder} is not empty, cannot delete it")
 
 
-@attr.s(auto_attribs=True)
+@define(repr=False)
 class FolderHandler(ManagedEntityHandler):
     FOLDER_LOCK: ClassVar[Lock] = Lock()
 
@@ -60,6 +63,12 @@ class FolderHandler(ManagedEntityHandler):
         vc_parent = self._vc_obj.parent
         if isinstance(vc_parent, vim.Folder):
             return FolderHandler(vc_parent, self.si)
+
+    @property
+    def children_folders(self) -> Generator[Self, None, None]:
+        for vc_folder in self._vc_obj.childEntity:
+            if isinstance(vc_folder, vim.Folder):
+                yield FolderHandler(vc_folder, self.si)
 
     @property
     def _class_name(self) -> str:
@@ -101,11 +110,18 @@ class FolderHandler(ManagedEntityHandler):
             folder = folder.get_or_create_child(name)
         return folder
 
-    def destroy(self, on_task_progress: ON_TASK_PROGRESS_TYPE | None = None) -> None:
-        logger.info(f"Deleting the {self}")
+    def destroy(
+        self, on_task_progress: ON_TASK_PROGRESS_TYPE | None = None, wait: int = 0
+    ) -> None:
+        logger.debug(f"Deleting the {self}")
+
+        end_time = time.time() + wait
         with suppress(ManagedEntityNotFound):
-            if not self.is_empty():
-                raise FolderIsNotEmpty(self)
+            while not self.is_empty():
+                if end_time < time.time():
+                    raise FolderIsNotEmpty(self)
+                else:
+                    time.sleep(1)
 
             vc_task = self._vc_obj.Destroy_Task()
             task = Task(vc_task)
@@ -133,3 +149,9 @@ class FolderHandler(ManagedEntityHandler):
                 except vim.fault.DuplicateName:
                     folder = self.get_folder(name)
         return folder
+
+    def put_inside(self, entity: ManagedEntityHandler) -> None:
+        logger.debug(f"Moving {entity} into {self}")
+        vc_task = self._vc_obj.MoveIntoFolder_Task([entity.get_vc_obj()])
+        task = Task(vc_task)
+        task.wait()

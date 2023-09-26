@@ -6,13 +6,13 @@ from datetime import datetime
 from enum import Enum
 from functools import cached_property
 from threading import Lock
+from typing import TYPE_CHECKING
 
 import attr
 from pyVmomi import vim
 
 from cloudshell.cp.vcenter.common.vcenter.event_manager import EventManager
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
-from cloudshell.cp.vcenter.handlers.cluster_handler import HostHandler
 from cloudshell.cp.vcenter.handlers.config_spec_handler import ConfigSpecHandler
 from cloudshell.cp.vcenter.handlers.custom_spec_handler import CustomSpecHandler
 from cloudshell.cp.vcenter.handlers.datastore_handler import DatastoreHandler
@@ -23,7 +23,6 @@ from cloudshell.cp.vcenter.handlers.managed_entity_handler import (
 )
 from cloudshell.cp.vcenter.handlers.network_handler import (
     DVPortGroupHandler,
-    HostPortGroupNotFound,
     NetworkHandler,
     get_network_handler,
 )
@@ -53,6 +52,10 @@ from cloudshell.cp.vcenter.utils.network_helpers import is_ipv4
 from cloudshell.cp.vcenter.utils.units_converter import BASE_10
 
 logger = logging.getLogger(__name__)
+
+
+if TYPE_CHECKING:
+    from cloudshell.cp.vcenter.handlers.cluster_handler import HostHandler
 
 
 class VmNotFound(BaseVCenterException):
@@ -165,6 +168,8 @@ class VmHandler(ManagedEntityHandler):
 
     @property
     def host(self) -> HostHandler:
+        from cloudshell.cp.vcenter.handlers.cluster_handler import HostHandler
+
         return HostHandler(self._vc_obj.runtime.host, self.si)
 
     @property
@@ -203,6 +208,10 @@ class VmHandler(ManagedEntityHandler):
             path = VcenterPath(folder.name) + path
             folder = folder.parent
         return path
+
+    @property
+    def folder_name(self) -> str:
+        return self._vc_obj.parent.name
 
     @property
     def parent(self) -> FolderHandler:
@@ -269,11 +278,7 @@ class VmHandler(ManagedEntityHandler):
         if isinstance(network, DVPortGroupHandler):
             pg = network
         else:
-            for pg in self.host.port_groups:
-                if pg.name == network.name:
-                    break
-            else:
-                raise HostPortGroupNotFound(self, network.name)
+            pg = self.host.get_port_group(network.name)
         return pg.vlan_id
 
     def get_v_switch(self, name: str) -> VSwitchHandler:

@@ -5,7 +5,7 @@ from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager, suppress
 
-import attr
+from attrs import define
 
 from cloudshell.api.cloudshell_api import CloudShellAPISession
 from cloudshell.cp.core.cancellation_manager import CancellationContextManager
@@ -58,7 +58,7 @@ class SaveRestoreAttributeMissed(BaseVCenterException):
         )
 
 
-@attr.s(auto_attribs=True)
+@define
 class SaveRestoreAppFlow:
     _si: SiHandler
     _resource_conf: VCenterResourceConfig
@@ -71,6 +71,9 @@ class SaveRestoreAppFlow:
             self._cancellation_manager
         )
         self._dc = DcHandler.get_dc(self._resource_conf.default_datacenter, self._si)
+        self._holding_network = self._dc.get_network(
+            self._resource_conf.holding_network
+        )
 
     def save_apps(self, save_actions: Iterable[SaveApp]) -> str:
         with ThreadPoolExecutor() as executor:
@@ -175,12 +178,12 @@ class SaveRestoreAppFlow:
             net_actions = VMNetworkActions(
                 self._resource_conf, self._cancellation_manager
             )
-            default_network = self._dc.get_network(self._resource_conf.holding_network)
+
             for vnic in cloned_vm.vnics:
                 network = vnic.network
 
                 if net_actions.is_quali_network(network.name):
-                    vnic.connect(default_network)
+                    vnic.connect(self._holding_network)
 
             cloned_vm.create_snapshot(
                 SNAPSHOT_NAME,
