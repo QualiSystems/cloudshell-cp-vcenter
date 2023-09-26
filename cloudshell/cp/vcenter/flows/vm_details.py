@@ -16,19 +16,20 @@ logger = logging.getLogger(__name__)
 class VCenterGetVMDetailsFlow(AbstractVMDetailsFlow):
     def __init__(
         self,
+        si: SiHandler,
         resource_conf: VCenterResourceConfig,
         cancellation_manager: CancellationContextManager,
     ):
         super().__init__(logger)
+        self._si = si
         self._resource_conf = resource_conf
         self._cancellation_manager = cancellation_manager
 
     def _get_vm_details(self, deployed_app: BaseVCenterDeployedApp) -> VmDetailsData:
-        si = SiHandler.from_config(self._resource_conf)
-        dc = DcHandler.get_dc(self._resource_conf.default_datacenter, si)
+        dc = DcHandler.get_dc(self._resource_conf.default_datacenter, self._si)
         vm = dc.get_vm_by_uuid(deployed_app.vmdetails.uid)
         return VMDetailsActions(
-            si,
+            self._si,
             self._resource_conf,
             self._cancellation_manager,
         ).create(vm, deployed_app)

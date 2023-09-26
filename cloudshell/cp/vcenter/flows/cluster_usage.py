@@ -11,11 +11,11 @@ logger = logging.getLogger(__name__)
 
 
 def get_cluster_usage(
+    si: SiHandler,
     resource_conf: VCenterResourceConfig,
     datastore_name: str,
 ):
     datastore_name = datastore_name or resource_conf.vm_storage
-    si = SiHandler.from_config(resource_conf)
     dc = DcHandler.get_dc(resource_conf.default_datacenter, si)
     compute_entity = dc.get_compute_entity(resource_conf.vm_cluster)
     datastore = dc.get_datastore(datastore_name)

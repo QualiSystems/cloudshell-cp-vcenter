@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 def reconfigure_vm(
+    si: SiHandler,
     resource_conf: VCenterResourceConfig,
     deployed_app: BaseVCenterDeployedApp,
     cpu: str | None,
@@ -19,7 +20,6 @@ def reconfigure_vm(
     hdd: str | None,
 ):
     logger.info("Reconfiguring VM")
-    si = SiHandler.from_config(resource_conf)
     dc = DcHandler.get_dc(resource_conf.default_datacenter, si)
     vm = dc.get_vm_by_uuid(deployed_app.vmdetails.uid)
     config_spec = ConfigSpecHandler.from_strings(cpu, ram, hdd)
