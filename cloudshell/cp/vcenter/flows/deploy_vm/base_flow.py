@@ -56,6 +56,7 @@ logger = logging.getLogger(__name__)
 class AbstractVCenterDeployVMFlow(AbstractDeployFlow):
     def __init__(
         self,
+        si: SiHandler,
         resource_config: VCenterResourceConfig,
         cs_api: CloudShellAPISession,
         reservation_info: ReservationInfo,
@@ -70,7 +71,7 @@ class AbstractVCenterDeployVMFlow(AbstractDeployFlow):
         self._on_task_progress = on_task_progress_check_if_cancelled(
             cancellation_manager
         )
-        self._si = SiHandler.from_config(resource_config)
+        self._si = si
         self._vsphere_client = VSphereSDKHandler.from_config(
             resource_config=self._resource_config,
             reservation_info=self._reservation_info,

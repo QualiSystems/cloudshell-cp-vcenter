@@ -14,11 +14,11 @@ from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 
 
 def refresh_ip(
+    si: SiHandler,
     deployed_app: BaseVCenterDeployedApp | StaticVCenterDeployedApp,
     resource_conf: VCenterResourceConfig,
     cancellation_manager: CancellationContextManager,
 ) -> str:
-    si = SiHandler.from_config(resource_conf)
     dc = DcHandler.get_dc(resource_conf.default_datacenter, si)
     vm = dc.get_vm_by_uuid(deployed_app.vmdetails.uid)
     if vm.power_state is not vm.power_state.ON:

@@ -24,13 +24,13 @@ class CustomSpecExists(BaseVCenterException):
 
 
 def customize_guest_os(
+    si: SiHandler,
     resource_conf: VCenterResourceConfig,
     deployed_app: BaseVCenterDeployedApp,
     custom_spec_name: str,
     custom_spec_params: str,
     override_custom_spec: bool,
 ):
-    si = SiHandler.from_config(resource_conf)
     dc = DcHandler.get_dc(resource_conf.default_datacenter, si)
     vm = dc.get_vm_by_uuid(deployed_app.vmdetails.uid)
     custom_spec_params = get_custom_spec_params_from_json(custom_spec_params, vm)

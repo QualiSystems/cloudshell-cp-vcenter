@@ -34,6 +34,7 @@ def delete_instance(
 
 @define
 class DeleteFlow:
+    _si: SiHandler
     _deployed_app: BaseVCenterDeployedApp
     _resource_conf: VCenterResourceConfig
     _reservation_info: ReservationInfo | None
@@ -42,7 +43,6 @@ class DeleteFlow:
     _dc: DcHandler = field(init=False)
 
     def __attrs_post_init__(self):
-        self._si = SiHandler.from_config(self._resource_conf)
         self._vsphere_client = VSphereSDKHandler.from_config(
             resource_config=self._resource_conf,
             reservation_info=self._reservation_info,

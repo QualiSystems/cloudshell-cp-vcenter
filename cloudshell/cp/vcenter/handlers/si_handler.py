@@ -3,9 +3,11 @@ from __future__ import annotations
 import logging
 from contextlib import suppress
 from functools import partial
-from typing import Any
+from threading import Lock
+from typing import TYPE_CHECKING, Any
 
-import attr
+from attrs import define
+from pyVim.connect import Disconnect
 from pyVmomi import vim
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
@@ -16,7 +18,12 @@ from cloudshell.cp.vcenter.handlers.custom_spec_handler import (
 from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 from cloudshell.cp.vcenter.utils.client_helpers import get_si
 
+if TYPE_CHECKING:
+    from typing_extensions import Self
+
 logger = logging.getLogger(__name__)
+si_lock = Lock()
+si_connections = {}
 
 
 class CustomSpecNotFound(BaseVCenterException):
@@ -30,9 +37,18 @@ class ResourceInUse(BaseVCenterException):
         super().__init__(f"{name} is in use")
 
 
-@attr.s(auto_attribs=True, slots=True, frozen=True)
+@define
 class SiHandler:
     _vc_obj: vim.ServiceInstance
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        Disconnect(self._vc_obj)
+        # Disconnect makes session not valid but left opened socket ...
+        # we have to destroy it
+        self._vc_obj._stub.DropConnections()
 
     @classmethod
     def from_config(cls, conf: VCenterResourceConfig) -> SiHandler:

@@ -60,12 +60,12 @@ class SaveRestoreAttributeMissed(BaseVCenterException):
 
 @attr.s(auto_attribs=True)
 class SaveRestoreAppFlow:
+    _si: SiHandler
     _resource_conf: VCenterResourceConfig
     _cs_api: CloudShellAPISession
     _cancellation_manager: CancellationContextManager
 
     def __attrs_post_init__(self):
-        self._si = SiHandler.from_config(self._resource_conf)
         self._rollback_manager = RollbackCommandsManager(logger)
         self._on_task_progress = on_task_progress_check_if_cancelled(
             self._cancellation_manager

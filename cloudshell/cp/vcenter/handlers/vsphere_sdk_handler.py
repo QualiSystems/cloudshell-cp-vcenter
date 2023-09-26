@@ -64,13 +64,10 @@ class VSphereSDKHandler:
     @classmethod
     def from_config(
         cls,
+        si: SiHandler,
         resource_config: VCenterResourceConfig,
         reservation_info: ReservationInfo | None,
-        si: SiHandler | None = None,
     ) -> VSphereSDKHandler | None:
-        if not si:
-            si = SiHandler.from_config(resource_config)
-
         if not resource_config.enable_tags:
             return None
 
