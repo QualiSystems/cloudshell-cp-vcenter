@@ -1,4 +1,2 @@
 include *.txt
 global-include *.json
-prune .tox
-prune .mypy_cache
