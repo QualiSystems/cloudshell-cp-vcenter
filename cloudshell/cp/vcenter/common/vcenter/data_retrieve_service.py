@@ -1,4 +1,6 @@
-from typing import Union
+from __future__ import annotations
+
+from typing import Literal
 
 from pyVmomi import vim, vmodl
 
@@ -13,16 +15,16 @@ class VcenterDataRetrieveService:
     def get_all_objects_with_properties(
         self,
         vim_type: type[
-            Union[
-                vim.Folder,
-                vim.VirtualMachine,
-                vim.HostSystem,
-                vim.ClusterComputeResource,
-                vim.Datastore,
-                vim.StoragePod,
-            ]
+            (
+                vim.Folder
+                | vim.VirtualMachine
+                | vim.HostSystem
+                | vim.ClusterComputeResource
+                | vim.Datastore
+                | vim.StoragePod
+            )
         ],
-        properties: list[str],
+        properties: list[str] | Literal["all"],
         si: vim.ServiceInstance,
         root: vim.ManagedEntity = None,
     ):
@@ -46,7 +48,10 @@ class VcenterDataRetrieveService:
         # noinspection PyUnresolvedReferences
         prop_spec = vmodl.query.PropertyCollector.PropertySpec()
         prop_spec.type = vim_type
-        prop_spec.pathSet = properties
+        if properties == "all":
+            prop_spec.all = True
+        else:
+            prop_spec.pathSet = properties
 
         # noinspection PyUnresolvedReferences
         filter_spec = vmodl.query.PropertyCollector.FilterSpec()
@@ -66,7 +71,7 @@ class VcenterDataRetrieveService:
             if prop.name == name:
                 return prop.val
 
-        raise Exception(
+        raise KeyError(
             f"Unable to find pre-loaded property '{name}' "
             f"on the object {obj_with_props.obj.name}"
         )
