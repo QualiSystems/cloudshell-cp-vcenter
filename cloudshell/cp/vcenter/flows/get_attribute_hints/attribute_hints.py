@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import itertools
+import logging
 from abc import ABC, abstractmethod
 from enum import IntEnum
 
@@ -11,6 +12,8 @@ from cloudshell.cp.vcenter.common.vcenter.data_retrieve_service import (
 )
 from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
 from cloudshell.cp.vcenter.models.DeployDataHolder import DeployDataHolder
+
+logger = logging.getLogger(__name__)
 
 
 class AbstractAttributeHint(ABC):
@@ -44,14 +47,21 @@ class SearchVmTemplates(IntEnum):
     ONLY = 3
 
 
+class SearchVmSnapshots(IntEnum):
+    INCLUDE = 1
+    ONLY = 2
+
+
 class VcenterTemplateAttributeHint(AbstractAttributeHint):
     ATTR_NAME = "vCenter Template"
     ROOT_VMS_FOLDER = "vm"
     SEARCH_VM_TEMPLATES: SearchVmTemplates = SearchVmTemplates.ONLY
+    SEARCH_VM_SNAPSHOTS: SearchVmSnapshots = SearchVmSnapshots.INCLUDE
 
     NAME_PROPERTY = "name"
     PARENT_PROPERTY = "parent"
     IS_TEMPLATE_PROPERTY = "config.template"
+    SNAPSHOT_PROPERTY = "snapshot"
 
     def _generate_full_vm_path(
         self,
@@ -91,6 +101,7 @@ class VcenterTemplateAttributeHint(AbstractAttributeHint):
                 self.NAME_PROPERTY,
                 self.PARENT_PROPERTY,
                 self.IS_TEMPLATE_PROPERTY,
+                self.SNAPSHOT_PROPERTY,
             ],
             si=self._si,
             root=self._datacenter,
@@ -105,14 +116,16 @@ class VcenterTemplateAttributeHint(AbstractAttributeHint):
 
         folders_with_props_map = {prop.obj: prop for prop in folders_with_props}
 
-        for vm_with_props in filter(self._filter_vm_by_template, vms_with_props):
+        vms_with_props = filter(self._filter_vm_by_template, vms_with_props)
+        vms_with_props = filter(self._filter_by_snapshot, vms_with_props)
+        for vm_with_props in vms_with_props:
             hints.append(
                 self._generate_full_vm_path(
                     vm_with_props=vm_with_props,
                     folders_with_props_map=folders_with_props_map,
                 )
             )
-
+        logger.debug(f"Found {len(hints)} VMs/Templates")
         hints.sort()
         return hints
 
@@ -132,6 +145,21 @@ class VcenterTemplateAttributeHint(AbstractAttributeHint):
             result = False
         return result
 
+    def _filter_by_snapshot(self, vm_with_props) -> bool:
+        if self.SEARCH_VM_SNAPSHOTS is SearchVmSnapshots.INCLUDE:
+            return True
+
+        service = VcenterDataRetrieveService()
+        try:
+            service.get_object_property(self.SNAPSHOT_PROPERTY, vm_with_props)
+        except KeyError:
+            snapshots = False
+        else:
+            snapshots = True
+
+        assert self.SEARCH_VM_SNAPSHOTS is SearchVmSnapshots.ONLY
+        return snapshots
+
 
 class VcenterVMAttributeHint(VcenterTemplateAttributeHint):
     ATTR_NAME = "vCenter VM"
@@ -140,6 +168,7 @@ class VcenterVMAttributeHint(VcenterTemplateAttributeHint):
 
 class VcenterVMForLinkedCloneAttributeHint(VcenterVMAttributeHint):
     SEARCH_VM_TEMPLATES = SearchVmTemplates.INCLUDE
+    SEARCH_VM_SNAPSHOTS = SearchVmSnapshots.ONLY
 
 
 class VcenterVMSnapshotAttributeHint(VcenterTemplateAttributeHint):
@@ -162,21 +191,7 @@ class VcenterVMSnapshotAttributeHint(VcenterTemplateAttributeHint):
                 f"Please populate it first."
             )
         vm_obj = service.get_vm_object(self._si, self._datacenter.vmFolder, vm_path)
-        return self._get_snapshot_list(vm_obj.snapshot.rootSnapshotList)
-
-    def _get_snapshot_list(self, snapshot_list, response_list=None, snapshot_name=""):
-        if not response_list:
-            response_list = []
-        parent_snapshot_path = snapshot_name
-        for snapshot in snapshot_list:
-            parent_snapshot_path += snapshot.name
-            response_list.append(parent_snapshot_path)
-            if snapshot.childSnapshotList:
-                parent_snapshot_path += "/"
-                self._get_snapshot_list(
-                    snapshot.childSnapshotList, response_list, parent_snapshot_path
-                )
-        return response_list
+        return _get_snapshot_list(vm_obj.snapshot.rootSnapshotList)
 
 
 class VMClusterAttributeHint(AbstractAttributeHint):
@@ -244,3 +259,20 @@ class VMStorageAttributeHint(AbstractAttributeHint):
 
         hints.sort()
         return hints
+
+
+def _get_snapshot_list(
+    snapshot_list, response_list=None, snapshot_name=""
+) -> list[str]:
+    if not response_list:
+        response_list = []
+    parent_snapshot_path = snapshot_name
+    for snapshot in snapshot_list:
+        parent_snapshot_path += snapshot.name
+        response_list.append(parent_snapshot_path)
+        if snapshot.childSnapshotList:
+            parent_snapshot_path += "/"
+            _get_snapshot_list(
+                snapshot.childSnapshotList, response_list, parent_snapshot_path
+            )
+    return response_list
