@@ -24,6 +24,7 @@ from cloudshell.cp.vcenter.actions.vm_network import VMNetworkActions
 from cloudshell.cp.vcenter.constants import VM_FROM_LINKED_CLONE_DEPLOYMENT_PATH
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
 from cloudshell.cp.vcenter.flows.deploy_vm.commands import CloneVMCommand
+from cloudshell.cp.vcenter.handlers.config_spec_handler import ConfigSpecHandler
 from cloudshell.cp.vcenter.handlers.datastore_handler import DatastoreHandler
 from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
 from cloudshell.cp.vcenter.handlers.folder_handler import (
@@ -156,12 +157,19 @@ class SaveRestoreAppFlow:
 
         with self._behavior_during_save(vm, app_attrs):
             new_vm_name = f"Clone of {vm.name[0:32]}"
+            config_spec = ConfigSpecHandler(None, None, [], None)
+            copy_source_uuid = app_attrs.get(
+                VMFromVMDeployApp.ATTR_NAMES.copy_source_uuid, False
+            )
+            if copy_source_uuid:
+                config_spec.bios_uuid = vm.bios_uuid
             cloned_vm = self._clone_vm(
                 vm,
                 new_vm_name,
                 vm_resource_pool,
                 vm_storage,
                 vm_folder,
+                config_spec,
             )
 
             net_actions = VMNetworkActions(
@@ -185,12 +193,21 @@ class SaveRestoreAppFlow:
     @staticmethod
     def _prepare_result(cloned_vm: VmHandler, save_action: SaveApp) -> SaveAppResult:
         attr_names = VCenterVMFromCloneDeployAppAttributeNames
+        copy_vm_uuid = next(
+            (
+                x.attributeValue
+                for x in save_action.actionParams.deploymentPathAttributes
+                if x.attributeName == attr_names.copy_source_uuid
+            ),
+            "False",
+        )
         entity_attrs = [
             Attribute(attr_names.vcenter_vm, str(cloned_vm.path)),
             Attribute(attr_names.vcenter_vm_snapshot, SNAPSHOT_NAME),
             Attribute(attr_names.hostname, None),
             Attribute(attr_names.private_ip, None),
             Attribute(attr_names.customization_spec, None),
+            Attribute(attr_names.copy_source_uuid, copy_vm_uuid),
         ]
 
         return SaveAppResult(
@@ -207,7 +224,9 @@ class SaveRestoreAppFlow:
         vm_resource_pool: ResourcePoolHandler,
         vm_storage: DatastoreHandler,
         vm_folder: FolderHandler,
+        config_spec: ConfigSpecHandler | None = None,
     ) -> VmHandler:
+
         return CloneVMCommand(
             rollback_manager=self._rollback_manager,
             cancellation_manager=self._cancellation_manager,
@@ -218,7 +237,7 @@ class SaveRestoreAppFlow:
             vm_storage=vm_storage,
             vm_folder=vm_folder,
             vm_snapshot=None,
-            config_spec=None,
+            config_spec=config_spec,
         ).execute()
 
     def _delete_saved_app(self, action: DeleteSavedApp) -> None:
