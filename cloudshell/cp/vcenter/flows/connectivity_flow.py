@@ -12,6 +12,7 @@ from cloudshell.shell.flows.connectivity.cloud_providers_flow import (
     VnicInfo,
 )
 from cloudshell.shell.flows.connectivity.models.connectivity_model import (
+    ConnectionModeEnum,
     is_remove_action,
     is_set_action,
 )
@@ -277,6 +278,10 @@ class VCenterConnectivityFlow(AbcCloudProviderConnectivityFlow):
             if net_settings.exclusive:
                 # remove other networks with the same VLAN ID
                 self._clear_networks_for_exclusive(net_settings)
+            else:
+                # remove exclusive networks with the same VLAN ID
+                self._clear_exclusive_networks(net_settings)
+
             try:
                 # getting earlier created network
                 network = self._networks_watcher.get_network(net_settings.name)
@@ -434,6 +439,30 @@ class VCenterConnectivityFlow(AbcCloudProviderConnectivityFlow):
                     network.destroy()
                 else:
                     self._delete_pg_from_every_host(network)
+
+    def _clear_exclusive_networks(self, net_settings: NetworkSettings) -> None:
+        """Remove exclusive networks.
+
+        If we are using shared network no other exclusive networks with the same
+        VLAN ID shouldn't exist.
+        """
+
+        def same_vlan_and_exclusive(name: str) -> bool:
+            same_vlan = f"VLAN_{net_settings.vlan_id}_" in name
+            exclusive_access = f"{ConnectionModeEnum.ACCESS.value}_E" in name
+            exclusive_trunk = f"{ConnectionModeEnum.TRUNK.value}_E" in name
+            exclusive = exclusive_access or exclusive_trunk
+            return same_vlan and exclusive and is_network_generated_name(name)
+
+        for network in self._networks_watcher.find_networks(
+            key=same_vlan_and_exclusive
+        ):
+            self._migrate_vms_to_holding_network(network)
+            network.wait_network_become_free()
+            if isinstance(network, DVPortGroupHandler):
+                network.destroy()
+            else:
+                self._delete_pg_from_every_host(network)
 
     def _migrate_vms_to_holding_network(self, source_net: AbstractNetwork):
         logger.info(f"Migrating all VMs from {source_net} to the holding network")
