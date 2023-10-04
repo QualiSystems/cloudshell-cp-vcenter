@@ -421,7 +421,9 @@ class VCenterConnectivityFlow(AbcCloudProviderConnectivityFlow):
         """If network is exclusive only this one could use the VLAN ID."""
 
         def same_vlan(name: str) -> bool:
-            _same_vlan = f"VLAN_{net_settings.vlan_id}_" in name
+            switch = net_settings.switch_name
+            vlan = net_settings.vlan_id
+            _same_vlan = f"_{switch}_VLAN_{vlan}_" in name
             return _same_vlan and is_network_generated_name(name)
 
         logger.info(
@@ -448,7 +450,9 @@ class VCenterConnectivityFlow(AbcCloudProviderConnectivityFlow):
         """
 
         def same_vlan_and_exclusive(name: str) -> bool:
-            same_vlan = f"VLAN_{net_settings.vlan_id}_" in name
+            switch = net_settings.switch_name
+            vlan = net_settings.vlan_id
+            same_vlan = f"_{switch}_VLAN_{vlan}_" in name
             exclusive_access = f"{ConnectionModeEnum.ACCESS.value}_E" in name
             exclusive_trunk = f"{ConnectionModeEnum.TRUNK.value}_E" in name
             exclusive = exclusive_access or exclusive_trunk
