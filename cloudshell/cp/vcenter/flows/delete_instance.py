@@ -17,7 +17,7 @@ from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
 from cloudshell.cp.vcenter.handlers.vm_handler import VmNotFound
 from cloudshell.cp.vcenter.handlers.vsphere_sdk_handler import VSphereSDKHandler
 from cloudshell.cp.vcenter.models.deployed_app import BaseVCenterDeployedApp
-from cloudshell.cp.vcenter.resource_config import ShutdownMethod, VCenterResourceConfig
+from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 
 logger = logging.getLogger(__name__)
 
@@ -71,10 +71,7 @@ class DeleteFlow:
                     try:
                         tags |= self._get_tags(vm)
                     finally:
-                        soft = (
-                            self._resource_conf.shutdown_method is ShutdownMethod.SOFT
-                        )
-                        vm.power_off(soft=soft)
+                        vm.power_off(soft=False)
                         vm.delete()
         return tags, folder
 
