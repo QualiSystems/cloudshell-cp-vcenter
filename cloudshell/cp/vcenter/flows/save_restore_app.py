@@ -58,7 +58,7 @@ class SaveRestoreAttributeMissed(BaseVCenterException):
         )
 
 
-@define
+@define(slots=False)
 class SaveRestoreAppFlow:
     _si: SiHandler
     _resource_conf: VCenterResourceConfig

@@ -20,7 +20,7 @@ from cloudshell.cp.vcenter.models.base_deployment_app import (
 
 @pytest.fixture
 def flow(resource_conf, cs_api, cancellation_manager, si_handler, dc_handler):
-    flow = SaveRestoreAppFlow(resource_conf, cs_api, cancellation_manager)
+    flow = SaveRestoreAppFlow(si_handler, resource_conf, cs_api, cancellation_manager)
     return flow
 
 
@@ -160,11 +160,11 @@ def test_save(flow, vm, dc_handler, resource_conf):
 
     save_apps_folder_path = VcenterPath(f"{resource_conf.vm_location}/Saved Sandboxes")
     expected_dc_calls = [
+        call.get_network(resource_conf.holding_network),
         call.get_vm_by_uuid(vm_uuid),
         call.get_compute_entity(resource_conf.vm_cluster),
         call.get_datastore(resource_conf.saved_sandbox_storage),
         call.get_or_create_vm_folder(save_apps_folder_path),
-        call.get_network(resource_conf.holding_network),
     ]
     assert dc_handler.method_calls == expected_dc_calls
 
