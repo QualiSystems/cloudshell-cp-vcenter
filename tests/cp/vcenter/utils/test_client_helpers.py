@@ -4,7 +4,6 @@ import ssl
 from unittest.mock import patch
 
 import pytest
-from pyVim.connect import Disconnect
 from pyVmomi import vim
 
 from cloudshell.cp.vcenter.exceptions import LoginException
@@ -26,12 +25,6 @@ def connect_mock():
         yield mock
 
 
-@pytest.fixture()
-def atexit_mock():
-    with patch("cloudshell.cp.vcenter.utils.client_helpers.atexit") as mock:
-        yield mock
-
-
 def _check_connection_mock(kwargs, ssl_protocol):
     assert kwargs["host"] == HOST
     assert kwargs["user"] == USER
@@ -47,16 +40,15 @@ def _check_connection_mock(kwargs, ssl_protocol):
         assert context.protocol == ssl_protocol
 
 
-def test_get_si_tls_v1_2(connect_mock, atexit_mock):
+def test_get_si_tls_v1_2(connect_mock):
     si = get_si(HOST, USER, PASSWORD, PORT)
 
     connect_mock.assert_called_once()
     _check_connection_mock(connect_mock.call_args.kwargs, ssl.PROTOCOL_TLSv1_2)
     assert si is connect_mock.return_value
-    atexit_mock.register.assert_called_once_with(Disconnect, si)
 
 
-def test_get_si_tls_v1(connect_mock, atexit_mock):
+def test_get_si_tls_v1(connect_mock):
     connect_mock.side_effect = [
         ssl.SSLError("wrong protocol"),
         connect_mock.return_value,
@@ -70,10 +62,9 @@ def test_get_si_tls_v1(connect_mock, atexit_mock):
     _check_connection_mock(kwargs2, ssl.PROTOCOL_TLSv1)
 
     assert si is connect_mock.return_value
-    atexit_mock.register.assert_called_once_with(Disconnect, si)
 
 
-def test_get_si_without_ssl(connect_mock, atexit_mock):
+def test_get_si_without_ssl(connect_mock):
     connect_mock.side_effect = [
         ssl.SSLError("wrong protocol"),
         ssl.SSLError("wrong protocol"),
@@ -90,33 +81,26 @@ def test_get_si_without_ssl(connect_mock, atexit_mock):
     _check_connection_mock(kwargs3, None)
 
     assert si is connect_mock.return_value
-    atexit_mock.register.assert_called_once_with(Disconnect, si)
 
 
 @pytest.mark.parametrize("error", (ssl.SSLEOFError, ssl.SSLError))
-def test_api_connection_error(connect_mock, atexit_mock, error):
+def test_api_connection_error(connect_mock, error):
     connect_mock.side_effect = error
 
     with pytest.raises(ApiConnectionError):
         get_si(HOST, USER, PASSWORD, PORT)
 
-    atexit_mock.register.assert_not_called()
-
 
 @pytest.mark.parametrize("error", (vim.fault.HostConnectFault, OSError))
-def test_vcenter_connection_error(connect_mock, atexit_mock, error):
+def test_vcenter_connection_error(connect_mock, error):
     connect_mock.side_effect = error
 
     with pytest.raises(VcenterConnectionError):
         get_si(HOST, USER, PASSWORD, PORT)
 
-    atexit_mock.register.assert_not_called()
 
-
-def test_get_si_invalid_login(connect_mock, atexit_mock, sleepless):
+def test_get_si_invalid_login(connect_mock, sleepless):
     connect_mock.side_effect = vim.fault.InvalidLogin
 
     with pytest.raises(LoginException):
         get_si(HOST, USER, PASSWORD, PORT)
-
-    atexit_mock.register.assert_not_called()

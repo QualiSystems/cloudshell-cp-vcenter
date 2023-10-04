@@ -126,31 +126,24 @@ def test_is_correct_vnic(expected_vnic, vnic_label, is_correct):
 
 
 @pytest.mark.parametrize(
-    ("net_name", "virtual_network", "expected_result"),
+    ("net_name", "existing", "expected_result"),
     (
-        ("network-name", "network-name", False),
+        ("network-name", True, False),
         (
             generate_port_group_name("switch", "11", ConnectionModeEnum.ACCESS),
-            generate_port_group_name("switch", "11", ConnectionModeEnum.ACCESS),
+            True,
             False,
         ),
         ("network-name", None, False),
         (
             generate_port_group_name("switch", "11", ConnectionModeEnum.ACCESS),
-            None,
+            False,
             True,
         ),
     ),
 )
-def test_should_remove_port_group(
-    action_request, net_name, virtual_network, expected_result
-):
-    action = VcenterConnectivityActionModel.parse_obj(action_request)
-    action.connection_params.vlan_service_attrs.port_group_name = None
-    action.connection_params.vlan_service_attrs.virtual_network = virtual_network
-
-    result = should_remove_port_group(net_name, action)
-
+def test_should_remove_port_group(action_request, net_name, existing, expected_result):
+    result = should_remove_port_group(net_name, existed=existing)
     assert result == expected_result
 
 
