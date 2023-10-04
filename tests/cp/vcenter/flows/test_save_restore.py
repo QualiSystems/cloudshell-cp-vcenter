@@ -10,6 +10,7 @@ from cloudshell.cp.vcenter.flows.save_restore_app import (
     SNAPSHOT_NAME,
     SaveRestoreAppFlow,
 )
+from cloudshell.cp.vcenter.handlers.config_spec_handler import ConfigSpecHandler
 from cloudshell.cp.vcenter.handlers.vcenter_path import VcenterPath
 from cloudshell.cp.vcenter.handlers.vm_handler import PowerState
 from cloudshell.cp.vcenter.models.base_deployment_app import (
@@ -144,6 +145,10 @@ def test_save(flow, vm, dc_handler, resource_conf):
                             "attributeName": attr_names.customization_spec,
                             "attributeValue": None,
                         },
+                        {
+                            "attributeName": attr_names.copy_source_uuid,
+                            "attributeValue": "False",
+                        },
                     ],
                     "success": True,
                     "type": "SaveApp",
@@ -171,7 +176,9 @@ def test_save(flow, vm, dc_handler, resource_conf):
             vm_folder=dc_handler.get_or_create_vm_folder(),
             vm_resource_pool=dc_handler.get_compute_entity().get_resource_pool(),
             snapshot=None,
-            config_spec=None,
+            config_spec=ConfigSpecHandler(
+                cpu_num=None, ram_amount=None, hdd_specs=[], bios_uuid=None
+            ),
             on_task_progress=flow._on_task_progress,
         ),
         call.power_on(on_task_progress=flow._on_task_progress),
