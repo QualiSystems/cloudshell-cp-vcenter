@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from contextlib import suppress
 from functools import cached_property
 from itertools import chain
 from typing import TYPE_CHECKING, Any
@@ -19,6 +20,7 @@ from cloudshell.shell.flows.connectivity.models.connectivity_model import (
 
 from cloudshell.cp.vcenter.exceptions import BaseVCenterException
 from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
+from cloudshell.cp.vcenter.handlers.managed_entity_handler import ManagedEntityNotFound
 from cloudshell.cp.vcenter.handlers.network_handler import (
     AbstractNetwork,
     DVPortGroupHandler,
@@ -471,13 +473,15 @@ class VCenterConnectivityFlow(AbcCloudProviderConnectivityFlow):
     def _migrate_vms_to_holding_network(self, source_net: AbstractNetwork):
         logger.info(f"Migrating all VMs from {source_net} to the holding network")
         for vm in source_net.vms:
-            for vnic in vm.vnics:
-                if vnic.is_connected_to_network(source_net):
-                    vnic.connect(self._holding_network)
+            with suppress(ManagedEntityNotFound):  # VM has been deleted
+                for vnic in vm.vnics:
+                    if vnic.is_connected_to_network(source_net):
+                        vnic.connect(self._holding_network)
 
     def _migrate_vms_from_another_sandbox(self, network: AbstractNetwork):
         for vm in network.vms:
-            if vm.folder_name != self._sandbox_id:
-                for vnic in vm.vnics:
-                    if vnic.is_connected_to_network(network):
-                        vnic.connect(self._holding_network)
+            with suppress(ManagedEntityNotFound):  # VM has been deleted
+                if vm.folder_name != self._sandbox_id:
+                    for vnic in vm.vnics:
+                        if vnic.is_connected_to_network(network):
+                            vnic.connect(self._holding_network)
