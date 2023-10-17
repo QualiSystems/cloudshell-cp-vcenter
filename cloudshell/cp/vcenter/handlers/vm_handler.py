@@ -9,6 +9,7 @@ from threading import Lock
 from typing import TYPE_CHECKING
 
 import attr
+import retrying
 from pyVmomi import vim
 
 from cloudshell.cp.vcenter.common.vcenter.event_manager import EventManager
@@ -33,7 +34,7 @@ from cloudshell.cp.vcenter.handlers.snapshot_handler import (
     SnapshotNotFoundInSnapshotTree,
 )
 from cloudshell.cp.vcenter.handlers.switch_handler import VSwitchHandler
-from cloudshell.cp.vcenter.handlers.task import ON_TASK_PROGRESS_TYPE, Task
+from cloudshell.cp.vcenter.handlers.task import ON_TASK_PROGRESS_TYPE, Task, TaskFailed
 from cloudshell.cp.vcenter.handlers.vcenter_path import VcenterPath
 from cloudshell.cp.vcenter.handlers.virtual_device_handler import (
     is_virtual_disk,
@@ -338,6 +339,7 @@ class VmHandler(ManagedEntityHandler):
         config_spec: ConfigSpecHandler,
         on_task_progress: ON_TASK_PROGRESS_TYPE | None = None,
     ) -> None:
+        logger.debug(f"Reconfiguring the {self} with {config_spec}")
         spec = config_spec.get_spec_for_vm(self)
         self._reconfigure(spec, on_task_progress)
 
@@ -431,12 +433,9 @@ class VmHandler(ManagedEntityHandler):
             placement.diskMoveType = "createNewChildDiskBacking"
         clone_spec.location = placement
 
-        vc_task = self._vc_obj.Clone(
-            folder=vm_folder.get_vc_obj(), name=vm_name, spec=clone_spec
-        )
-        task = Task(vc_task)
-        new_vc_vm = task.wait(on_progress=on_task_progress)
+        new_vc_vm = self._clone_vm(vm_name, vm_folder, clone_spec, on_task_progress)
         new_vm = VmHandler(new_vc_vm, self.si)
+        logger.debug(f"{new_vm} cloned successfully")
 
         if config_spec:
             try:
@@ -445,3 +444,18 @@ class VmHandler(ManagedEntityHandler):
                 new_vm.delete()
                 raise
         return new_vm
+
+    @staticmethod
+    def _rerun_clone_vm(e: Exception) -> bool:
+        return isinstance(e, TaskFailed) and "cannot create dvport " in str(e)
+
+    @retrying.retry(
+        stop_max_attempt_number=3,
+        wait_fixed=1000,
+        retry_on_exception=_rerun_clone_vm,
+    )
+    def _clone_vm(self, name: str, folder: FolderHandler, spec, on_task_progress):
+        vc_task = self._vc_obj.Clone(folder=folder.get_vc_obj(), name=name, spec=spec)
+        task = Task(vc_task)
+        new_vc_vm = task.wait(on_progress=on_task_progress)
+        return new_vc_vm
