@@ -12,6 +12,7 @@ from cloudshell.cp.vcenter.models.connectivity_action_model import (
 )
 from cloudshell.cp.vcenter.utils.connectivity_helpers import (
     generate_port_group_name,
+    generate_port_group_name_v2,
     get_available_vnic,
     get_existed_port_group_name,
     is_correct_vnic,
@@ -137,6 +138,19 @@ def test_is_correct_vnic(expected_vnic, vnic_label, is_correct):
         ("network-name", None, False),
         (
             generate_port_group_name("switch", "11", ConnectionModeEnum.ACCESS),
+            False,
+            True,
+        ),
+        (
+            generate_port_group_name_v2(
+                dv_switch_name="switch",
+                vlan_id="11",
+                port_mode=ConnectionModeEnum.ACCESS,
+                forged_transmits=False,
+                mac_changes=False,
+                promiscuous_mode=False,
+                exclusive=False,
+            ),
             False,
             True,
         ),

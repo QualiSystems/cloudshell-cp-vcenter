@@ -73,10 +73,6 @@ def generate_port_group_name_v2(
     return f"{QS_NAME_PREFIX}_{dvs_name}_VLAN_{vlan_id}_{port_mode.value}_{flags}"
 
 
-def get_networks_folder_path(sandbox_id: str) -> str:
-    return f"{QS_NAME_PREFIX}/{sandbox_id}"
-
-
 def is_network_generated_name(net_name: str):
     return bool(PORT_GROUP_NAME_PATTERN.search(net_name))
 
