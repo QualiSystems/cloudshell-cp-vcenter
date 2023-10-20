@@ -11,6 +11,9 @@ from cloudshell.cp.vcenter.models.connectivity_action_model import (
     VcenterConnectivityActionModel,
 )
 from cloudshell.cp.vcenter.utils.connectivity_helpers import (
+    NetworkSettings,
+    PgCanNotBeRemoved,
+    check_pg_can_be_removed,
     generate_port_group_name,
     generate_port_group_name_v2,
     get_available_vnic,
@@ -160,6 +163,12 @@ def test_should_remove_port_group(action_request, net_name, existing, expected_r
     result = should_remove_port_group(net_name, existed=existing)
     assert result == expected_result
 
+    if expected_result:
+        check_pg_can_be_removed(net_name, existed=existing)
+    else:
+        with pytest.raises(PgCanNotBeRemoved):
+            check_pg_can_be_removed(net_name, existed=existing)
+
 
 @pytest.mark.parametrize(
     ("default_net_name", "reserved_networks", "expected_vnic_name"),
@@ -194,3 +203,41 @@ def test_get_available_vnic(default_net_name, reserved_networks, expected_vnic_n
     vnic = get_available_vnic(vm, default_network, reserved_networks)
 
     assert vnic == expected_vnic
+
+
+def test_getting_network_settings_existed_net(resource_conf, action_request):
+    action = VcenterConnectivityActionModel.parse_obj(action_request)
+
+    ns = NetworkSettings.convert(action, resource_conf)
+
+    assert ns.name == "network name"
+    assert ns.old_name == "network name"
+    assert ns.existed is True
+    assert ns.exclusive is False
+    assert ns.switch_name == "default dvSwitch"
+    assert ns.vlan_id == "10-11"
+    assert ns.port_mode == ConnectionModeEnum.TRUNK
+    assert ns.promiscuous_mode is True
+    assert ns.forged_transmits is True
+    assert ns.mac_changes is False
+    assert ns.vm_uuid == "vm_uid"
+
+
+def test_getting_network_settings(resource_conf, action_request):
+    action = VcenterConnectivityActionModel.parse_obj(action_request)
+    action.connection_params.vlan_service_attrs.port_group_name = None
+    action.connection_params.vlan_service_attrs.virtual_network = None
+
+    ns = NetworkSettings.convert(action, resource_conf)
+
+    assert ns.name == "QS_default dvSwitch_VLAN_10-11_Trunk_SFP"
+    assert ns.old_name == "QS_default dvSwitch_VLAN_10-11_Trunk"
+    assert ns.existed is False
+    assert ns.exclusive is False
+    assert ns.switch_name == "default dvSwitch"
+    assert ns.vlan_id == "10-11"
+    assert ns.port_mode == ConnectionModeEnum.TRUNK
+    assert ns.promiscuous_mode is True
+    assert ns.forged_transmits is True
+    assert ns.mac_changes is False
+    assert ns.vm_uuid == "vm_uid"
