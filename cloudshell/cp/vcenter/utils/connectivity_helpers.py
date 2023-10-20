@@ -52,7 +52,7 @@ def generate_port_group_name(
     dv_switch_name: str, vlan_id: str, port_mode: ConnectionModeEnum
 ) -> str:
     dvs_name = dv_switch_name[:MAX_DVSWITCH_LENGTH]
-    return f"{QS_NAME_PREFIX}_{dvs_name}_VLAN_{vlan_id}_{port_mode.value}-PFM"
+    return f"{QS_NAME_PREFIX}_{dvs_name}_VLAN_{vlan_id}_{port_mode.value}"
 
 
 def generate_port_group_name_v2(
