@@ -13,7 +13,10 @@ from cloudshell.shell.core.driver_context import (
     ResourceContextDetails,
 )
 
+from .base import SiMock, VmMock
+
 from cloudshell.cp.vcenter.constants import SHELL_NAME, STATIC_SHELL_NAME
+from cloudshell.cp.vcenter.handlers.cluster_handler import ClusterHandler
 from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
 from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
 from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
@@ -153,16 +156,61 @@ def resource_conf(resource_command_context, cs_api) -> VCenterResourceConfig:
     return conf
 
 
-@pytest.fixture
-def si() -> SiHandler:
-    _si = Mock()
-    return SiHandler(_si)
+@pytest.fixture()
+def si_mock():
+    return SiMock
+
+
+@pytest.fixture()
+def vm_mock():
+    return VmMock
+
+
+@pytest.fixture()
+def vc_si():
+    return SiMock()
 
 
 @pytest.fixture
-def dc(si) -> DcHandler:
+def si(vc_si) -> SiHandler:
+    class SH(SiHandler):
+        __dict__ = {}
+
+    return SH(vc_si)
+
+
+@pytest.fixture()
+def dc(si, resource_conf, monkeypatch) -> DcHandler:
+    class DH(DcHandler):
+        __dict__ = {}
+
     dc_ = Mock()
-    return DcHandler(dc_, si)
+    dch = DH(dc_, si)
+
+    def _get_default_dc(name, si_):
+        if name == resource_conf.default_datacenter and si_ == si:
+            return dch
+        raise NotImplementedError
+
+    monkeypatch.setattr(DcHandler, "get_dc", _get_default_dc)
+    return dch
+
+
+@pytest.fixture()
+def cluster(dc, si, monkeypatch, resource_conf) -> ClusterHandler:
+    class CH(ClusterHandler):
+        __dict__ = {}
+
+    vc_cluster = Mock()
+    ch = CH(vc_cluster, si)
+
+    def _get_cluster(name):
+        if name == resource_conf.vm_cluster:
+            return ch
+        raise NotImplementedError
+
+    monkeypatch.setattr(dc, "get_cluster", _get_cluster)
+    return ch
 
 
 @pytest.fixture
