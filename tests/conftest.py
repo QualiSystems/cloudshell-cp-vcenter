@@ -216,6 +216,7 @@ def cluster(dc, si, monkeypatch, resource_conf) -> ClusterHandler:
 @pytest.fixture
 def vm(si):
     vm_ = Mock()
+    vm_.name = "vm"
     return VmHandler(vm_, si)
 
 
