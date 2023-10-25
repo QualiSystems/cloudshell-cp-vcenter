@@ -40,6 +40,15 @@ QS_NAME_PREFIX = "QS"
 PORT_GROUP_NAME_PATTERN = re.compile(rf"{QS_NAME_PREFIX}_.+_VLAN")
 
 
+class DvSwitchNameEmpty(BaseVCenterException):
+    def __init__(self):
+        msg = (
+            "For connectivity actions you have to specify default DvSwitch name in the "
+            "resource or in every VLAN service"
+        )
+        super().__init__(msg)
+
+
 @define
 class PgCanNotBeRemoved(BaseVCenterException):
     name: str
@@ -222,6 +231,8 @@ class NetworkSettings:
         if name := (old_name := get_existed_port_group_name(action)):
             existed = True
         else:
+            if not switch:
+                raise DvSwitchNameEmpty
             existed = False
             old_name = generate_port_group_name(switch, vlan_id, port_mode)
             name = generate_port_group_name_v2(

@@ -18,7 +18,6 @@ from cloudshell.shell.flows.connectivity.models.connectivity_model import (
     is_set_action,
 )
 
-from cloudshell.cp.vcenter.exceptions import BaseVCenterException
 from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
 from cloudshell.cp.vcenter.handlers.managed_entity_handler import ManagedEntityNotFound
 from cloudshell.cp.vcenter.handlers.network_handler import (
@@ -65,15 +64,6 @@ network_lock = LockHandler()
 switch_lock = LockHandler()
 
 
-class DvSwitchNameEmpty(BaseVCenterException):
-    def __init__(self):
-        msg = (
-            "For connectivity actions you have to specify default DvSwitch name in the "
-            "resource or in every VLAN service"
-        )
-        super().__init__(msg)
-
-
 @define(slots=False)
 class VCenterConnectivityFlow(AbcCloudProviderConnectivityFlow):
     _si: SiHandler
@@ -105,11 +95,9 @@ class VCenterConnectivityFlow(AbcCloudProviderConnectivityFlow):
     def validate_actions(
         self, actions: Collection[VcenterConnectivityActionModel]
     ) -> None:
-        for net_settings in map(self._get_network_settings, actions):
-            without_switch = not net_settings.switch_name
-            new_network = not net_settings.existed
-            if without_switch and new_network:
-                raise DvSwitchNameEmpty
+        # if switch name not specified in VLAN service or in resource config
+        # converter would raise an exception
+        _ = [self._get_network_settings(action) for action in actions]
 
     def pre_connectivity(
         self,
