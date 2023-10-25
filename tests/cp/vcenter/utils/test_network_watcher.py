@@ -5,53 +5,14 @@ from collections import namedtuple
 from unittest.mock import Mock
 
 import pytest
-from pyVmomi import vim, vmodl
+from pyVmomi import vim
 
-from cloudshell.cp.vcenter.handlers.managed_entity_handler import ManagedEntityHandler
 from cloudshell.cp.vcenter.handlers.network_handler import (
     NetworkHandler,
     NetworkNotFound,
 )
-from cloudshell.cp.vcenter.utils.network_watcher import NetworkWatcher
 
 logger = logging.getLogger(__name__)
-
-
-@pytest.fixture()
-def object_spec(monkeypatch):
-    m = Mock()
-    monkeypatch.setattr(vmodl.query.PropertyCollector, "ObjectSpec", m)
-    yield m
-
-
-@pytest.fixture()
-def filter_spec(monkeypatch):
-    m = Mock()
-    monkeypatch.setattr(vmodl.query.PropertyCollector, "FilterSpec", m)
-    yield m
-
-
-@pytest.fixture()
-def property_collector(si):
-    m = Mock()
-    si.get_vc_obj().content.propertyCollector.CreatePropertyCollector.return_value = m
-    yield m
-
-
-@pytest.fixture()
-def container(si):
-    vc_container = Mock(spec=vim.Datacenter)
-    vc_container.name = "Datacenter"
-    return ManagedEntityHandler(vc_container, si)
-
-
-@pytest.fixture()
-def network_watcher(si, container, object_spec, filter_spec, property_collector):
-    # add ability to modify class attributes
-    class N(NetworkWatcher):
-        __dict__ = {}
-
-    return N(si, container)
 
 
 @pytest.fixture()
