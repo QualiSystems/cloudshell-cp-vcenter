@@ -99,7 +99,7 @@ def test_save(flow, vm, dc_handler, resource_conf):
     vm_uuid = vm.uuid
     action_id = "action id"
     action = _get_save_action(vm_uuid, "Inherited", action_id)
-    resource_conf.__dict__["behavior_during_save"] = "Power Off"
+    resource_conf.behavior_during_save = "Power Off"
     cloned_vm_name = f"Clone of {vm.name}"
     cloned_vm = Mock(name=cloned_vm_name, path=f"folder/{cloned_vm_name}", uuid="uuid")
     cloned_vm.name = cloned_vm_name

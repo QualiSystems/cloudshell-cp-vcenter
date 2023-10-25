@@ -2,9 +2,11 @@ import json
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+from pyVmomi import vim, vmodl
 
 from cloudshell.cp.core.cancellation_manager import CancellationContextManager
 from cloudshell.cp.core.request_actions import GetVMDetailsRequestActions
+from cloudshell.cp.core.reservation_info import ReservationInfo
 from cloudshell.shell.core.driver_context import (
     AppContext,
     ConnectivityContext,
@@ -18,10 +20,12 @@ from .base import SiMock, VmMock
 from cloudshell.cp.vcenter.constants import SHELL_NAME, STATIC_SHELL_NAME
 from cloudshell.cp.vcenter.handlers.cluster_handler import ClusterHandler
 from cloudshell.cp.vcenter.handlers.dc_handler import DcHandler
+from cloudshell.cp.vcenter.handlers.managed_entity_handler import ManagedEntityHandler
 from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
 from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
 from cloudshell.cp.vcenter.models.deployed_app import StaticVCenterDeployedApp
 from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
+from cloudshell.cp.vcenter.utils.network_watcher import NetworkWatcher
 
 
 @pytest.fixture()
@@ -83,6 +87,11 @@ def reservation_context_details() -> ReservationContextDetails:
     )
 
 
+@pytest.fixture
+def reservation_info(reservation_context_details):
+    return ReservationInfo._from_reservation_context(reservation_context_details)
+
+
 @pytest.fixture()
 def resource_command_context(
     connectivity_context, resource_context_details, reservation_context_details
@@ -122,7 +131,7 @@ def resource_conf(resource_command_context, cs_api) -> VCenterResourceConfig:
     promiscuous_mode = "true"
     forged_transmits = "true"
     mac_address_changes = "false"
-    enable_tags = "true"
+    enable_tags = "false"
 
     a_name = VCenterResourceConfig.ATTR_NAMES
     get_full_a_name = lambda n: f"{SHELL_NAME}.{n}"  # noqa: E731
@@ -151,7 +160,14 @@ def resource_conf(resource_command_context, cs_api) -> VCenterResourceConfig:
             get_full_a_name(a_name.enable_tags): enable_tags,
         }
     )
-    conf = VCenterResourceConfig.from_context(resource_command_context, cs_api)
+
+    class Cfg(VCenterResourceConfig):
+        __dict__ = {}
+
+        def __setattr__(self, key, value):
+            object.__setattr__(self, key, value)
+
+    conf = Cfg.from_context(resource_command_context, cs_api)
 
     return conf
 
@@ -311,3 +327,42 @@ def static_deployed_app(cs_api) -> StaticVCenterDeployedApp:
     GetVMDetailsRequestActions.register_deployment_path(StaticVCenterDeployedApp)
     actions = GetVMDetailsRequestActions.from_request(requests, cs_api)
     return actions.deployed_apps[0]
+
+
+@pytest.fixture()
+def object_spec(monkeypatch):
+    m = Mock()
+    monkeypatch.setattr(vmodl.query.PropertyCollector, "ObjectSpec", m)
+    return m
+
+
+@pytest.fixture()
+def filter_spec(monkeypatch):
+    m = Mock()
+    monkeypatch.setattr(vmodl.query.PropertyCollector, "FilterSpec", m)
+    return m
+
+
+@pytest.fixture()
+def property_collector(si):
+    m = Mock()
+    si.get_vc_obj().content.propertyCollector.CreatePropertyCollector.return_value = m
+    # no updates
+    m.WaitForUpdatesEx.side_effect = [None]
+    return m
+
+
+@pytest.fixture()
+def container(si):
+    vc_container = Mock(spec=vim.Datacenter)
+    vc_container.name = "Datacenter"
+    return ManagedEntityHandler(vc_container, si)
+
+
+@pytest.fixture()
+def network_watcher(si, container, object_spec, filter_spec, property_collector):
+    # add ability to modify class attributes
+    class N(NetworkWatcher):
+        __dict__ = {}
+
+    return N(si, container)
