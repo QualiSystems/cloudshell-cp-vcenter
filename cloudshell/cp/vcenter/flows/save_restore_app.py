@@ -200,7 +200,7 @@ class SaveRestoreAppFlow:
             (
                 x.attributeValue
                 for x in save_action.actionParams.deploymentPathAttributes
-                if x.attributeName == attr_names.copy_source_uuid
+                if x.attributeName.rsplit(".", 1)[-1] == attr_names.copy_source_uuid
             ),
             "False",
         )
