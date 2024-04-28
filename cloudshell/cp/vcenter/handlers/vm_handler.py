@@ -59,6 +59,10 @@ if TYPE_CHECKING:
     from cloudshell.cp.vcenter.handlers.cluster_handler import HostHandler
 
 
+def _rerun_clone_vm(e: Exception) -> bool:
+    return isinstance(e, TaskFailed) and "cannot create dvport " in str(e)
+
+
 class VmNotFound(BaseVCenterException):
     def __init__(
         self,
@@ -444,10 +448,6 @@ class VmHandler(ManagedEntityHandler):
                 new_vm.delete()
                 raise
         return new_vm
-
-    @staticmethod
-    def _rerun_clone_vm(e: Exception) -> bool:
-        return isinstance(e, TaskFailed) and "cannot create dvport " in str(e)
 
     @retrying.retry(
         stop_max_attempt_number=3,

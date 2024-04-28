@@ -8,6 +8,8 @@ from contextlib import contextmanager, suppress
 from attrs import define
 
 from cloudshell.api.cloudshell_api import CloudShellAPISession
+from cloudshell.api.common_cloudshell_api import CloudShellAPIError
+
 from cloudshell.cp.core.cancellation_manager import CancellationContextManager
 from cloudshell.cp.core.request_actions import DriverResponse
 from cloudshell.cp.core.request_actions.models import (
@@ -118,7 +120,7 @@ class SaveRestoreAppFlow:
         if not attrs.get(VMFromVMDeployApp.ATTR_NAMES.vm_storage):
             raise SaveRestoreAttributeMissed(VMFromVMDeployApp.ATTR_NAMES.vm_storage)
         if not attrs.get(
-            VMFromVMDeployApp.ATTR_NAMES.vm_resource_pool
+                VMFromVMDeployApp.ATTR_NAMES.vm_resource_pool
         ) or not attrs.get(VMFromVMDeployApp.ATTR_NAMES.vm_cluster):
             raise SaveRestoreAttributeMissed(VMFromVMDeployApp.ATTR_NAMES.vm_cluster)
         if not attrs.get(VMFromVMDeployApp.ATTR_NAMES.vm_location):
@@ -159,13 +161,28 @@ class SaveRestoreAppFlow:
             )
 
         with self._behavior_during_save(vm, app_attrs):
+            attr_names = VCenterVMFromCloneDeployAppAttributeNames
             new_vm_name = f"Clone of {vm.name[0:32]}"
             config_spec = ConfigSpecHandler(None, None, [], None)
             copy_source_uuid = app_attrs.get(
-                VMFromVMDeployApp.ATTR_NAMES.copy_source_uuid, False
+                attr_names.copy_source_uuid, False
             )
+            try:
+                copy_source_uuid_attr = self._cs_api.GetAttributeValue(
+                    save_action.actionParams.sourceAppName, attr_names.copy_source_uuid
+                )
+                if copy_source_uuid_attr:
+                    copy_source_uuid = copy_source_uuid_attr.Value.lower() == "true"
+            except CloudShellAPIError:
+                pass
             if copy_source_uuid:
                 config_spec.bios_uuid = vm.bios_uuid
+                for save_attribute in save_action.actionParams.deploymentPathAttributes:
+                    if save_attribute.attributeName.endswith(
+                            f".{attr_names.copy_source_uuid}"
+                    ):
+                        save_attribute.attributeValue = "True"
+
             cloned_vm = self._clone_vm(
                 vm,
                 new_vm_name,
@@ -200,7 +217,7 @@ class SaveRestoreAppFlow:
             (
                 x.attributeValue
                 for x in save_action.actionParams.deploymentPathAttributes
-                if x.attributeName == attr_names.copy_source_uuid
+                if x.attributeName.endswith(f".{attr_names.copy_source_uuid}")
             ),
             "False",
         )
@@ -221,13 +238,13 @@ class SaveRestoreAppFlow:
         )
 
     def _clone_vm(
-        self,
-        vm_template: VmHandler,
-        vm_name: str,
-        vm_resource_pool: ResourcePoolHandler,
-        vm_storage: DatastoreHandler,
-        vm_folder: FolderHandler,
-        config_spec: ConfigSpecHandler | None = None,
+            self,
+            vm_template: VmHandler,
+            vm_name: str,
+            vm_resource_pool: ResourcePoolHandler,
+            vm_storage: DatastoreHandler,
+            vm_folder: FolderHandler,
+            config_spec: ConfigSpecHandler | None = None,
     ) -> VmHandler:
 
         return CloneVMCommand(
