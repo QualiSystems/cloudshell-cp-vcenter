@@ -42,6 +42,7 @@ from cloudshell.cp.vcenter.models.base_deployment_app import (
     VCenterVMFromCloneDeployAppAttributeNames,
 )
 from cloudshell.cp.vcenter.models.deploy_app import VMFromVMDeployApp
+from cloudshell.cp.vcenter.models.save_model import SaveModelResponse
 from cloudshell.cp.vcenter.resource_config import VCenterResourceConfig
 from cloudshell.cp.vcenter.utils.cs_helpers import on_task_progress_check_if_cancelled
 
@@ -79,7 +80,22 @@ class SaveRestoreAppFlow:
 
     def save_apps(self, save_actions: Iterable[SaveApp]) -> str:
         with ThreadPoolExecutor() as executor:
-            results = list(executor.map(self._save_app, save_actions))
+            resps = list(executor.map(self._save_app, save_actions))
+        if any((x for x in resps if x.error)):
+            folder = None
+            error = None
+            for result in resps:
+                if result.vm_handler:
+                    folder = result.vm_handler.parent
+                    self._delete_vm(result.vm_handler)
+                if result.error:
+                    error = result.error
+            if folder:
+                with suppress(FolderNotFound, FolderIsNotEmpty):
+                    folder.destroy(self._on_task_progress)
+            raise error
+        results = [self._prepare_result(x.vm_handler, x.save_action) for x in resps]
+
         return DriverResponse(results).to_driver_response_json()
 
     def delete_saved_apps(self, delete_saved_app_actions: list[DeleteSavedApp]) -> str:
@@ -142,7 +158,7 @@ class SaveRestoreAppFlow:
         compute_entity = self._dc.get_compute_entity(cluster_name)
         return compute_entity.get_resource_pool(r_pool_name)
 
-    def _save_app(self, save_action: SaveApp) -> SaveAppResult:
+    def _save_app(self, save_action: SaveApp) -> SaveModelResponse:
         logger.info(f"Starting save app {save_action.actionParams.sourceAppName}")
         logger.debug(f"Save action model: {save_action}")
         with self._cancellation_manager:
@@ -161,6 +177,8 @@ class SaveRestoreAppFlow:
             )
 
         with self._behavior_during_save(vm, app_attrs):
+            error = None
+            cloned_vm = None
             attr_names = VCenterVMFromCloneDeployAppAttributeNames
             new_vm_name = f"Clone of {vm.name[0:32]}"
             config_spec = ConfigSpecHandler(None, None, [], None)
@@ -182,33 +200,43 @@ class SaveRestoreAppFlow:
                             f".{attr_names.copy_source_uuid}"
                     ):
                         save_attribute.attributeValue = "True"
+            try:
+                cloned_vm = self._clone_vm(
+                    vm,
+                    new_vm_name,
+                    vm_resource_pool,
+                    vm_storage,
+                    vm_folder,
+                    config_spec,
+                )
 
-            cloned_vm = self._clone_vm(
-                vm,
-                new_vm_name,
-                vm_resource_pool,
-                vm_storage,
-                vm_folder,
-                config_spec,
+                net_actions = VMNetworkActions(
+                    self._resource_conf, self._cancellation_manager
+                )
+
+                for vnic in cloned_vm.vnics:
+                    network = vnic.network
+
+                    if net_actions.is_quali_network(network.name):
+                        vnic.connect(self._holding_network)
+
+                cloned_vm.create_snapshot(
+                    SNAPSHOT_NAME,
+                    dump_memory=False,
+                    on_task_progress=self._on_task_progress,
+                )
+            except Exception as e:
+                logger.exception(f"Failed to save app {new_vm_name}")
+                error = e
+
+            response = SaveModelResponse(
+                vm_handler=cloned_vm,
+                save_action=save_action,
+                error=error
             )
 
-            net_actions = VMNetworkActions(
-                self._resource_conf, self._cancellation_manager
-            )
-
-            for vnic in cloned_vm.vnics:
-                network = vnic.network
-
-                if net_actions.is_quali_network(network.name):
-                    vnic.connect(self._holding_network)
-
-            cloned_vm.create_snapshot(
-                SNAPSHOT_NAME,
-                dump_memory=False,
-                on_task_progress=self._on_task_progress,
-            )
-
-        return self._prepare_result(cloned_vm, save_action)
+        # return self._prepare_result(cloned_vm, save_action)
+        return response
 
     @staticmethod
     def _prepare_result(cloned_vm: VmHandler, save_action: SaveApp) -> SaveAppResult:
@@ -268,8 +296,11 @@ class SaveRestoreAppFlow:
                     vm = self._dc.get_vm_by_uuid(vm_uuid)
                 except VmNotFound:
                     continue
-            vm.power_off(soft=False, on_task_progress=self._on_task_progress)
-            vm.delete(self._on_task_progress)
+            self._delete_vm(vm)
+
+    def _delete_vm(self, vm: VmHandler) -> None:
+        vm.power_off(soft=False, on_task_progress=self._on_task_progress)
+        vm.delete(self._on_task_progress)
 
     def _delete_folders(self, delete_saved_app_actions: list[DeleteSavedApp]) -> None:
         path = VcenterPath(self._resource_conf.vm_location) + SAVED_SANDBOXES_FOLDER
@@ -283,6 +314,7 @@ class SaveRestoreAppFlow:
             with suppress(FolderNotFound, FolderIsNotEmpty):
                 folder = sandbox_folder.get_folder(sandbox_id)
                 folder.destroy(self._on_task_progress)
+
 
     @contextmanager
     def _behavior_during_save(self, vm: VmHandler, attrs):
