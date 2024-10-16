@@ -49,7 +49,7 @@ from cloudshell.cp.vcenter.handlers.vnic_handler import (
     VnicWithMacNotFound,
 )
 from cloudshell.cp.vcenter.utils.connectivity_helpers import is_correct_vnic
-from cloudshell.cp.vcenter.utils.network_helpers import is_ipv4
+from cloudshell.cp.vcenter.utils.network_helpers import is_ipv4, is_ipv6
 from cloudshell.cp.vcenter.utils.units_converter import BASE_10
 
 logger = logging.getLogger(__name__)
@@ -150,6 +150,11 @@ class VmHandler(ManagedEntityHandler):
     def primary_ipv4(self) -> str | None:
         ip = self._vc_obj.guest.ipAddress
         return ip if is_ipv4(ip) else None
+
+    @property
+    def primary_ipv6(self) -> str | None:
+        ip = self._vc_obj.guest.ipAddress
+        return ip if is_ipv6(ip) else None
 
     @property
     def networks(self) -> list[NetworkHandler | DVPortGroupHandler]:

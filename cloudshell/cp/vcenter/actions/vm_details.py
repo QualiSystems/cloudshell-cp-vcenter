@@ -91,6 +91,7 @@ class VMDetailsActions(VMNetworkActions):
 
                 network_data = [
                     VmDetailsProperty(key="IP", value=vnic_ip),
+                    VmDetailsProperty(key="IPv6", value=vnic_ip),
                     VmDetailsProperty(key="MAC Address", value=vnic.mac_address),
                     VmDetailsProperty(key="Network Adapter", value=vnic.name),
                     VmDetailsProperty(key="Port Group Name", value=network.name),
@@ -113,10 +114,19 @@ class VMDetailsActions(VMNetworkActions):
         with suppress(VMIPNotFoundException):
             if isinstance(app_model, StaticVCenterDeployedApp):
                 # try to get VM IP without waiting
-                primary_ip = self.get_vm_ip(vm, timeout=0)
+                primary_ip = self.get_vm_ip(
+                    vm=vm,
+                    timeout=0,
+                    ip_protocol_version=app_model.ip_protocol_version
+                )
             elif vm.power_state is PowerState.ON:
                 # try to get VM IP without waiting, use IP regex if present
-                primary_ip = self.get_vm_ip(vm, ip_regex=app_model.ip_regex, timeout=0)
+                primary_ip = self.get_vm_ip(
+                    vm=vm,
+                    ip_regex=app_model.ip_regex,
+                    timeout=0,
+                    ip_protocol_version=app_model.ip_protocol_version
+                )
         return primary_ip
 
     @staticmethod

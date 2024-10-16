@@ -90,6 +90,12 @@ class CustomSpecHandler(Protocol):
                     network_adapter.ip = vim.vm.customization.FixedIp(
                         ipAddress=network.ipv4_address
                     )
+
+                if network.ipv6_address is not Empty:
+                    network_adapter.ip = vim.vm.customization.FixedIp(
+                        ipAddress=network.ipv6_address
+                    )
+
                 if network.subnet_mask is not Empty:
                     network_adapter.subnetMask = network.subnet_mask
 

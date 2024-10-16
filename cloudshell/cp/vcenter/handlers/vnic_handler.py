@@ -15,7 +15,7 @@ from cloudshell.cp.vcenter.handlers.network_handler import (
     NetworkHandler,
 )
 from cloudshell.cp.vcenter.handlers.virtual_device_handler import VirtualDevice
-from cloudshell.cp.vcenter.utils.network_helpers import is_ipv4
+from cloudshell.cp.vcenter.utils.network_helpers import is_ipv4, is_ipv6
 
 if TYPE_CHECKING:
     from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
@@ -96,6 +96,12 @@ class Vnic(VirtualDevice):
         ips = self.vm.get_ip_addresses_by_vnic(self)
         ipv4 = next(filter(is_ipv4, ips), None)
         return ipv4
+
+    @property
+    def ipv6(self) -> str | None:
+        ips = self.vm.get_ip_addresses_by_vnic(self)
+        ipv6 = next(filter(is_ipv6, ips), None)
+        return ipv6
 
     def connect(self, network: NetworkHandler | DVPortGroupHandler) -> None:
         if isinstance(network, NetworkHandler):

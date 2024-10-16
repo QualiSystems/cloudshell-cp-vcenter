@@ -7,6 +7,7 @@ from contextlib import nullcontext
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
+from cloudshell.cp.vcenter.constants import IPProtocol
 from cloudshell.cp.vcenter.exceptions import VMIPNotFoundException
 from cloudshell.cp.vcenter.handlers.network_handler import NetworkHandler
 from cloudshell.cp.vcenter.handlers.vm_handler import VmHandler
@@ -41,20 +42,33 @@ class VMNetworkActions:
         vm: VmHandler,
         skip_networks: list[NetworkHandler],
         is_ip_pass_regex: callable[[str | None], bool],
+        ip_protocol_version: str = IPProtocol.IPv4,
     ) -> str | None:
-        logger.debug(f"Searching for the IPv4 address of the {vm}")
+        logger.debug(f"Searching for the IP address of the {vm}")
         ip = None
-        primary_ip = vm.primary_ipv4
-        if is_ip_pass_regex(primary_ip):
-            ip = primary_ip
-            logger.debug(f"Use primary IPv4 address of the {vm}")
+
+        if ip_protocol_version == IPProtocol.IPv4:
+            if is_ip_pass_regex(vm.primary_ipv4):
+                ip = vm.primary_ipv4
+                logger.debug(f"Use primary IPv4 address of the {vm}")
+            else:
+                for vnic in vm.vnics:
+                    logger.debug(f"Checking {vnic} with ip {vnic.ipv4}")
+                    if vnic.network not in skip_networks and is_ip_pass_regex(vnic.ipv4):
+                        logger.debug(f"Found IP {vnic.ipv4} on {vnic}")
+                        ip = vnic.ipv4
+                        break
         else:
-            for vnic in vm.vnics:
-                logger.debug(f"Checking {vnic} with ip {vnic.ipv4}")
-                if vnic.network not in skip_networks and is_ip_pass_regex(vnic.ipv4):
-                    logger.debug(f"Found IP {vnic.ipv4} on {vnic}")
-                    ip = vnic.ipv4
-                    break
+            if is_ip_pass_regex(vm.primary_ipv6):
+                ip = vm.primary_ipv6
+                logger.debug(f"Use primary IPv6 address of the {vm}")
+            else:
+                for vnic in vm.vnics:
+                    logger.debug(f"Checking {vnic} with ip {vnic.ipv6}")
+                    if vnic.network not in skip_networks and is_ip_pass_regex(vnic.ipv6):
+                        logger.debug(f"Found IP {vnic.ipv6} on {vnic}")
+                        ip = vnic.ipv6
+                        break
         return ip
 
     def get_vm_ip(
@@ -63,6 +77,7 @@ class VMNetworkActions:
         ip_regex: str | None = None,
         timeout: int = 0,
         skip_networks: list[NetworkHandler] | None = None,
+        ip_protocol_version: str = IPProtocol.IPv4
     ) -> str:
         logger.info(f"Getting IP address for the VM {vm.name} from the vCenter")
         timeout_time = datetime.now() + timedelta(seconds=timeout)
@@ -71,7 +86,12 @@ class VMNetworkActions:
 
         while True:
             with self._cancellation_manager:
-                ip = self._find_vm_ip(vm, skip_networks, is_ip_pass_regex)
+                ip = self._find_vm_ip(
+                    vm=vm,
+                    skip_networks=skip_networks,
+                    is_ip_pass_regex=is_ip_pass_regex,
+                    ip_protocol_version=ip_protocol_version
+                )
             if ip:
                 break
             if datetime.now() > timeout_time:
