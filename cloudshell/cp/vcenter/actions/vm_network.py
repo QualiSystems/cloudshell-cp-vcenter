@@ -54,7 +54,9 @@ class VMNetworkActions:
             else:
                 for vnic in vm.vnics:
                     logger.debug(f"Checking {vnic} with ip {vnic.ipv4}")
-                    if vnic.network not in skip_networks and is_ip_pass_regex(vnic.ipv4):
+                    if vnic.network not in skip_networks and is_ip_pass_regex(
+                        vnic.ipv4
+                    ):
                         logger.debug(f"Found IP {vnic.ipv4} on {vnic}")
                         ip = vnic.ipv4
                         break
@@ -65,7 +67,9 @@ class VMNetworkActions:
             else:
                 for vnic in vm.vnics:
                     logger.debug(f"Checking {vnic} with ip {vnic.ipv6}")
-                    if vnic.network not in skip_networks and is_ip_pass_regex(vnic.ipv6):
+                    if vnic.network not in skip_networks and is_ip_pass_regex(
+                        vnic.ipv6
+                    ):
                         logger.debug(f"Found IP {vnic.ipv6} on {vnic}")
                         ip = vnic.ipv6
                         break
@@ -77,7 +81,7 @@ class VMNetworkActions:
         ip_regex: str | None = None,
         timeout: int = 0,
         skip_networks: list[NetworkHandler] | None = None,
-        ip_protocol_version: str = IPProtocol.IPv4
+        ip_protocol_version: str = IPProtocol.IPv4,
     ) -> str:
         logger.info(f"Getting IP address for the VM {vm.name} from the vCenter")
         timeout_time = datetime.now() + timedelta(seconds=timeout)
@@ -90,7 +94,7 @@ class VMNetworkActions:
                     vm=vm,
                     skip_networks=skip_networks,
                     is_ip_pass_regex=is_ip_pass_regex,
-                    ip_protocol_version=ip_protocol_version
+                    ip_protocol_version=ip_protocol_version,
                 )
             if ip:
                 break

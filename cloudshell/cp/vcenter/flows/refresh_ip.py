@@ -27,8 +27,7 @@ def refresh_ip(
     actions = VMNetworkActions(resource_conf, cancellation_manager)
     if isinstance(deployed_app, StaticVCenterDeployedApp):
         ip = actions.get_vm_ip(
-            vm=vm,
-            ip_protocol_version=deployed_app.ip_protocol_version
+            vm=vm, ip_protocol_version=deployed_app.ip_protocol_version
         )
     else:
         default_net = dc.get_network(resource_conf.holding_network)
@@ -37,7 +36,7 @@ def refresh_ip(
             ip_regex=deployed_app.ip_regex,
             timeout=deployed_app.refresh_ip_timeout,
             skip_networks=[default_net],
-            ip_protocol_version=deployed_app.ip_protocol_version
+            ip_protocol_version=deployed_app.ip_protocol_version,
         )
     if ip != deployed_app.private_ip:
         deployed_app.update_private_ip(deployed_app.name, ip)
