@@ -115,9 +115,7 @@ class VMDetailsActions(VMNetworkActions):
             if isinstance(app_model, StaticVCenterDeployedApp):
                 # try to get VM IP without waiting
                 primary_ip = self.get_vm_ip(
-                    vm=vm,
-                    timeout=0,
-                    ip_protocol_version=app_model.ip_protocol_version
+                    vm=vm, timeout=0, ip_protocol_version=app_model.ip_protocol_version
                 )
             elif vm.power_state is PowerState.ON:
                 # try to get VM IP without waiting, use IP regex if present
@@ -125,7 +123,7 @@ class VMDetailsActions(VMNetworkActions):
                     vm=vm,
                     ip_regex=app_model.ip_regex,
                     timeout=0,
-                    ip_protocol_version=app_model.ip_protocol_version
+                    ip_protocol_version=app_model.ip_protocol_version,
                 )
         return primary_ip
 
