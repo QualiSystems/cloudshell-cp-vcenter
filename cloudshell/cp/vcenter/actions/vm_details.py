@@ -11,6 +11,7 @@ from cloudshell.cp.core.request_actions.models import (
 )
 
 from cloudshell.cp.vcenter.actions.vm_network import VMNetworkActions
+from cloudshell.cp.vcenter.constants import IPProtocol
 from cloudshell.cp.vcenter.exceptions import VMIPNotFoundException
 from cloudshell.cp.vcenter.handlers.si_handler import SiHandler
 from cloudshell.cp.vcenter.handlers.vm_handler import PowerState, VmHandler
@@ -86,12 +87,16 @@ class VMDetailsActions(VMNetworkActions):
             vlan_id = vm.get_network_vlan_id(network)
 
             if vlan_id and (self.is_quali_network(network.name) or is_predefined):
-                vnic_ip = vnic.ipv4
+                if app_model.ip_protocol_version == IPProtocol.IPv6:
+                    vnic_ip = vnic.ipv6
+                else:
+                    vnic_ip = vnic.ipv4
+
                 is_primary = primary_ip == vnic_ip if primary_ip else False
 
                 network_data = [
-                    VmDetailsProperty(key="IP", value=vnic_ip),
-                    VmDetailsProperty(key="IPv6", value=vnic_ip),
+                    VmDetailsProperty(key="IP", value=vnic.ipv4),
+                    VmDetailsProperty(key="IPv6", value=vnic.ipv6),
                     VmDetailsProperty(key="MAC Address", value=vnic.mac_address),
                     VmDetailsProperty(key="Network Adapter", value=vnic.name),
                     VmDetailsProperty(key="Port Group Name", value=network.name),
